@@ -2,8 +2,8 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column, String, Text, Boolean, DateTime
+from sqlalchemy import Boolean, Column, DateTime, String, Text
+from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseDatabaseModel
 
@@ -19,12 +19,12 @@ class Project(BaseDatabaseModel, table=True):
     created_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
 
     # Relationships
-    created_by_user: "User" = Relationship(back_populates="created_projects")
+    created_by_user: "User" = Relationship(back_populates="created_projects")  # type: ignore
     users: list["UserProject"] = Relationship(back_populates="project")
-    meetings: list["ProjectMeeting"] = Relationship(back_populates="project")
-    files: list["File"] = Relationship(back_populates="project")
-    tasks: list["TaskProject"] = Relationship(back_populates="project")
-    integrations: list["Integration"] = Relationship(back_populates="project")
+    meetings: list["ProjectMeeting"] = Relationship(back_populates="project")  # type: ignore
+    files: list["File"] = Relationship(back_populates="project")  # type: ignore
+    tasks: list["TaskProject"] = Relationship(back_populates="project")  # type: ignore
+    integrations: list["Integration"] = Relationship(back_populates="project")  # type: ignore
 
 
 class UserProject(SQLModel, table=True):
@@ -35,8 +35,10 @@ class UserProject(SQLModel, table=True):
     user_id: uuid.UUID = Field(foreign_key="users.id", primary_key=True)
     project_id: uuid.UUID = Field(foreign_key="projects.id", primary_key=True)
     role: str = Field(default="member", sa_column=Column(String))
-    joined_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=True)))
+    joined_at: datetime = Field(
+        default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=True))
+    )
 
     # Relationships
-    user: "User" = Relationship(back_populates="projects")
+    user: "User" = Relationship(back_populates="projects")  # type: ignore
     project: Project = Relationship(back_populates="users")

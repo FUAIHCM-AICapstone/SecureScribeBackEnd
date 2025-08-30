@@ -1,8 +1,8 @@
 import uuid
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
-from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column, String, JSON
+from sqlalchemy import JSON, Column, String
+from sqlmodel import Field, Relationship
 
 from .base import BaseDatabaseModel
 
@@ -14,7 +14,9 @@ class Integration(BaseDatabaseModel, table=True):
 
     project_id: uuid.UUID = Field(foreign_key="projects.id", nullable=False)
     type: Optional[str] = Field(default=None, sa_column=Column(String))
-    credentials_meta: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    credentials_meta: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
 
     # Relationships
-    project: "Project" = Relationship(back_populates="integrations")
+    project: "Project" = Relationship(back_populates="integrations")  # type: ignore

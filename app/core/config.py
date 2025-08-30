@@ -30,12 +30,13 @@ class Settings(BaseSettings):
 
     # Server Configuration
     SERVER_NAME: str = "SecureScribeBE"
-    SERVER_HOST: AnyUrl = "http://localhost"
+    SERVER_HOST: str = "http://localhost"
     SERVER_PORT: int = 8000
 
     # CORS Configuration
     BACKEND_CORS_ORIGINS: Annotated[
-        list[AnyUrl] | str, BeforeValidator(lambda x: x.split(",") if isinstance(x, str) else x)
+        list[AnyUrl] | str,
+        BeforeValidator(lambda x: x.split(",") if isinstance(x, str) else x),
     ] = []
 
     # Project Configuration
@@ -50,7 +51,7 @@ class Settings(BaseSettings):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
+    def SQLALCHEMY_DATABASE_URI(self) -> MultiHostUrl:
         return MultiHostUrl.build(
             scheme="postgresql+psycopg",
             username=self.POSTGRES_USER,
@@ -62,5 +63,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-

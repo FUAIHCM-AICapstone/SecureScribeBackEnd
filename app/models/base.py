@@ -2,10 +2,9 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from sqlmodel import Field, SQLModel
-from sqlalchemy import Column, DateTime, func, MetaData
+from sqlalchemy import Column, DateTime, MetaData, func
 from sqlalchemy.dialects.postgresql import UUID
-
+from sqlmodel import Field, SQLModel
 
 # Create metadata for SQLModel
 metadata = MetaData()
@@ -18,17 +17,17 @@ class BaseDatabaseModel(SQLModel):
 
     id: uuid.UUID = Field(
         default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     )
 
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(DateTime(timezone=True), default=func.now(), nullable=False)
+        sa_column=Column(DateTime(timezone=True), default=func.now(), nullable=False),
     )
 
     updated_at: Optional[datetime] = Field(
         default=None,
-        sa_column=Column(DateTime(timezone=True), default=None, onupdate=func.now())
+        sa_column=Column(DateTime(timezone=True), default=None, onupdate=func.now()),
     )
 
     class Config:

@@ -1,8 +1,8 @@
 import uuid
 from typing import Optional
 
-from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, String
+from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseDatabaseModel
 
@@ -17,7 +17,7 @@ class Tag(BaseDatabaseModel, table=True):
     scope: str = Field(default="global", sa_column=Column(String))
 
     # Relationships
-    created_by_user: "User" = Relationship(back_populates="created_tags")
+    created_by_user: "User" = Relationship(back_populates="created_tags")  # type: ignore
     meetings: list["MeetingTag"] = Relationship(back_populates="tag")
 
 
@@ -30,5 +30,5 @@ class MeetingTag(SQLModel, table=True):
     tag_id: uuid.UUID = Field(foreign_key="tags.id", primary_key=True)
 
     # Relationships
-    meeting: "Meeting" = Relationship(back_populates="tags")
+    meeting: "Meeting" = Relationship(back_populates="tags")  # type: ignore
     tag: Tag = Relationship(back_populates="meetings")

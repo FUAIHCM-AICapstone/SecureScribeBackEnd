@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional
 
-from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column, String, Text, Boolean, DateTime, Integer
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+from sqlmodel import Field, Relationship, SQLModel
 
 from .base import BaseDatabaseModel
 
@@ -16,19 +16,21 @@ class Meeting(BaseDatabaseModel, table=True):
     title: Optional[str] = Field(default=None, sa_column=Column(String))
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
     url: Optional[str] = Field(default=None, sa_column=Column(String))
-    start_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    start_time: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
     created_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     is_personal: bool = Field(default=False, sa_column=Column(Boolean))
 
     # Relationships
-    created_by_user: "User" = Relationship(back_populates="created_meetings")
+    created_by_user: "User" = Relationship(back_populates="created_meetings")  # type: ignore
     projects: list["ProjectMeeting"] = Relationship(back_populates="meeting")
     audio_files: list["AudioFile"] = Relationship(back_populates="meeting")
     transcript: Optional["Transcript"] = Relationship(back_populates="meeting")
     notes: Optional["MeetingNote"] = Relationship(back_populates="meeting")
-    files: list["File"] = Relationship(back_populates="meeting")
-    tags: list["MeetingTag"] = Relationship(back_populates="meeting")
-    tasks: list["Task"] = Relationship(back_populates="meeting")
+    files: list["File"] = Relationship(back_populates="meeting")  # type: ignore
+    tags: list["MeetingTag"] = Relationship(back_populates="meeting")  # type: ignore
+    tasks: list["Task"] = Relationship(back_populates="meeting")  # type: ignore
     bot: Optional["MeetingBot"] = Relationship(back_populates="meeting")
 
 
@@ -41,7 +43,7 @@ class ProjectMeeting(SQLModel, table=True):
     meeting_id: uuid.UUID = Field(foreign_key="meetings.id", primary_key=True)
 
     # Relationships
-    project: "Project" = Relationship(back_populates="meetings")
+    project: "Project" = Relationship(back_populates="meetings")  # type: ignore
     meeting: Meeting = Relationship(back_populates="projects")
 
 
@@ -59,8 +61,10 @@ class AudioFile(BaseDatabaseModel, table=True):
 
     # Relationships
     meeting: Meeting = Relationship(back_populates="audio_files")
-    uploaded_by_user: "User" = Relationship(back_populates="uploaded_files")
-    transcript: Optional["Transcript"] = Relationship(back_populates="audio_concat_file")
+    uploaded_by_user: "User" = Relationship(back_populates="uploaded_files")  # type: ignore
+    transcript: Optional["Transcript"] = Relationship(
+        back_populates="audio_concat_file"
+    )
 
 
 class Transcript(BaseDatabaseModel, table=True):
@@ -68,10 +72,16 @@ class Transcript(BaseDatabaseModel, table=True):
 
     __tablename__ = "transcripts"
 
-    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", unique=True, nullable=False)
+    meeting_id: uuid.UUID = Field(
+        foreign_key="meetings.id", unique=True, nullable=False
+    )
     content: Optional[str] = Field(default=None, sa_column=Column(Text))
-    audio_concat_file_id: Optional[uuid.UUID] = Field(default=None, foreign_key="audio_files.id")
-    extracted_text_for_search: Optional[str] = Field(default=None, sa_column=Column(Text))
+    audio_concat_file_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="audio_files.id"
+    )
+    extracted_text_for_search: Optional[str] = Field(
+        default=None, sa_column=Column(Text)
+    )
     qdrant_vector_id: Optional[str] = Field(default=None, sa_column=Column(String))
 
     # Relationships
@@ -84,14 +94,18 @@ class MeetingNote(BaseDatabaseModel, table=True):
 
     __tablename__ = "meeting_notes"
 
-    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", unique=True, nullable=False)
+    meeting_id: uuid.UUID = Field(
+        foreign_key="meetings.id", unique=True, nullable=False
+    )
     content: Optional[str] = Field(default=None, sa_column=Column(Text))
     last_editor_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
-    last_edited_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    last_edited_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
 
     # Relationships
     meeting: Meeting = Relationship(back_populates="notes")
-    last_editor: Optional["User"] = Relationship(back_populates="edited_notes")
+    last_editor: Optional["User"] = Relationship(back_populates="edited_notes")  # type: ignore
 
 
 class MeetingBot(BaseDatabaseModel, table=True):
@@ -100,9 +114,15 @@ class MeetingBot(BaseDatabaseModel, table=True):
     __tablename__ = "meeting_bots"
 
     meeting_id: uuid.UUID = Field(foreign_key="meetings.id", nullable=False)
-    scheduled_start_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
-    actual_start_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
-    actual_end_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    scheduled_start_time: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+    actual_start_time: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
+    actual_end_time: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True))
+    )
     status: str = Field(default="pending", sa_column=Column(String))
     meeting_url: Optional[str] = Field(default=None, sa_column=Column(String))
     retry_count: int = Field(default=0, sa_column=Column(Integer))
@@ -111,7 +131,7 @@ class MeetingBot(BaseDatabaseModel, table=True):
 
     # Relationships
     meeting: Meeting = Relationship(back_populates="bot")
-    created_by_user: "User" = Relationship(back_populates="created_bots")
+    created_by_user: "User" = Relationship(back_populates="created_bots")  # type: ignore
     logs: list["MeetingBotLog"] = Relationship(back_populates="meeting_bot")
 
 

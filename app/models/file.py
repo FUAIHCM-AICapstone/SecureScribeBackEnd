@@ -1,8 +1,8 @@
 import uuid
 from typing import Optional
 
-from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column, String, Text, BigInteger
+from sqlalchemy import BigInteger, Column, String, Text
+from sqlmodel import Field, Relationship
 
 from .base import BaseDatabaseModel
 
@@ -25,7 +25,7 @@ class File(BaseDatabaseModel, table=True):
     qdrant_vector_id: Optional[str] = Field(default=None, sa_column=Column(String))
 
     # Relationships
-    project: Optional["Project"] = Relationship(back_populates="files")
-    meeting: Optional["Meeting"] = Relationship(back_populates="files")
-    owner_user: Optional["User"] = Relationship(back_populates="owned_files")
-    uploaded_by_user: "User" = Relationship(back_populates="uploaded_files")
+    project: Optional["Project"] = Relationship(back_populates="files")  # type: ignore
+    meeting: Optional["Meeting"] = Relationship(back_populates="files")  # type: ignore
+    owner_user: Optional["User"] = Relationship(back_populates="owned_files")  # type: ignore
+    uploaded_by_user: "User" = Relationship(back_populates="uploaded_files")  # type: ignore

@@ -1,8 +1,8 @@
 import uuid
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
-from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column, String, Boolean, JSON
+from sqlalchemy import JSON, Boolean, Column, String
+from sqlmodel import Field, Relationship
 
 from .base import BaseDatabaseModel
 
@@ -19,4 +19,4 @@ class Notification(BaseDatabaseModel, table=True):
     channel: Optional[str] = Field(default=None, sa_column=Column(String))
 
     # Relationships
-    user: "User" = Relationship(back_populates="notifications")
+    user: "User" = Relationship(back_populates="notifications")  # type: ignore

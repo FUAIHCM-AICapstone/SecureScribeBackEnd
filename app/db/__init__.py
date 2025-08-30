@@ -1,5 +1,7 @@
-from sqlmodel import create_engine, Session
+from typing import Generator
+
 from sqlalchemy.orm import sessionmaker
+from sqlmodel import Session, create_engine
 
 from app.core.config import settings
 
@@ -11,10 +13,12 @@ engine = create_engine(
 )
 
 # Create SessionLocal class for SQLModel
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=Session)
+SessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=engine, class_=Session
+)
 
 
-def get_db():
+def get_db() -> Generator[Session, None, None]:
     """
     Dependency function to get database session.
     Use this in FastAPI dependency injection.
@@ -27,24 +31,34 @@ def get_db():
 
 
 # Function to create all tables
-def create_tables():
+def create_tables() -> None:
     """Create all database tables from SQLModel models"""
     # Import all models to register them with SQLModel
     from app.models import (
-        User, UserIdentity, UserDevice,
-        Project, UserProject,
-        Meeting, ProjectMeeting, AudioFile, Transcript, MeetingNote, MeetingBot, MeetingBotLog,
-        File,
-        Tag, MeetingTag,
-        Task, TaskProject,
-        Notification,
-        AuditLog,
-        SearchDocument,
-        Integration,
+        AudioFile,
+        AuditLog,  # noqa: F401
+        File,  # noqa: F401
+        Integration,  # noqa: F401
+        Meeting,
+        MeetingBot,
+        MeetingBotLog,  # noqa: F401
+        MeetingNote,
+        MeetingTag,  # noqa: F401
+        Notification,  # noqa: F401
+        Project,
+        ProjectMeeting,
+        SearchDocument,  # noqa: F401
+        Tag,
+        Task,
+        TaskProject,  # noqa: F401
+        Transcript,
+        User,
+        UserDevice,  # noqa: F401
+        UserIdentity,
+        UserProject,  # noqa: F401
     )
 
     # Create tables using SQLModel metadata
     from app.models.base import metadata
+
     metadata.create_all(bind=engine)
-
-
