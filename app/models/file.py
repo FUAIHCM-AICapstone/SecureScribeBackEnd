@@ -45,5 +45,5 @@ class File(SQLModel, table=True):
     meeting: Optional["Meeting"] = Relationship(back_populates="files")  # type: ignore
     uploaded_by_user: Optional["User"] = Relationship(
         back_populates="uploaded_files",
-        sa_relationship_kwargs={"foreign_keys": "File.uploaded_by"}
+        sa_relationship_kwargs={"foreign_keys": "File.uploaded_by"},
     )
