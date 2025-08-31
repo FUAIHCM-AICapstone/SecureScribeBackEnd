@@ -109,7 +109,6 @@ SecureScribe is a meeting management and transcription platform built with FastA
 - `file_type`: String (Optional)
 - `project_id`: UUID (Foreign Key → projects, Optional)
 - `meeting_id`: UUID (Foreign Key → meetings, Optional)
-- `owner_user_id`: UUID (Foreign Key → users, Optional)
 - `uploaded_by`: UUID (Foreign Key → users, Optional)
 - `extracted_text`: Text (Optional)
 - `qdrant_vector_id`: String (Optional)

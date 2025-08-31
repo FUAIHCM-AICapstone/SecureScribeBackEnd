@@ -1,16 +1,35 @@
 import uuid
-from typing import Any, Dict, Optional
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from sqlalchemy import JSON, Boolean, Column, String
-from sqlmodel import Field, Relationship
+from sqlalchemy import JSON, Boolean, Column, DateTime, String, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlmodel import Field, Relationship, SQLModel
 
-from .base import BaseDatabaseModel
+if TYPE_CHECKING:
+    from . import (
+        User,
+    )
 
 
-class Notification(BaseDatabaseModel, table=True):
+class Notification(SQLModel, table=True):
     """Notification model"""
 
     __tablename__ = "notifications"
+
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    )
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(
+            DateTime(timezone=True), server_default=func.now(), nullable=False
+        ),
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
+    )
 
     user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     type: Optional[str] = Field(default=None, sa_column=Column(String))
@@ -19,4 +38,7 @@ class Notification(BaseDatabaseModel, table=True):
     channel: Optional[str] = Field(default=None, sa_column=Column(String))
 
     # Relationships
-    user: "User" = Relationship(back_populates="notifications")  # type: ignore
+    user: "User" = Relationship(
+        back_populates="notifications",
+        sa_relationship_kwargs={"foreign_keys": "Notification.user_id"},
+    )  # type: ignore

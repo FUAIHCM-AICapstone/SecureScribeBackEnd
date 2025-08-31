@@ -1,17 +1,33 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Column, DateTime, String, Text
+from sqlalchemy import Column, DateTime, String, Text, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import Field, Relationship, SQLModel
 
-from .base import BaseDatabaseModel
+if TYPE_CHECKING:
+    from . import Meeting, Project, Task, TaskProject, User
 
 
-class Task(BaseDatabaseModel, table=True):
+class Task(SQLModel, table=True):
     """Task model"""
 
     __tablename__ = "tasks"
+
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    )
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(
+            DateTime(timezone=True), server_default=func.now(), nullable=False
+        ),
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
+    )
 
     title: str = Field(sa_column=Column(String, nullable=False))
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
@@ -27,8 +43,14 @@ class Task(BaseDatabaseModel, table=True):
     )
 
     # Relationships
-    creator: "User" = Relationship(back_populates="created_tasks")  # type: ignore
-    assignee: Optional["User"] = Relationship(back_populates="assigned_tasks")  # type: ignore
+    creator: "User" = Relationship(
+        back_populates="created_tasks",
+        sa_relationship_kwargs={"foreign_keys": "Task.creator_id"},
+    )  # type: ignore
+    assignee: Optional["User"] = Relationship(
+        back_populates="assigned_tasks",
+        sa_relationship_kwargs={"foreign_keys": "Task.assignee_id"},
+    )  # type: ignore
     meeting: Optional["Meeting"] = Relationship(back_populates="tasks")  # type: ignore
     projects: list["TaskProject"] = Relationship(back_populates="task")
 
@@ -42,5 +64,11 @@ class TaskProject(SQLModel, table=True):
     project_id: uuid.UUID = Field(foreign_key="projects.id", primary_key=True)
 
     # Relationships
-    task: "Task" = Relationship(back_populates="projects")
-    project: "Project" = Relationship(back_populates="tasks")  # type: ignore
+    task: "Task" = Relationship(
+        back_populates="projects",
+        sa_relationship_kwargs={"foreign_keys": "TaskProject.task_id"},
+    )
+    project: "Project" = Relationship(
+        back_populates="tasks",
+        sa_relationship_kwargs={"foreign_keys": "TaskProject.project_id"},
+    )  # type: ignore

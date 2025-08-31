@@ -18,7 +18,7 @@
 * Task model: bảng `tasks` lưu `title`, `description`, `creator_id`, `assignee_id`, `status` enum {todo,in\_progress,done}, `meeting_id` (nullable), `due_date`, `reminder_at`, `created_at`, `updated_at`.
 * Task có thể thuộc nhiều project qua `tasks_projects` (composite PK task\_id+project\_id) để xử lý trường hợp meeting thuộc nhiều project; nếu meeting không thuộc project thì task chỉ liên kết trực tiếp tới meeting.
 * Task behavior: người tạo và assignee phải là user hệ thống; có deadline và reminder; cập nhật status cho phép workflow cơ bản.
-* File context hợp nhất: bảng `files` lưu `filename`, `mime_type`, `size_bytes`, `storage_url`, `file_type` enum {project,meeting,user}, `project_id`, `meeting_id`, `owner_user_id`, `uploaded_by`, `extracted_text`, `qdrant_vector_id`, `created_at`; quy tắc ứng dụng đảm bảo field liên quan không null tùy `file_type`.
+* File context hợp nhất: bảng `files` lưu `filename`, `mime_type`, `size_bytes`, `storage_url`, `file_type` enum {project,meeting,user}, `project_id`, `meeting_id`, `uploaded_by`, `extracted_text`, `qdrant_vector_id`, `created_at`; quy tắc ứng dụng đảm bảo field liên quan không null tùy `file_type`.
 * File context không versioning—chỉ giữ bản mới nhất; nếu muốn versioning phải thêm bảng version riêng (không bật mặc định).
 * File access inheritance: file quyền kế thừa từ project hoặc meeting (không có ACL per-file mặc định); nếu cần quyền từng file phải mở rộng logic quyền.
 * File indexing & search: `files.extracted_text` và bảng `search_documents` hợp nhất nội dung để full-text search; semantic vectors lưu trên Qdrant với `qdrant_vector_id` tham chiếu trong `files`/`transcripts`/`search_documents`.

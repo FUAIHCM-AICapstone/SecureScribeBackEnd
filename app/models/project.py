@@ -1,17 +1,41 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text
+from sqlalchemy import Boolean, Column, DateTime, String, Text, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import Field, Relationship, SQLModel
 
-from .base import BaseDatabaseModel
+if TYPE_CHECKING:
+    from . import (
+        File,
+        Integration,
+        Project,
+        ProjectMeeting,
+        TaskProject,
+        User,
+        UserProject,
+    )
 
 
-class Project(BaseDatabaseModel, table=True):
+class Project(SQLModel, table=True):
     """Project model"""
 
     __tablename__ = "projects"
+
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    )
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column=Column(
+            DateTime(timezone=True), server_default=func.now(), nullable=False
+        ),
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
+    )
 
     name: str = Field(sa_column=Column(String, nullable=False))
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
@@ -19,7 +43,10 @@ class Project(BaseDatabaseModel, table=True):
     created_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
 
     # Relationships
-    created_by_user: "User" = Relationship(back_populates="created_projects")  # type: ignore
+    created_by_user: "User" = Relationship(
+        back_populates="created_projects",
+        sa_relationship_kwargs={"foreign_keys": "Project.created_by"},
+    )  # type: ignore
     users: list["UserProject"] = Relationship(back_populates="project")
     meetings: list["ProjectMeeting"] = Relationship(back_populates="project")  # type: ignore
     files: list["File"] = Relationship(back_populates="project")  # type: ignore
@@ -40,5 +67,11 @@ class UserProject(SQLModel, table=True):
     )
 
     # Relationships
-    user: "User" = Relationship(back_populates="projects")  # type: ignore
-    project: Project = Relationship(back_populates="users")
+    user: "User" = Relationship(
+        back_populates="projects",
+        sa_relationship_kwargs={"foreign_keys": "UserProject.user_id"},
+    )  # type: ignore
+    project: Project = Relationship(
+        back_populates="users",
+        sa_relationship_kwargs={"foreign_keys": "UserProject.project_id"},
+    )

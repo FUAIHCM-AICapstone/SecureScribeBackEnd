@@ -1,13 +1,16 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
-from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
+from app.api import api_router
 from app.core.config import settings
 from app.db import get_db
 
 app = FastAPI(title="SecureScribeBE")
+
+app.include_router(api_router)
 
 
 @app.get("/")
