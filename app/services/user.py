@@ -162,3 +162,103 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"User deletion failed: {str(e)}",
         )
+
+
+def bulk_create_users(db: Session, users_data: List[dict]) -> List[dict]:
+    """Bulk create users and return results with success/failure status"""
+    results = []
+    created_users = []
+
+    for user_data in users_data:
+        try:
+            user = User(**user_data)
+            db.add(user)
+            db.flush()  # Get the ID without committing
+            results.append({"success": True, "id": user.id, "error": None})
+            created_users.append(user)
+        except Exception as e:
+            results.append({"success": False, "id": None, "error": str(e)})
+
+    try:
+        db.commit()
+        # Refresh all created users
+        for user in created_users:
+            db.refresh(user)
+    except Exception as e:
+        db.rollback()
+        # Mark all as failed if commit fails
+        for result in results:
+            if result["success"]:
+                result["success"] = False
+                result["error"] = f"Commit failed: {str(e)}"
+                result["id"] = None
+
+    return results
+
+
+def bulk_update_users(db: Session, updates: List[dict]) -> List[dict]:
+    """Bulk update users and return results with success/failure status"""
+    results = []
+
+    for update_item in updates:
+        user_id = update_item["id"]
+        update_data = update_item["updates"]
+
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                results.append(
+                    {"success": False, "id": user_id, "error": "User not found"}
+                )
+                continue
+
+            for key, value in update_data.items():
+                if hasattr(user, key):
+                    setattr(user, key, value)
+
+            results.append({"success": True, "id": user_id, "error": None})
+        except Exception as e:
+            results.append({"success": False, "id": user_id, "error": str(e)})
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        # Mark all as failed if commit fails
+        for result in results:
+            if result["success"]:
+                result["success"] = False
+                result["error"] = f"Commit failed: {str(e)}"
+
+    return results
+
+
+def bulk_delete_users(db: Session, user_ids: List[uuid.UUID]) -> List[dict]:
+    """Bulk delete users and return results with success/failure status"""
+    results = []
+
+    for user_id in user_ids:
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                results.append(
+                    {"success": False, "id": user_id, "error": "User not found"}
+                )
+                continue
+
+            db.delete(user)
+            results.append({"success": True, "id": user_id, "error": None})
+        except Exception as e:
+            results.append({"success": False, "id": user_id, "error": str(e)})
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        # Mark all as failed if commit fails
+        for result in results:
+            if result["success"]:
+                result["success"] = False
+                result["error"] = f"Commit failed: {str(e)}"
+
+    return results

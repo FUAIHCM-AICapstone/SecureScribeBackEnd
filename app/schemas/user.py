@@ -181,6 +181,38 @@ class UserUpdate(BaseModel):
     position: Optional[str] = None
 
 
+class BulkUserCreate(BaseModel):
+    users: List[UserCreate]
+
+
+class BulkUserUpdateItem(BaseModel):
+    id: uuid.UUID
+    updates: UserUpdate
+
+
+class BulkUserUpdate(BaseModel):
+    users: List[BulkUserUpdateItem]
+
+
+class BulkUserDelete(BaseModel):
+    user_ids: List[uuid.UUID]
+
+
+class BulkOperationResult(BaseModel):
+    success: bool
+    id: Optional[uuid.UUID] = None
+    error: Optional[str] = None
+
+
+class BulkUserResponse(BaseModel):
+    success: bool
+    message: str
+    data: List[BulkOperationResult]
+    total_processed: int
+    total_success: int
+    total_failed: int
+
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: str

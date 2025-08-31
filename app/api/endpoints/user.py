@@ -4,12 +4,29 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db import get_db
-from app.schemas.user import UserCreate, UserResponse, UserUpdate
+from app.schemas.user import (
+    BulkUserCreate,
+    BulkUserDelete,
+    BulkUserResponse,
+    BulkUserUpdate,
+    UserCreate,
+    UserResponse,
+    UserUpdate,
+)
 from app.services.common import ApiResponse, PaginatedResponse, create_pagination_meta
-from app.services.user import create_user, delete_user, get_users, update_user
+from app.services.user import (
+    bulk_create_users,
+    bulk_delete_users,
+    bulk_update_users,
+    create_user,
+    delete_user,
+    get_users,
+    update_user,
+)
 
-router = APIRouter()
+router = APIRouter(prefix=settings.API_V1_STR, tags=["User"])
 
 
 @router.get("/users", response_model=PaginatedResponse[UserResponse])
@@ -72,3 +89,68 @@ def update_user_endpoint(
 def delete_user_endpoint(user_id: uuid.UUID, db: Session = Depends(get_db)):
     delete_user(db, user_id=user_id)
     return ApiResponse(success=True, message="User deleted successfully", data={})
+
+
+@router.post("/users/bulk", response_model=BulkUserResponse)
+def bulk_create_users_endpoint(
+    bulk_request: BulkUserCreate, db: Session = Depends(get_db)
+):
+    users_data = [user.model_dump() for user in bulk_request.users]
+    results = bulk_create_users(db, users_data)
+
+    total_processed = len(results)
+    total_success = sum(1 for r in results if r["success"])
+    total_failed = total_processed - total_success
+
+    return BulkUserResponse(
+        success=total_failed == 0,
+        message=f"Bulk user creation completed. {total_success} successful, {total_failed} failed.",
+        data=results,
+        total_processed=total_processed,
+        total_success=total_success,
+        total_failed=total_failed,
+    )
+
+
+@router.put("/users/bulk", response_model=BulkUserResponse)
+def bulk_update_users_endpoint(
+    bulk_request: BulkUserUpdate, db: Session = Depends(get_db)
+):
+    updates = [
+        {"id": item.id, "updates": item.updates.model_dump(exclude_unset=True)}
+        for item in bulk_request.users
+    ]
+    results = bulk_update_users(db, updates)
+
+    total_processed = len(results)
+    total_success = sum(1 for r in results if r["success"])
+    total_failed = total_processed - total_success
+
+    return BulkUserResponse(
+        success=total_failed == 0,
+        message=f"Bulk user update completed. {total_success} successful, {total_failed} failed.",
+        data=results,
+        total_processed=total_processed,
+        total_success=total_success,
+        total_failed=total_failed,
+    )
+
+
+@router.delete("/users/bulk", response_model=BulkUserResponse)
+def bulk_delete_users_endpoint(
+    bulk_request: BulkUserDelete, db: Session = Depends(get_db)
+):
+    results = bulk_delete_users(db, bulk_request.user_ids)
+
+    total_processed = len(results)
+    total_success = sum(1 for r in results if r["success"])
+    total_failed = total_processed - total_success
+
+    return BulkUserResponse(
+        success=total_failed == 0,
+        message=f"Bulk user deletion completed. {total_success} successful, {total_failed} failed.",
+        data=results,
+        total_processed=total_processed,
+        total_success=total_success,
+        total_failed=total_failed,
+    )
