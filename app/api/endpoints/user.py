@@ -71,6 +71,4 @@ def update_user_endpoint(
 @router.delete("/users/{user_id}", response_model=ApiResponse[dict])
 def delete_user_endpoint(user_id: uuid.UUID, db: Session = Depends(get_db)):
     delete_user(db, user_id=user_id)
-    return ApiResponse(
-        success=True, message="User deleted successfully", data={}
-    )
+    return ApiResponse(success=True, message="User deleted successfully", data={})
