@@ -5,7 +5,11 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
-from app.schemas.auth import AuthResponse, LoginRequest, RegisterRequest
+from app.schemas.auth import (
+    AuthResponse,
+    LoginRequest,
+    RegisterRequest,
+)
 from app.schemas.common import ApiResponse
 from app.schemas.user import UserUpdate
 from app.services.auth import login_user, register_user

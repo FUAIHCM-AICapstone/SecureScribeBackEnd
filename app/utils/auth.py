@@ -5,11 +5,36 @@ from uuid import UUID
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer
+from firebase_admin import auth as firebase_auth
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
+
+
+def verify_google_token(id_token: str) -> dict:
+    """
+    Verify Google ID token and return decoded token payload.
+    """
+    try:
+        decoded_token = firebase_auth.verify_id_token(id_token)
+        return decoded_token
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
+
+
+def get_google_user_info(id_token: str) -> dict:
+    """
+    Get user information from Google ID token.
+    """
+    decoded_token = verify_google_token(id_token)
+    return {
+        "uid": decoded_token.get("uid"),
+        "email": decoded_token.get("email"),
+        "name": decoded_token.get("name"),
+        "picture": decoded_token.get("picture"),
+    }
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):

@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "admin123"
     POSTGRES_DB: str = "securescribe"
 
+    # Firebase Configuration
+    FIREBASE_SERVICE_ACCOUNT_KEY_PATH: str = (
+        "config/keys/scribe-c7f13-firebase-adminsdk-fbsvc-1ab2f55755.json"
+    )
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> MultiHostUrl:

@@ -210,3 +210,8 @@ __marimo__/
 .clinerules/
 .vscode/
 .github/
+
+*.json
+
+# Firebase service account keys
+config/keys/*.json

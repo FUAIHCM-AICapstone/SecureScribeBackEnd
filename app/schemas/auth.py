@@ -26,7 +26,8 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
 
-
+class GoogleAuthRequest(BaseModel):
+    id_token: str
 class AuthResponse(BaseModel):
     user: dict
     token: TokenResponse
