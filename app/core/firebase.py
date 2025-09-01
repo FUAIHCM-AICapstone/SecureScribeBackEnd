@@ -23,11 +23,16 @@ def initialize_firebase():
             cred = credentials.Certificate(key_path)
             firebase_admin.initialize_app(cred)
             logger.info("Firebase Admin SDK initialized successfully")
+            logger.info(f"Firebase apps: {list(firebase_admin._apps.keys())}")
 
         except Exception as e:
             logger.error(f"Failed to initialize Firebase: {str(e)}")
+            logger.error(f"Firebase apps before error: {list(firebase_admin._apps.keys())}")
             raise
+    else:
+        logger.info("Firebase already initialized")
+        logger.info(f"Firebase apps: {list(firebase_admin._apps.keys())}")
 
 
-# Call initialize on import
-initialize_firebase()
+# Don't call initialize on import - let main.py handle it
+# initialize_firebase()

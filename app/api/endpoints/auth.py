@@ -7,12 +7,11 @@ from app.db import get_db
 from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
-    LoginRequest,
-    RegisterRequest,
+    GoogleAuthRequest,
 )
 from app.schemas.common import ApiResponse
 from app.schemas.user import UserUpdate
-from app.services.auth import login_user, register_user
+from app.services.auth import firebase_login
 from app.services.user import update_user
 from app.utils.auth import (
     create_access_token,
@@ -22,26 +21,6 @@ from app.utils.auth import (
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Auth"])
 security = HTTPBearer()
-
-
-@router.post("/auth/login", response_model=ApiResponse[AuthResponse])
-def login_endpoint(request: LoginRequest, db: Session = Depends(get_db)):
-    result = login_user(db, request.email, request.password)
-    if not result:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    return ApiResponse(success=True, message="Login successful", data=result)
-
-
-@router.post("/auth/register", response_model=ApiResponse[AuthResponse])
-def register_endpoint(request: RegisterRequest, db: Session = Depends(get_db)):
-    try:
-        user_data = request.model_dump(exclude={"confirm_password"})
-        register_user(db, **user_data)
-        result = login_user(db, request.email, request.password)
-        return ApiResponse(success=True, message="Registration successful", data=result)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
 
 @router.post("/auth/refresh", response_model=ApiResponse[dict])
 def refresh_token_endpoint(refresh_token: str):
@@ -103,3 +82,12 @@ def update_current_user_info(
             "updated_at": updated_user.updated_at,
         },
     )
+
+
+@router.post("/auth/firebase/login", response_model=ApiResponse[AuthResponse])
+def firebase_login_endpoint(request: GoogleAuthRequest, db: Session = Depends(get_db)):
+    try:
+        result = firebase_login(db, request.id_token)
+        return ApiResponse(success=True, message="Firebase login successful", data=result)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

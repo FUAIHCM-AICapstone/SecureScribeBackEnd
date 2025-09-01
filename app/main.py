@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api import api_router
 from app.core.config import settings
+from app.core.firebase import initialize_firebase
 from app.db import get_db
 from app.utils.auth import get_current_user_from_token
 
@@ -98,6 +99,9 @@ app.add_middleware(
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all headers including Authorization
 )
+
+# Initialize Firebase SDK
+initialize_firebase()
 
 app.include_router(api_router)
 

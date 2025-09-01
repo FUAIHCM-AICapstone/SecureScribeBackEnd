@@ -1,90 +1,64 @@
 from fastapi import HTTPException, status
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.user import User
-from app.services.user import check_email_exists, create_user
-from app.utils.auth import create_access_token, create_refresh_token
-from app.utils.password import verify_password
+from app.services.user import create_user
+from app.utils.auth import (
+    create_access_token,
+    create_refresh_token,
+    get_firebase_user_info,
+)
 
 
-def authenticate_user(db: Session, email: str, password: str) -> User | None:
+def firebase_login(db: Session, id_token: str):
     try:
+        # Log token info for debugging (remove in production)
+        print(f"Received token type: {type(id_token)}, length: {len(id_token) if id_token else 0}")
+        print(f"Token preview: {id_token[:50] if id_token else 'None'}...")
+
+        user_info = get_firebase_user_info(id_token)
+        email = user_info.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Email not found in Firebase token")
+
         user = db.query(User).filter(User.email == email).first()
-        if (
-            user
-            and user.password_hash
-            and verify_password(password, user.password_hash)
-        ):
-            return user
-        return None
-    except Exception:
-        # Log the error but don't expose internal details
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication service temporarily unavailable",
-        )
-
-
-def register_user(db: Session, **user_data) -> User:
-    email = user_data.get("email")
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Email is required"
-        )
-
-    # Check if email already exists
-    if check_email_exists(db, email):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Email already registered"
-        )
-
-    try:
-        return create_user(db, **user_data)
-    except IntegrityError as e:
-        db.rollback()
-        # Handle specific database constraint violations
-        error_msg = str(e).lower()
-        if "unique constraint" in error_msg or "duplicate key" in error_msg:
-            if "email" in error_msg:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Email already registered",
-                )
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="User data conflicts with existing records",
-                )
-        elif "foreign key" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid reference data provided",
-            )
-        elif "check constraint" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User data violates validation rules",
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Database constraint violation occurred",
-            )
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {str(e)}",
-        )
-
-
-def login_user(db: Session, email: str, password: str):
-    try:
-        user = authenticate_user(db, email, password)
         if not user:
-            return None
+            user_data = {
+                "email": email,
+                "name": user_info.get("name"),
+                "avatar_url": user_info.get("picture"),
+            }
+            user = create_user(db, **user_data)
+
+            from app.models.user import UserIdentity
+            identity = UserIdentity(
+                user_id=user.id,
+                provider="google",
+                provider_user_id=user_info.get("uid"),
+                provider_email=email,
+                provider_profile=user_info,
+            )
+            db.add(identity)
+            db.commit()
+        else:
+            # Check if UserIdentity already exists for this user
+            from app.models.user import UserIdentity
+            existing_identity = db.query(UserIdentity).filter(
+                UserIdentity.user_id == user.id,
+                UserIdentity.provider == "google"
+            ).first()
+            if not existing_identity:
+                identity = UserIdentity(
+                    user_id=user.id,
+                    provider="google",
+                    provider_user_id=user_info.get("uid"),
+                    provider_email=email,
+                    provider_profile=user_info,
+                )
+                db.add(identity)
+                db.commit()
+
         access_token = create_access_token({"sub": str(user.id)})
         refresh_token = create_refresh_token({"sub": str(user.id)})
         return {
@@ -97,10 +71,10 @@ def login_user(db: Session, email: str, password: str):
             },
         }
     except HTTPException:
-        # Re-raise HTTP exceptions as-is
         raise
-    except Exception:
+    except Exception as e:
+        print(f"Google login error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Login service temporarily unavailable",
+            detail="Google login service temporarily unavailable",
         )

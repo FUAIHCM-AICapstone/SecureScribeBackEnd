@@ -13,22 +13,41 @@ from app.db import get_db
 from app.models.user import User
 
 
-def verify_google_token(id_token: str) -> dict:
+def verify_firebase_token(id_token: str) -> dict:
     """
-    Verify Google ID token and return decoded token payload.
+    Verify Firebase ID token and return decoded token payload.
     """
     try:
+        # Ensure id_token is a string and not bytes
+        if isinstance(id_token, bytes):
+            id_token = id_token.decode("utf-8")
+
+        # Basic validation - JWT tokens should have 3 parts separated by dots
+        if not id_token or not isinstance(id_token, str):
+            raise ValueError("Invalid token format: token must be a non-empty string")
+
+        token_parts = id_token.split(".")
+        if len(token_parts) != 3:
+            raise ValueError(
+                f"Invalid JWT format: expected 3 parts, got {len(token_parts)}"
+            )
+
+        # Verify the token with Firebase
         decoded_token = firebase_auth.verify_id_token(id_token)
         return decoded_token
+    except ValueError as e:
+        raise HTTPException(
+            status_code=401, detail=f"Invalid Google token format: {str(e)}"
+        )
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
 
 
-def get_google_user_info(id_token: str) -> dict:
+def get_firebase_user_info(id_token: str) -> dict:
     """
-    Get user information from Google ID token.
+    Get user information from Firebase ID token.
     """
-    decoded_token = verify_google_token(id_token)
+    decoded_token = verify_firebase_token(id_token)
     return {
         "uid": decoded_token.get("uid"),
         "email": decoded_token.get("email"),
