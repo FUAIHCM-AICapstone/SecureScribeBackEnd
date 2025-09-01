@@ -12,12 +12,12 @@ def test_bulk_create_and_update_and_delete(client):
             {
                 "email": faker.email(),
                 "password": faker.password(length=12),
-                "name": faker.name()
+                "name": faker.name(),
             },
             {
                 "email": faker.email(),
                 "password": faker.password(length=12),
-                "name": faker.name()
+                "name": faker.name(),
             },
         ]
     }
@@ -62,11 +62,13 @@ def test_bulk_create_large_batch(client):
     # Create 10 users
     users = []
     for _ in range(10):
-        users.append({
-            "email": faker.email(),
-            "password": faker.password(length=12),
-            "name": faker.name()
-        })
+        users.append(
+            {
+                "email": faker.email(),
+                "password": faker.password(length=12),
+                "name": faker.name(),
+            }
+        )
 
     bulk_payload = {"users": users}
     resp = client.post("/api/v1/users/bulk", json=bulk_payload)
@@ -82,12 +84,12 @@ def test_bulk_create_with_duplicates(client):
             {
                 "email": email,
                 "password": faker.password(length=12),
-                "name": faker.name()
+                "name": faker.name(),
             },
             {
                 "email": email,  # duplicate email
                 "password": faker.password(length=12),
-                "name": faker.name()
+                "name": faker.name(),
             },
         ]
     }
@@ -106,18 +108,14 @@ def test_bulk_create_mixed_valid_invalid(client):
             {
                 "email": faker.email(),
                 "password": faker.password(length=12),
-                "name": faker.name()
+                "name": faker.name(),
             },
             {
                 "email": "invalid-email",
                 "password": faker.password(length=12),
-                "name": faker.name()
+                "name": faker.name(),
             },
-            {
-                "email": faker.email(),
-                "password": "short",
-                "name": faker.name()
-            },
+            {"email": faker.email(), "password": "short", "name": faker.name()},
         ]
     }
     resp = client.post("/api/v1/users/bulk", json=bulk_payload)
@@ -155,7 +153,7 @@ def test_bulk_update_mixed_fields(client):
         payload = {
             "email": faker.email(),
             "password": faker.password(length=12),
-            "name": faker.name()
+            "name": faker.name(),
         }
         resp = client.post("/api/v1/users", json=payload)
         users_data.append(resp.json()["data"])
@@ -164,7 +162,10 @@ def test_bulk_update_mixed_fields(client):
     bulk_update_payload = {
         "users": [
             {"id": users_data[0]["id"], "updates": {"name": faker.name()}},
-            {"id": users_data[1]["id"], "updates": {"bio": faker.text(max_nb_chars=100)}},
+            {
+                "id": users_data[1]["id"],
+                "updates": {"bio": faker.text(max_nb_chars=100)},
+            },
             {"id": users_data[2]["id"], "updates": {"position": faker.job()}},
         ]
     }
@@ -198,7 +199,7 @@ def test_bulk_delete_mixed_valid_invalid(client):
     payload = {
         "email": faker.email(),
         "password": faker.password(length=12),
-        "name": faker.name()
+        "name": faker.name(),
     }
     real_user = client.post("/api/v1/users", json=payload).json()["data"]
 

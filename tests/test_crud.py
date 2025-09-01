@@ -7,7 +7,7 @@ def test_create_user(client):
     payload = {
         "email": faker.email(),
         "password": faker.password(length=12),
-        "name": faker.name()
+        "name": faker.name(),
     }
     resp = client.post("/api/v1/users", json=payload)
     assert resp.status_code == 200
@@ -18,10 +18,7 @@ def test_create_user(client):
 
 
 def test_create_user_minimal(client):
-    payload = {
-        "email": faker.email(),
-        "password": faker.password(length=8)
-    }
+    payload = {"email": faker.email(), "password": faker.password(length=8)}
     resp = client.post("/api/v1/users", json=payload)
     assert resp.status_code == 200
     body = resp.json()
@@ -36,7 +33,7 @@ def test_create_user_with_all_fields(client):
         "name": faker.name(),
         "avatar_url": faker.url(),
         "bio": faker.text(max_nb_chars=200),
-        "position": faker.job()
+        "position": faker.job(),
     }
     resp = client.post("/api/v1/users", json=payload)
     assert resp.status_code == 200
@@ -50,18 +47,14 @@ def test_create_user_invalid_email(client):
     payload = {
         "email": "invalid-email",
         "password": faker.password(length=12),
-        "name": faker.name()
+        "name": faker.name(),
     }
     resp = client.post("/api/v1/users", json=payload)
     assert resp.status_code == 422  # Validation error
 
 
 def test_create_user_short_password(client):
-    payload = {
-        "email": faker.email(),
-        "password": "short",
-        "name": faker.name()
-    }
+    payload = {"email": faker.email(), "password": "short", "name": faker.name()}
     resp = client.post("/api/v1/users", json=payload)
     assert resp.status_code == 422  # Validation error
 
@@ -72,20 +65,12 @@ def test_create_user_duplicate_email(client):
     password2 = faker.password(length=12)
 
     # Create first user
-    payload1 = {
-        "email": email,
-        "password": password1,
-        "name": faker.name()
-    }
+    payload1 = {"email": email, "password": password1, "name": faker.name()}
     resp1 = client.post("/api/v1/users", json=payload1)
     assert resp1.status_code == 200
 
     # Try to create second user with same email
-    payload2 = {
-        "email": email,
-        "password": password2,
-        "name": faker.name()
-    }
+    payload2 = {"email": email, "password": password2, "name": faker.name()}
     resp2 = client.post("/api/v1/users", json=payload2)
     assert resp2.status_code == 500  # Internal server error due to DB constraint
 
@@ -114,7 +99,7 @@ def test_update_user(client):
     payload = {
         "email": faker.email(),
         "password": faker.password(length=12),
-        "name": faker.name()
+        "name": faker.name(),
     }
     user_id = client.post("/api/v1/users", json=payload).json()["data"]["id"]
 
@@ -130,7 +115,7 @@ def test_update_user_all_fields(client):
     payload = {
         "email": faker.email(),
         "password": faker.password(length=12),
-        "name": faker.name()
+        "name": faker.name(),
     }
     user_id = client.post("/api/v1/users", json=payload).json()["data"]["id"]
 
@@ -138,7 +123,7 @@ def test_update_user_all_fields(client):
         "name": faker.name(),
         "avatar_url": faker.url(),
         "bio": faker.text(max_nb_chars=200),
-        "position": faker.job()
+        "position": faker.job(),
     }
     resp = client.put(f"/api/v1/users/{user_id}", json=updates)
     assert resp.status_code == 200
@@ -149,6 +134,7 @@ def test_update_user_all_fields(client):
 
 def test_update_user_not_found(client):
     import uuid
+
     fake_id = str(uuid.uuid4())
     resp = client.put(f"/api/v1/users/{fake_id}", json={"name": faker.name()})
     assert resp.status_code == 404
@@ -159,7 +145,7 @@ def test_delete_user(client):
     payload = {
         "email": faker.email(),
         "password": faker.password(length=12),
-        "name": faker.name()
+        "name": faker.name(),
     }
     user_id = client.post("/api/v1/users", json=payload).json()["data"]["id"]
 
@@ -171,6 +157,7 @@ def test_delete_user(client):
 
 def test_delete_user_not_found(client):
     import uuid
+
     fake_id = str(uuid.uuid4())
     resp = client.delete(f"/api/v1/users/{fake_id}")
     assert resp.status_code == 404
@@ -181,7 +168,7 @@ def test_get_user_by_id(client):
     payload = {
         "email": faker.email(),
         "password": faker.password(length=12),
-        "name": faker.name()
+        "name": faker.name(),
     }
     user_id = client.post("/api/v1/users", json=payload).json()["data"]["id"]
 
@@ -191,6 +178,7 @@ def test_get_user_by_id(client):
 
 def test_get_user_by_id_not_found(client):
     import uuid
+
     fake_id = str(uuid.uuid4())
     resp = client.get(f"/api/v1/users/{fake_id}")
     assert resp.status_code == 405  # Method not allowed - endpoint doesn't exist
