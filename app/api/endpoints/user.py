@@ -1,21 +1,20 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import get_db
+from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.user import (
     BulkUserCreate,
-    BulkUserDelete,
     BulkUserResponse,
     BulkUserUpdate,
     UserCreate,
     UserResponse,
     UserUpdate,
 )
-from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.services.user import (
     bulk_create_users,
     bulk_delete_users,
@@ -73,24 +72,6 @@ def create_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
     )
 
 
-@router.put("/users/{user_id}", response_model=ApiResponse[UserResponse])
-def update_user_endpoint(
-    user_id: uuid.UUID, user: UserUpdate, db: Session = Depends(get_db)
-):
-    updated_user = update_user(
-        db, user_id=user_id, **user.model_dump(exclude_unset=True)
-    )
-    return ApiResponse(
-        success=True, message="User updated successfully", data=updated_user
-    )
-
-
-@router.delete("/users/{user_id}", response_model=ApiResponse[dict])
-def delete_user_endpoint(user_id: uuid.UUID, db: Session = Depends(get_db)):
-    delete_user(db, user_id=user_id)
-    return ApiResponse(success=True, message="User deleted successfully", data={})
-
-
 @router.post("/users/bulk", response_model=BulkUserResponse)
 def bulk_create_users_endpoint(
     bulk_request: BulkUserCreate, db: Session = Depends(get_db)
@@ -138,9 +119,20 @@ def bulk_update_users_endpoint(
 
 @router.delete("/users/bulk", response_model=BulkUserResponse)
 def bulk_delete_users_endpoint(
-    bulk_request: BulkUserDelete, db: Session = Depends(get_db)
+    user_ids: str = Query(
+        ..., description="Comma-separated list of user IDs to delete"
+    ),
+    db: Session = Depends(get_db),
 ):
-    results = bulk_delete_users(db, bulk_request.user_ids)
+    # Parse comma-separated user IDs
+    try:
+        user_id_list = [
+            uuid.UUID(uid.strip()) for uid in user_ids.split(",") if uid.strip()
+        ]
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid UUID format: {e}")
+
+    results = bulk_delete_users(db, user_id_list)
 
     total_processed = len(results)
     total_success = sum(1 for r in results if r["success"])
@@ -154,3 +146,21 @@ def bulk_delete_users_endpoint(
         total_success=total_success,
         total_failed=total_failed,
     )
+
+
+@router.put("/users/{user_id}", response_model=ApiResponse[UserResponse])
+def update_user_endpoint(
+    user_id: uuid.UUID, user: UserUpdate, db: Session = Depends(get_db)
+):
+    updated_user = update_user(
+        db, user_id=user_id, **user.model_dump(exclude_unset=True)
+    )
+    return ApiResponse(
+        success=True, message="User updated successfully", data=updated_user
+    )
+
+
+@router.delete("/users/{user_id}", response_model=ApiResponse[dict])
+def delete_user_endpoint(user_id: uuid.UUID, db: Session = Depends(get_db)):
+    delete_user(db, user_id=user_id)
+    return ApiResponse(success=True, message="User deleted successfully", data={})

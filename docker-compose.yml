@@ -13,3 +13,15 @@ services:
       - /app/.pytest_cache
     restart: unless-stopped
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
+
+  test:
+    build: .
+    environment:
+      - ENV=development
+    volumes:
+      - .:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+    command: pytest tests/ -v --tb=short
+    profiles:
+      - test

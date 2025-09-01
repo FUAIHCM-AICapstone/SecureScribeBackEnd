@@ -5,7 +5,7 @@ pydantic-settings>=2.0.0
 sqlmodel>=0.0.14
 sqlalchemy>=2.0.0
 psycopg[binary]>=3.1.13
-pydantic[email]
+pydantic[email]>=2.0.0
 alembic>=1.11.0
 python-dotenv>=1.0.0
 httpx>=0.24.0

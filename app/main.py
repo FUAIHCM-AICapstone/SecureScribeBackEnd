@@ -25,7 +25,7 @@ def health(db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     try:
         # Test database connection with a simple query
-        db.execute(text("SELECT 1"))
+        db.query(text("SELECT 1"))
         db.commit()
 
         return {

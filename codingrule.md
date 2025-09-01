@@ -78,7 +78,7 @@ SecureScribeBackEnd/
 
 - Minimal query operations: Single table queries when possible
 - No eager loading unless required: Use lazy loading
-- Direct SQL when ORM is verbose: `db.execute(text("SELECT * FROM users"))`
+- Direct SQL when ORM is verbose: `db.query(text("SELECT * FROM users"))`
 - No transaction management: Let framework handle transactions
 - Inline database calls: No repository pattern
 - Remove all relationship loading: Query only needed data
