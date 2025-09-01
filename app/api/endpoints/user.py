@@ -15,7 +15,7 @@ from app.schemas.user import (
     UserResponse,
     UserUpdate,
 )
-from app.services.common import ApiResponse, PaginatedResponse, create_pagination_meta
+from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.services.user import (
     bulk_create_users,
     bulk_delete_users,
