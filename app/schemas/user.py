@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, EmailStr
 
+from app.schemas.notification import NotificationResponse
+
 
 class FileResponse(BaseModel):
     id: uuid.UUID
@@ -97,19 +99,6 @@ class TaskResponse(BaseModel):
     description: Optional[str]
     status: str
     due_date: Optional[datetime]
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
-
-class NotificationResponse(BaseModel):
-    id: uuid.UUID
-    type: Optional[str]
-    payload: Optional[Dict[str, Any]]
-    is_read: bool
-    channel: Optional[str]
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -240,13 +229,6 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class UserUpdate(BaseModel):
-    name: Optional[str] = None
-    avatar_url: Optional[str] = None
-    bio: Optional[str] = None
-    position: Optional[str] = None
 
 
 class DeviceFCMUpdate(BaseModel):

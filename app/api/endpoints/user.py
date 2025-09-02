@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import get_db
-from app.models.user import UserDevice
+from app.models.user import User, UserDevice
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.user import (
     BulkUserCreate,
@@ -175,8 +175,11 @@ def delete_user_endpoint(user_id: uuid.UUID, db: Session = Depends(get_db)):
 def update_fcm_token_endpoint(
     fcm_data: DeviceFCMUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
+    print(f"FCM token endpoint called for user: {current_user.id}")
+    print(f"FCM data: {fcm_data.model_dump()}")
+
     # Find existing device or create new one
     device = (
         db.query(UserDevice)
@@ -188,11 +191,13 @@ def update_fcm_token_endpoint(
     )
 
     if device:
+        print(f"Updating existing device: {device.id}")
         device.fcm_token = fcm_data.fcm_token
         device.device_type = fcm_data.device_type
         device.last_active_at = datetime.utcnow()
         device.is_active = True
     else:
+        print("Creating new device")
         device = UserDevice(
             user_id=current_user.id,
             device_name=fcm_data.device_name,
@@ -202,8 +207,14 @@ def update_fcm_token_endpoint(
         )
         db.add(device)
 
-    db.commit()
-    db.refresh(device)
+    try:
+        db.commit()
+        db.refresh(device)
+        print(f"Device saved successfully: {device.id}")
+    except Exception as e:
+        print(f"Database error: {e}")
+        db.rollback()
+        raise
 
     return ApiResponse(
         success=True,
@@ -216,7 +227,7 @@ def update_fcm_token_endpoint(
     "/users/me/devices/send-test-notification", response_model=ApiResponse[dict]
 )
 def send_test_notification_endpoint(
-    db: Session = Depends(get_db), current_user=Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     # Get user's active devices with FCM tokens
     devices = (

@@ -1,0 +1,134 @@
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+from fastapi import HTTPException
+from firebase_admin import messaging
+from sqlalchemy.orm import Session
+
+from app.models.notification import Notification
+from app.models.user import User, UserDevice
+
+
+def get_notifications(
+    db: Session, user_id: uuid.UUID, **kwargs
+) -> Tuple[List[Notification], int]:
+    query = db.query(Notification).filter(Notification.user_id == user_id)
+
+    if "is_read" in kwargs and kwargs["is_read"] is not None:
+        query = query.filter(Notification.is_read == kwargs["is_read"])
+
+    total = query.count()
+
+    page = kwargs.get("page", 1)
+    limit = kwargs.get("limit", 20)
+    offset = (page - 1) * limit
+
+    order_by = kwargs.get("order_by", "created_at")
+    dir = kwargs.get("dir", "desc")
+
+    if dir == "asc":
+        query = query.order_by(getattr(Notification, order_by).asc())
+    else:
+        query = query.order_by(getattr(Notification, order_by).desc())
+
+    notifications = query.offset(offset).limit(limit).all()
+    return notifications, total
+
+
+def get_notification(
+    db: Session, notification_id: uuid.UUID, user_id: uuid.UUID
+) -> Notification:
+    notification = (
+        db.query(Notification)
+        .filter(Notification.id == notification_id, Notification.user_id == user_id)
+        .first()
+    )
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return notification
+
+
+def create_notification(db: Session, user_id: uuid.UUID, **kwargs) -> Notification:
+    notification = Notification(user_id=user_id, **kwargs)
+    db.add(notification)
+    db.commit()
+    db.refresh(notification)
+    return notification
+
+
+def create_notifications_bulk(
+    db: Session, user_ids: List[uuid.UUID], **kwargs
+) -> List[Notification]:
+    notifications = []
+    for user_id in user_ids:
+        notification = Notification(user_id=user_id, **kwargs)
+        db.add(notification)
+        notifications.append(notification)
+    db.commit()
+    for notification in notifications:
+        db.refresh(notification)
+    return notifications
+
+
+def create_global_notification(db: Session, **kwargs) -> List[Notification]:
+    users = db.query(User).all()
+    user_ids = [user.id for user in users]
+    return create_notifications_bulk(db, user_ids, **kwargs)
+
+
+def update_notification(
+    db: Session, notification_id: uuid.UUID, user_id: uuid.UUID, **kwargs
+) -> Notification:
+    notification = get_notification(db, notification_id, user_id)
+    for key, value in kwargs.items():
+        if value is not None:
+            setattr(notification, key, value)
+    notification.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(notification)
+    return notification
+
+
+def delete_notification(
+    db: Session, notification_id: uuid.UUID, user_id: uuid.UUID
+) -> None:
+    notification = get_notification(db, notification_id, user_id)
+    db.delete(notification)
+    db.commit()
+
+
+def send_fcm_notification(
+    user_ids: List[uuid.UUID],
+    title: str,
+    body: str,
+    data: Optional[Dict[str, Any]] = None,
+) -> None:
+    from app.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        tokens = []
+        for user_id in user_ids:
+            devices = (
+                db.query(UserDevice)
+                .filter(UserDevice.user_id == user_id, UserDevice.is_active == True)
+                .all()
+            )
+            tokens.extend([device.fcm_token for device in devices])
+
+        if not tokens:
+            return
+
+        message = messaging.MulticastMessage(
+            notification=messaging.Notification(title=title, body=body),
+            data=data or {},
+            tokens=tokens,
+        )
+
+        try:
+            messaging.send_each_for_multicast(message)
+        except Exception:
+            print("Error sending FCM notification")
+    finally:
+        db.close()
