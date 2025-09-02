@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import Any, Dict
 
@@ -14,6 +15,7 @@ from app.api import api_router
 from app.core.config import settings
 from app.core.firebase import initialize_firebase
 from app.db import get_db
+from app.services.websocket_manager import websocket_manager
 from app.utils.auth import get_current_user_from_token
 
 
@@ -87,6 +89,29 @@ app = FastAPI(
     generate_unique_id_function=custom_generate_unique_id,
 )
 
+@app.on_event("startup")
+async def startup_event():
+    """Start WebSocket cleanup task on application startup"""
+    print("🚀 Starting WebSocket cleanup task...")
+    asyncio.create_task(websocket_manager.start_cleanup_task())
+    print("✅ WebSocket cleanup task started")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop WebSocket cleanup task on application shutdown"""
+    print("🛑 Stopping WebSocket cleanup task...")
+    websocket_manager.stop_cleanup_task()
+    print("✅ WebSocket cleanup task stopped")
+
+# Add middleware to log all requests
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"[REQUEST] {request.method} {request.url}")
+    print(f"[HEADERS] {dict(request.headers)}")
+    response = await call_next(request)
+    print(f"[RESPONSE] {response.status_code}")
+    return response
+
 # Override the default OpenAPI schema generator
 app.openapi = custom_openapi
 
@@ -99,11 +124,15 @@ app.add_middleware(
         else ["*"]
     ),
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicitly allow methods
     allow_headers=["*"],  # Allow all headers including Authorization
+    expose_headers=["*"],  # Expose all headers for EventSource
 )
 
-# Mount static files
+# Mount API router FIRST (important for routing precedence)
+app.include_router(api_router)
+
+# Mount static files AFTER API router to avoid conflicts
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
@@ -124,8 +153,6 @@ app.mount(
 
 # Initialize Firebase SDK
 initialize_firebase()
-
-app.include_router(api_router)
 
 
 @app.get("/test-auth")

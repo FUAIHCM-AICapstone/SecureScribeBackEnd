@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
 
+    # WebSocket Configuration
+    WEBSOCKET_PING_INTERVAL: int = 30     # 30 seconds
+    WEBSOCKET_PING_TIMEOUT: int = 10      # 10 seconds
+    WEBSOCKET_MAX_CONNECTIONS: int = 1000 # Maximum concurrent connections
+    WEBSOCKET_MESSAGE_SIZE_LIMIT: int = 65536  # 64KB message limit
+    WEBSOCKET_CONNECTION_TIMEOUT: int = 300    # 5 minutes inactive timeout
+    WEBSOCKET_CLEANUP_INTERVAL: int = 60       # 1 minute cleanup interval
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def CELERY_BROKER_URL(self) -> str:

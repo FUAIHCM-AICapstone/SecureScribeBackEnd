@@ -1,12 +1,17 @@
+# Standard library imports
+import asyncio
 import uuid
 from typing import List, Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import StreamingResponse
+# Third-party imports
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket
 from sqlalchemy.orm import Session
 
+# Local imports
 from app.core.config import settings
-from app.db import get_db
+from app.db import SessionLocal, get_db
+from app.models.user import User
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.notification import (
     NotificationCreate,
@@ -23,9 +28,7 @@ from app.services.notification import (
     send_fcm_notification,
     update_notification,
 )
-from app.utils.auth import get_current_user
-
-from ...models.user import User
+from app.utils.auth import get_current_user, get_current_user_from_token
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Notification"])
 
@@ -167,13 +170,107 @@ def delete_notification_endpoint(
     )
 
 
-@router.get("/notifications/stream")
-def stream_notifications():
-    def event_generator():
-        yield 'data: {"type": "connected", "message": "Notification stream connected"}\n\n'
+@router.websocket("/notifications/ws")
+async def websocket_endpoint(websocket: WebSocket, token: str = Query(..., description="JWT access token")):
+    """
+    WebSocket endpoint for real-time task progress updates
+    Requires JWT token as query parameter for authentication
+    """
+    print("=== WEBSOCKET ENDPOINT CALLED ===")
+    print(f"Token received: {token[:50]}...")
 
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
-    )
+    try:
+        print("Step 1: Verifying token...")
+        # Verify token manually
+        user_id = get_current_user_from_token(token)
+        print(f"Step 2: get_current_user_from_token returned: {user_id}")
+
+        if not user_id:
+            print("Step 3: user_id is None/empty - rejecting connection")
+            await websocket.close(code=4001, reason="Invalid token")
+            return
+
+        print(f"Step 4: Valid user_id obtained: {user_id}")
+
+        # Get user from database
+        print("Step 5: Opening database session...")
+        db = SessionLocal()
+        try:
+            print(f"Step 6: Converting user_id to UUID: {UUID(user_id)}")
+            user = db.query(User).filter(User.id == UUID(user_id)).first()
+            print(f"Step 7: Database query result: {user}")
+
+            if not user:
+                print("Step 8: User not found in database - rejecting connection")
+                await websocket.close(code=4002, reason="User not found")
+                return
+
+            print(f"Step 9: User found successfully: {user.id}")
+        finally:
+            print("Step 10: Closing database session")
+            db.close()
+
+        print("Step 11: Authentication successful, accepting WebSocket connection")
+
+        # Accept the WebSocket connection
+        await websocket.accept()
+        print("Step 12: WebSocket connection accepted")
+
+        # Import websocket_manager here to avoid circular imports
+        from app.services.websocket_manager import websocket_manager
+
+        # Register the connection
+        user_id_str = str(user.id)
+        websocket_manager.add_connection(user_id_str, websocket)
+        print(f"Step 13: WebSocket registered for user: {user_id_str}")
+
+        try:
+            # Send initial connection message
+            await websocket.send_json({
+                "type": "connected",
+                "data": {
+                    "user_id": user_id_str,
+                    "message": "WebSocket connection established"
+                }
+            })
+            print("Step 14: Initial connection message sent")
+
+            # Handle incoming messages and maintain connection
+            while True:
+                try:
+                    # Wait for messages with timeout (heartbeat)
+                    data = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
+                    print(f"Received message from {user_id_str}: {data}")
+
+                    # Handle client messages if needed
+                    if data.get("type") == "ping":
+                        await websocket.send_json({"type": "pong"})
+                        print(f"Sent pong to {user_id_str}")
+
+                except asyncio.TimeoutError:
+                    # Send ping to keep connection alive
+                    try:
+                        await websocket.send_json({"type": "ping"})
+                        print(f"Sent ping to {user_id_str}")
+                    except Exception:
+                        print(f"Failed to send ping to {user_id_str}, connection may be dead")
+                        break
+
+                except Exception as e:
+                    print(f"WebSocket error for {user_id_str}: {e}")
+                    break
+
+        except Exception as e:
+            print(f"WebSocket connection error for {user_id_str}: {e}")
+
+        finally:
+            # Clean up connection
+            websocket_manager.remove_connection(user_id_str)
+            print(f"Step 15: WebSocket connection cleaned up for user: {user_id_str}")
+
+    except Exception as e:
+        print(f"WebSocket authentication error: {type(e).__name__}: {str(e)}")
+        try:
+            await websocket.close(code=4000, reason=f"Authentication failed: {str(e)}")
+        except Exception:
+            pass  # Connection might already be closed
