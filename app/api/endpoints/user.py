@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from firebase_admin import messaging
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -229,7 +228,8 @@ def update_fcm_token_endpoint(
 def send_test_notification_endpoint(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
-    # Get user's active devices with FCM tokens
+    from app.jobs.celery_worker import send_test_notification_task
+
     devices = (
         db.query(UserDevice)
         .filter(
@@ -245,31 +245,14 @@ def send_test_notification_endpoint(
             status_code=404, detail="No active devices with FCM tokens found"
         )
 
-    sent_count = 0
-    failed_count = 0
-
-    for device in devices:
-        try:
-            message = messaging.Message(
-                token=device.fcm_token,
-                notification=messaging.Notification(
-                    title="Test Notification",
-                    body="This is a test notification from SecureScribe!",
-                ),
-                data={"type": "test", "timestamp": str(datetime.utcnow())},
-            )
-            messaging.send(message)
-            sent_count += 1
-        except Exception as e:
-            failed_count += 1
-            print(f"Failed to send to device {device.id}: {str(e)}")
+    send_test_notification_task.delay(str(current_user.id))
 
     return ApiResponse(
         success=True,
-        message=f"Test notifications sent. Success: {sent_count}, Failed: {failed_count}",
+        message="Test notification task queued. Will complete in 30 seconds.",
         data={
             "total_devices": len(devices),
-            "sent_count": sent_count,
-            "failed_count": failed_count,
+            "task_status": "queued",
+            "estimated_completion": "30 seconds",
         },
     )

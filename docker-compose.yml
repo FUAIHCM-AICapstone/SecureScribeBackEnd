@@ -3,6 +3,7 @@ version: '3.8'
 services:
   api:
     build: .
+    image: securescribe-api
     ports:
       - "8000:8000"
     environment:
@@ -13,6 +14,26 @@ services:
       - /app/.pytest_cache
     restart: unless-stopped
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  celery_worker:
+    image: securescribe-api
+    command: celery -A app.jobs.celery_worker worker --loglevel=info
+    environment:
+      - ENV=development
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    restart: unless-stopped
+    depends_on:
+      - redis
 
   test:
     build: .

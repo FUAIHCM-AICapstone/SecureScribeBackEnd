@@ -128,7 +128,7 @@ def send_fcm_notification(
 
         try:
             messaging.send_each_for_multicast(message)
-        except Exception:
-            print("Error sending FCM notification")
+        except Exception as e:
+            print("Error sending FCM notification:", e)
     finally:
         db.close()

@@ -168,6 +168,12 @@ def test_auth_endpoint(request: Request) -> Dict[str, Any]:
     }
 
 
+@app.get("/celery-test")
+def get_celery_test_page():
+    """Serve the Celery task test page"""
+    return FileResponse("app/static/celery-test.html", media_type="text/html")
+
+
 @app.get("/health")
 def health(db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
