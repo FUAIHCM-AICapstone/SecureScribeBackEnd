@@ -11,12 +11,10 @@ def test_bulk_create_and_update_and_delete(client):
         "users": [
             {
                 "email": faker.email(),
-                "password": faker.password(length=12),
                 "name": faker.name(),
             },
             {
                 "email": faker.email(),
-                "password": faker.password(length=12),
                 "name": faker.name(),
             },
         ]
@@ -65,7 +63,6 @@ def test_bulk_create_large_batch(client):
         users.append(
             {
                 "email": faker.email(),
-                "password": faker.password(length=12),
                 "name": faker.name(),
             }
         )
@@ -83,12 +80,10 @@ def test_bulk_create_with_duplicates(client):
         "users": [
             {
                 "email": email,
-                "password": faker.password(length=12),
                 "name": faker.name(),
             },
             {
                 "email": email,  # duplicate email
-                "password": faker.password(length=12),
                 "name": faker.name(),
             },
         ]
@@ -107,15 +102,13 @@ def test_bulk_create_mixed_valid_invalid(client):
         "users": [
             {
                 "email": faker.email(),
-                "password": faker.password(length=12),
                 "name": faker.name(),
             },
             {
                 "email": "invalid-email",
-                "password": faker.password(length=12),
                 "name": faker.name(),
             },
-            {"email": faker.email(), "password": "short", "name": faker.name()},
+            {"email": faker.email(), "name": faker.name()},
         ]
     }
     resp = client.post("/api/v1/users/bulk", json=bulk_payload)
@@ -152,7 +145,6 @@ def test_bulk_update_mixed_fields(client):
     for _ in range(3):
         payload = {
             "email": faker.email(),
-            "password": faker.password(length=12),
             "name": faker.name(),
         }
         resp = client.post("/api/v1/users", json=payload)
@@ -198,7 +190,6 @@ def test_bulk_delete_mixed_valid_invalid(client):
     # Create one real user
     payload = {
         "email": faker.email(),
-        "password": faker.password(length=12),
         "name": faker.name(),
     }
     real_user = client.post("/api/v1/users", json=payload).json()["data"]

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr
 
 
 class FileResponse(BaseModel):
@@ -167,7 +167,6 @@ class UserIdentityResponse(BaseModel):
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8)
     name: Optional[str] = None
     avatar_url: Optional[str] = None
     bio: Optional[str] = None
@@ -248,3 +247,9 @@ class UserUpdate(BaseModel):
     avatar_url: Optional[str] = None
     bio: Optional[str] = None
     position: Optional[str] = None
+
+
+class DeviceFCMUpdate(BaseModel):
+    device_name: str
+    fcm_token: str
+    device_type: Optional[str] = "web"

@@ -19,7 +19,7 @@ ignore = [
     "W191",  # indentation contains tabs
     "B904",  # Allow raising exceptions without from e, for HTTPException
     "UP045", # Optional allow
-    "UP006", "F821", "UP035"
+    "UP006", "F821", "UP035", "E712"
 ]
 
 [tool.ruff.lint.pyupgrade]

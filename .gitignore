@@ -216,3 +216,4 @@ __marimo__/
 # Firebase service account keys
 config/keys/*.json
 app/static/*
+*.js

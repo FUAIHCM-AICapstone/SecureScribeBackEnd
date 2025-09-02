@@ -1,6 +1,6 @@
 # Project Context
 
-* User có thể tham gia nhiều project và mỗi record user lưu `id`, `email`, `name`, `avatar_url`, `bio`, `position`, `password_hash`, `created_at`, `updated_at`.
+* User có thể tham gia nhiều project và mỗi record user lưu `id`, `email`, `name`, `avatar_url`, `bio`, `position`, `created_at`, `updated_at`.
 * Hỗ trợ đa identity: bảng `user_identities` lưu `provider`, `provider_user_id`, `provider_email`, `provider_profile`, `tenant_id`, `created_at`, `updated_at` với unique (provider, provider\_user\_id) để map nhiều external login vào 1 user.
 * Quản lý đa thiết bị: bảng `user_devices` lưu `user_id`, `device_name`, `device_type`, `fcm_token`, `last_active_at`, `is_active`, `created_at`, `updated_at` để gửi push và revoke token khi cần.
 * Project có `id`, `name`, `description`, `is_archived`, `created_by`, `created_at`, `updated_at` và user join project qua `users_projects` (composite PK user\_id+project\_id) kèm `role` enum {admin, member} và `joined_at`.

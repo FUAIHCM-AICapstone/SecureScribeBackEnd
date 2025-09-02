@@ -47,7 +47,6 @@ class User(SQLModel, table=True):
     avatar_url: Optional[str] = Field(default=None, sa_column=Column(String))
     bio: Optional[str] = Field(default=None, sa_column=Column(Text))
     position: Optional[str] = Field(default=None, sa_column=Column(String))
-    password_hash: Optional[str] = Field(default=None, sa_column=Column(String))
 
     # Relationships
     identities: list["UserIdentity"] = Relationship(back_populates="user")

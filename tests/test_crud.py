@@ -6,7 +6,6 @@ faker = Faker()
 def test_create_user(client):
     payload = {
         "email": faker.email(),
-        "password": faker.password(length=12),
         "name": faker.name(),
     }
     resp = client.post("/api/v1/users", json=payload)
@@ -18,7 +17,7 @@ def test_create_user(client):
 
 
 def test_create_user_minimal(client):
-    payload = {"email": faker.email(), "password": faker.password(length=8)}
+    payload = {"email": faker.email()}
     resp = client.post("/api/v1/users", json=payload)
     assert resp.status_code == 200
     body = resp.json()
@@ -29,7 +28,6 @@ def test_create_user_minimal(client):
 def test_create_user_with_all_fields(client):
     payload = {
         "email": faker.email(),
-        "password": faker.password(length=12),
         "name": faker.name(),
         "avatar_url": faker.url(),
         "bio": faker.text(max_nb_chars=200),
@@ -46,31 +44,21 @@ def test_create_user_with_all_fields(client):
 def test_create_user_invalid_email(client):
     payload = {
         "email": "invalid-email",
-        "password": faker.password(length=12),
         "name": faker.name(),
     }
     resp = client.post("/api/v1/users", json=payload)
     assert resp.status_code == 422  # Validation error
 
-
-def test_create_user_short_password(client):
-    payload = {"email": faker.email(), "password": "short", "name": faker.name()}
-    resp = client.post("/api/v1/users", json=payload)
-    assert resp.status_code == 422  # Validation error
-
-
 def test_create_user_duplicate_email(client):
     email = faker.email()
-    password1 = faker.password(length=12)
-    password2 = faker.password(length=12)
 
     # Create first user
-    payload1 = {"email": email, "password": password1, "name": faker.name()}
+    payload1 = {"email": email, "name": faker.name()}
     resp1 = client.post("/api/v1/users", json=payload1)
     assert resp1.status_code == 200
 
     # Try to create second user with same email
-    payload2 = {"email": email, "password": password2, "name": faker.name()}
+    payload2 = {"email": email, "name": faker.name()}
     resp2 = client.post("/api/v1/users", json=payload2)
     assert resp2.status_code == 500  # Internal server error due to DB constraint
 
@@ -98,7 +86,6 @@ def test_update_user(client):
     # create user first
     payload = {
         "email": faker.email(),
-        "password": faker.password(length=12),
         "name": faker.name(),
     }
     user_id = client.post("/api/v1/users", json=payload).json()["data"]["id"]
@@ -114,7 +101,6 @@ def test_update_user_all_fields(client):
     # create user first
     payload = {
         "email": faker.email(),
-        "password": faker.password(length=12),
         "name": faker.name(),
     }
     user_id = client.post("/api/v1/users", json=payload).json()["data"]["id"]
@@ -144,7 +130,6 @@ def test_delete_user(client):
     # create user first
     payload = {
         "email": faker.email(),
-        "password": faker.password(length=12),
         "name": faker.name(),
     }
     user_id = client.post("/api/v1/users", json=payload).json()["data"]["id"]
@@ -167,7 +152,6 @@ def test_get_user_by_id(client):
     # create user first
     payload = {
         "email": faker.email(),
-        "password": faker.password(length=12),
         "name": faker.name(),
     }
     user_id = client.post("/api/v1/users", json=payload).json()["data"]["id"]

@@ -1,16 +1,20 @@
 import uuid
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from firebase_admin import messaging
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import get_db
+from app.models.user import UserDevice
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.user import (
     BulkUserCreate,
     BulkUserResponse,
     BulkUserUpdate,
+    DeviceFCMUpdate,
     UserCreate,
     UserResponse,
     UserUpdate,
@@ -24,6 +28,7 @@ from app.services.user import (
     get_users,
     update_user,
 )
+from app.utils.auth import get_current_user
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["User"])
 
@@ -164,3 +169,96 @@ def update_user_endpoint(
 def delete_user_endpoint(user_id: uuid.UUID, db: Session = Depends(get_db)):
     delete_user(db, user_id=user_id)
     return ApiResponse(success=True, message="User deleted successfully", data={})
+
+
+@router.post("/users/me/devices/fcm-token", response_model=ApiResponse[dict])
+def update_fcm_token_endpoint(
+    fcm_data: DeviceFCMUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    # Find existing device or create new one
+    device = (
+        db.query(UserDevice)
+        .filter(
+            UserDevice.user_id == current_user.id,
+            UserDevice.device_name == fcm_data.device_name,
+        )
+        .first()
+    )
+
+    if device:
+        device.fcm_token = fcm_data.fcm_token
+        device.device_type = fcm_data.device_type
+        device.last_active_at = datetime.utcnow()
+        device.is_active = True
+    else:
+        device = UserDevice(
+            user_id=current_user.id,
+            device_name=fcm_data.device_name,
+            device_type=fcm_data.device_type,
+            fcm_token=fcm_data.fcm_token,
+            is_active=True,
+        )
+        db.add(device)
+
+    db.commit()
+    db.refresh(device)
+
+    return ApiResponse(
+        success=True,
+        message="FCM token updated successfully",
+        data={"device_id": device.id},
+    )
+
+
+@router.post(
+    "/users/me/devices/send-test-notification", response_model=ApiResponse[dict]
+)
+def send_test_notification_endpoint(
+    db: Session = Depends(get_db), current_user=Depends(get_current_user)
+):
+    # Get user's active devices with FCM tokens
+    devices = (
+        db.query(UserDevice)
+        .filter(
+            UserDevice.user_id == current_user.id,
+            UserDevice.fcm_token.isnot(None),
+            UserDevice.is_active == True,
+        )
+        .all()
+    )
+
+    if not devices:
+        raise HTTPException(
+            status_code=404, detail="No active devices with FCM tokens found"
+        )
+
+    sent_count = 0
+    failed_count = 0
+
+    for device in devices:
+        try:
+            message = messaging.Message(
+                token=device.fcm_token,
+                notification=messaging.Notification(
+                    title="Test Notification",
+                    body="This is a test notification from SecureScribe!",
+                ),
+                data={"type": "test", "timestamp": str(datetime.utcnow())},
+            )
+            messaging.send(message)
+            sent_count += 1
+        except Exception as e:
+            failed_count += 1
+            print(f"Failed to send to device {device.id}: {str(e)}")
+
+    return ApiResponse(
+        success=True,
+        message=f"Test notifications sent. Success: {sent_count}, Failed: {failed_count}",
+        data={
+            "total_devices": len(devices),
+            "sent_count": sent_count,
+            "failed_count": failed_count,
+        },
+    )

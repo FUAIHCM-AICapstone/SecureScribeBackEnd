@@ -113,10 +113,6 @@ def update_user(db: Session, user_id: uuid.UUID, **updates) -> User:
 
 
 def create_user(db: Session, **user_data) -> User:
-    if "password" in user_data:
-        from app.utils.password import hash_password
-
-        user_data["password_hash"] = hash_password(user_data.pop("password"))
     user = User(**user_data)
     try:
         db.add(user)
