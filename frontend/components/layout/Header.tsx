@@ -1,15 +1,11 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import ThemeToggle from './ThemeToggle';
 import LanguageSwitcher from './LanguageSwitcher';
-import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { HiDocumentText } from 'react-icons/hi';
-import { HiMicrophone } from 'react-icons/hi2';
-import TextUploadModal from '@/components/dashboard/MeetingContent/Modal/TextUploadModal';
-import AudioUploadModal from '@/components/dashboard/MeetingContent/Modal/AudioUploadModal';
+import Image from 'next/image';
 
 const NAV_ITEMS = [
   { label: 'home', href: '#hero' },
@@ -19,10 +15,6 @@ const NAV_ITEMS = [
   { label: 'userGuide', href: '/guide/welcome' },
 ];
 
-const DASHBOARD_NAV_ITEMS = [
-  { label: 'personal', href: '/dashboard/personal' },
-  { label: 'group', href: '/dashboard/group' },
-];
 
 interface PrimaryButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -51,40 +43,20 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  // Add selectedNav state, initialize from localStorage
-  const [selectedNav, setSelectedNav] = useState('');
 
-  const [isTextModalOpen, setIsTextModalOpen] = useState(false);
-  const [isAudioModalOpen, setIsAudioModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (pathname.includes('/dashboard/group')) {
-      setSelectedNav('group');
-    } else if (pathname.includes('/dashboard/personal')) {
-      setSelectedNav('personal');
-    }
-  }, [pathname]);
   const isLandingPage =
     pathname === '/' || /^\/[a-z]{2}(-[A-Z]{2})?$/.test(pathname);
-
-  const isDashboard =
-    pathname.startsWith('/dashboard') ||
-    /^\/[a-z]{2}(-[A-Z]{2})?\/dashboard/.test(pathname);
 
   const handleStartNow = () => {
     router.push('/auth');
   };
-
-  // Dummy handlers for dashboard buttons
-  const handleAddDocument = () => setIsTextModalOpen(true);
-  const handleAddAudio = () => setIsAudioModalOpen(true);
 
   return (
     <>
       <header className="sticky top-0 left-0 right-0 z-50 bg-[var(--background-color)] shadow font-[var(--font-family-base)]">
         <div className="mx-auto flex items-center justify-between px-4 py-3">
           <Link
-            href={isDashboard ? '/dashboard' : '/'}
+            href={isLandingPage ? '/dashboard' : '/'}
             className="flex items-center gap-2"
           >
             <Image
@@ -110,57 +82,11 @@ const Header = () => {
                     {t(item.label)}
                   </Link>
                 ))}
-              {isDashboard &&
-                DASHBOARD_NAV_ITEMS.map((item) => (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className={`text-[var(--muted-text-color)] hover:text-[var(--primary-color)] font-medium transition ${selectedNav === item.label
-                      ? 'text-[var(--primary-color)] font-bold'
-                      : ''
-                      }`}
-                    onClick={() => setSelectedNav(item.label)}
-                  >
-                    {t(item.label)}
-                  </Link>
-                ))}
             </nav>
           </div>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
             <ThemeToggle />
-            {isDashboard && (
-              <>
-                <PrimaryButton
-                  leftIcon={<HiDocumentText />}
-                  className="hidden md:inline-flex"
-                  onClick={handleAddDocument}
-                >
-                  {t('addText')}
-                </PrimaryButton>
-                <PrimaryButton
-                  leftIcon={<HiMicrophone />}
-                  className="hidden md:inline-flex"
-                  onClick={handleAddAudio}
-                >
-                  {t('addAudio')}
-                </PrimaryButton>
-                <TextUploadModal
-                  open={isTextModalOpen}
-                  onUploadSuccess={() => {
-                    setIsTextModalOpen(false);
-                  }}
-                  onUploadError={() => {
-                    // Optionally handle error here
-                  }}
-                  onClose={() => setIsTextModalOpen(false)}
-                />
-                <AudioUploadModal
-                  open={isAudioModalOpen}
-                  onClose={() => setIsAudioModalOpen(false)}
-                />
-              </>
-            )}
             {isLandingPage && (
               <PrimaryButton
                 className="hidden md:inline-block"
@@ -213,49 +139,6 @@ const Header = () => {
                     </Link>
                   </li>
                 ))}
-              {isDashboard &&
-                DASHBOARD_NAV_ITEMS.map((item) => (
-                  <li key={item.label}>
-                    <Link
-                      href={item.href}
-                      className={`block text-[var(--muted-text-color)] hover:text-[var(--primary-color)] font-medium py-2 ${pathname === item.href
-                        ? 'text-[var(--primary-color)] font-bold'
-                        : ''
-                        }`}
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      {t(item.label)}
-                    </Link>
-                  </li>
-                ))}
-              {isDashboard && (
-                <>
-                  <li>
-                    <PrimaryButton
-                      leftIcon={<HiDocumentText />}
-                      className="w-full"
-                      onClick={() => {
-                        setMobileOpen(false);
-                        handleAddDocument();
-                      }}
-                    >
-                      Thêm văn bản
-                    </PrimaryButton>
-                  </li>
-                  <li>
-                    <PrimaryButton
-                      leftIcon={<HiMicrophone />}
-                      className="w-full"
-                      onClick={() => {
-                        setMobileOpen(false);
-                        handleAddAudio();
-                      }}
-                    >
-                      Thêm bản ghi
-                    </PrimaryButton>
-                  </li>
-                </>
-              )}
               {isLandingPage && (
                 <li>
                   <PrimaryButton

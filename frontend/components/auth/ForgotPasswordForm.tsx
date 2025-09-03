@@ -6,16 +6,28 @@ import Button from '@/components/ui/Button';
 import { MailOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { useTranslations } from 'next-intl';
 import { showToast } from '@/hooks/useShowToast';
-import authApi from '@/services/api/auth';
+import { initializeApp } from 'firebase/app';
+import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
 
 interface ForgotPasswordFormProps {
   onBackToLogin?: () => void;
   onRegister?: () => void;
-  onOtp?: (email: string) => void;
+  onPasswordReset?: (email: string) => void;
 }
 
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyDui5MKg4sB4eEcMjgjVXnw-u6bLm90D4E",
+  authDomain: "scribe-c7f13.firebaseapp.com",
+  projectId: "scribe-c7f13",
+  storageBucket: "scribe-c7f13.firebasestorage.app",
+  messagingSenderId: "970064337409",
+  appId: "1:970064337409:web:ab8ecc361e352c5025be00",
+  measurementId: "G-NH06MQQ2J3"
+};
+
 const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = (props) => {
-  const { onBackToLogin, onRegister } = props;
+  const { onBackToLogin, onRegister, onPasswordReset } = props;
   const t = useTranslations('ForgotPassword');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,22 +42,45 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = (props) => {
     }
     setLoading(true);
     try {
-      const res = await authApi.requestPasswordReset({ email });
-      if (res.error_code === 0) {
-        setSuccess(t('successMessage'));
-        showToast('success', t('successMessage'), 4000);
-        if (props.onOtp) props.onOtp(email);
-      } else {
-        setError(res.message || t('errorFailed'));
-        showToast('error', res.message || t('errorFailed'), 4000);
-      }
+      // Firebase password reset
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      await sendPasswordResetEmail(auth, email);
+
+      setSuccess(t('successMessage'));
+      showToast('success', t('successMessage'), 4000);
+
+      if (onPasswordReset) onPasswordReset(email);
     } catch (err: any) {
-      setError(err?.response?.data?.message || t('errorFailed'));
-      showToast(
-        'error',
-        err?.response?.data?.message || t('errorFailed'),
-        4000,
-      );
+      console.error('Password reset error:', err);
+
+      // Handle Firebase errors
+      let errorMessage = t('errorFailed');
+      if (err.code === 'auth/user-not-found') {
+        errorMessage = t('noAccountFound');
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = t('errorEmail');
+      } else if (err.code === 'auth/invalid-credential') {
+        errorMessage = t('invalidCredentialsGeneral');
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = t('tooManyRequestsGeneral');
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = t('networkErrorConnection');
+      } else if (err.message) {
+        // Check for token timing errors (though less likely for password reset)
+        if (err.message.includes('Token used too early') ||
+          err.message.includes('clock is set correctly')) {
+          errorMessage = t('tokenUsedTooEarly');
+        } else if (err.message.includes('Invalid token') ||
+          err.message.includes('Token expired')) {
+          errorMessage = t('invalidToken');
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
+      setError(errorMessage);
+      showToast('error', errorMessage, 4000);
     }
     setLoading(false);
   };

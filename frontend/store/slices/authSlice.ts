@@ -3,8 +3,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import Cookies from 'js-cookie';
 import authApi from '@/services/api/auth';
-import type { MeResponse } from 'types/auth.type';
-import type { AuthState } from 'types/common.type';
+import type { MeResponse } from '../../types/auth.type';
+import type { AuthState } from '../../types/common.type';
 
 // Initial state matching AuthState interface
 const initialState: AuthState = {
@@ -27,7 +27,7 @@ export const fetchMe = createAsyncThunk<
         }
         authApi.setToken?.(accessToken); // Only if setToken exists
         const res = await authApi.getMe();
-        if (res && res.error_code === 0 && res.data) {
+        if (res && res.success && res.data) {
             return res.data;
         } else {
             return rejectWithValue(res?.message || 'Failed to fetch user info');

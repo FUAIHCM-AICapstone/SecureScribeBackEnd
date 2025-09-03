@@ -15,7 +15,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { showToast } from '@/hooks/useShowToast';
 import { Toaster } from 'sonner';
 import { SidebarProvider } from '@/context/SidebarContext';
-import InsufficientFishModal from '@/components/dashboard/MeetingContent/Modal/InsufficientFishModal';
 import ClientOnlyLayout from '@/components/layout/ClientOnly';
 
 export default function RootLayoutClient({
@@ -64,20 +63,6 @@ export default function RootLayoutClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, pathname]);
 
-  // Check localStorage for insufficient fish flag and show modal
-  const [showInsufficientFish, setShowInsufficientFish] = React.useState(false);
-  useEffect(() => {
-    try {
-      const flag = window.localStorage.getItem('insufficient_fish_balance');
-      if (flag) {
-        setShowInsufficientFish(true);
-        // remove flag so modal only shows once
-        window.localStorage.removeItem('insufficient_fish_balance');
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
   return (
     <>
       <head>
@@ -106,7 +91,6 @@ export default function RootLayoutClient({
                 <SidebarProvider>
                   {!hideHeader && <Header />}
                   <main>{children}</main>
-                  <InsufficientFishModal visible={showInsufficientFish} onClose={() => setShowInsufficientFish(false)} />
                 </SidebarProvider>
               </NextIntlClientProvider>
             </ReactQueryProvider>

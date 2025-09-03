@@ -16,36 +16,36 @@ export function middleware(request: NextRequest) {
   const accessToken = request.cookies.get('access_token');
 
   // Block dashboard access if not logged in
-  if (/^\/(dashboard|vi\/dashboard|en\/dashboard)(\/|$)/.test(pathname)) {
-    if (!accessToken) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/auth';
-      url.searchParams.set('toast', 'require_login');
-      return NextResponse.redirect(url);
-    }
-  }
+  // if (/^\/(dashboard|vi\/dashboard|en\/dashboard)(\/|$)/.test(pathname)) {
+  //   if (!accessToken) {
+  //     const url = request.nextUrl.clone();
+  //     url.pathname = '/auth';
+  //     url.searchParams.set('toast', 'require_login');
+  //     return NextResponse.redirect(url);
+  //   }
+  // }
 
   // Block /auth if already logged in
-  if (/^\/(auth|vi\/auth|en\/auth)(\/|$)/.test(pathname)) {
-    if (accessToken) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/dashboard/personal';
-      url.searchParams.set('toast', 'already_logged_in');
-      return NextResponse.redirect(url);
-    }
-  }
+  // if (/^\/(auth|vi\/auth|en\/auth)(\/|$)/.test(pathname)) {
+  //   if (accessToken) {
+  //     const url = request.nextUrl.clone();
+  //     url.pathname = '/dashboard/personal';
+  //     url.searchParams.set('toast', 'already_logged_in');
+  //     return NextResponse.redirect(url);
+  //   }
+  // }
 
   // Redirect /dashboard or /vi/dashboard or /en/dashboard to /dashboard/personal (with locale if present)
-  if (/^\/(dashboard|vi\/dashboard|en\/dashboard)$/.test(pathname)) {
-    const base = pathname.startsWith('/vi')
-      ? '/vi'
-      : pathname.startsWith('/en')
-        ? '/en'
-        : '';
-    const url = request.nextUrl.clone();
-    url.pathname = `${base}/dashboard/personal`;
-    return NextResponse.redirect(url);
-  }
+  // if (/^\/(dashboard|vi\/dashboard|en\/dashboard)$/.test(pathname)) {
+  //   const base = pathname.startsWith('/vi')
+  //     ? '/vi'
+  //     : pathname.startsWith('/en')
+  //       ? '/en'
+  //       : '';
+  //   const url = request.nextUrl.clone();
+  //   url.pathname = `${base}/dashboard/personal`;
+  //   return NextResponse.redirect(url);
+  // }
 
   const response = intlMiddleware(request);
   // If the response is a NextResponse and the status is 404, rewrite to /not-found

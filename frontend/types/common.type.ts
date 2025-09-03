@@ -11,3 +11,20 @@ export interface ApiError {
   message: string;
   data?: any;
 }
+
+// Auth state for Redux store
+export interface AuthState {
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  user: null | {
+    id: string;
+    email: string;
+    name?: string;
+    avatar_url?: string;
+    bio?: string;
+    position?: string;
+    created_at: string;
+    updated_at?: string;
+  };
+  error: string | null;
+}

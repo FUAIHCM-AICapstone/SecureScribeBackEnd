@@ -27,10 +27,10 @@ const Button: React.FC<ButtonProps> = ({
     className={`custom-button ${disabled ? 'disabled' : ''} ${className}`}
     disabled={disabled}
   >
-    {leftIcon && <span className="custom-button-icon">{leftIcon}</span>}
+    {leftIcon && <span className="custom-button-icon mr-2">{leftIcon}</span>}
     {icon && <span className="custom-button-icon">{icon}</span>}
     {children}
-    {rightIcon && <span className="custom-button-icon">{rightIcon}</span>}
+    {rightIcon && <span className="custom-button-icon ml-2">{rightIcon}</span>}
   </button>
 );
 

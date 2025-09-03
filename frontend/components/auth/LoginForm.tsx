@@ -9,17 +9,33 @@ import authApi from '@/services/api/auth';
 import { LockOutlined, LoginOutlined, MailOutlined } from '@ant-design/icons';
 import { Button, Checkbox, Input } from 'antd';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
-import { MeResponse } from 'types/auth.type';
+import { MeResponse } from '../../types/auth.type';
+import Cookies from 'js-cookie';
+import OAuthLoginButtons from './OAuthLoginButtons';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 
 interface LoginFormProps {
   onRegister?: () => void;
   onForgotPassword?: () => void;
-  onOtp?: (email: string) => void;
+  onSuccess?: () => void;
 }
 
+
+
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyDui5MKg4sB4eEcMjgjVXnw-u6bLm90D4E",
+  authDomain: "scribe-c7f13.firebaseapp.com",
+  projectId: "scribe-c7f13",
+  storageBucket: "scribe-c7f13.firebasestorage.app",
+  messagingSenderId: "970064337409",
+  appId: "1:970064337409:web:ab8ecc361e352c5025be00",
+  measurementId: "G-NH06MQQ2J3"
+};
+
 const LoginForm: React.FC<LoginFormProps> = (props) => {
-  const { onRegister, onForgotPassword } = props;
+  const { onRegister, onForgotPassword, onSuccess } = props;
   const { login } = useAuth();
   const dispatch = useDispatch();
   const [email, setEmail] = useState('');
@@ -28,7 +44,6 @@ const LoginForm: React.FC<LoginFormProps> = (props) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const t = useTranslations('AuthForm');
-  const router = useRouter();
 
   useEffect(() => {
     if (error) {
@@ -51,26 +66,101 @@ const LoginForm: React.FC<LoginFormProps> = (props) => {
       setLoading(false);
       return;
     }
+
     try {
-      const res = await authApi.login({ email, password });
-      if (res && res.error_code === 0 && res.data) {
+      // Firebase Authentication
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Check if email is verified
+      if (!user.emailVerified) {
+        // Send verification email
+        await sendEmailVerification(user);
+        setError(t('emailNotVerified'));
+        setLoading(false);
+        return;
+      }
+
+      // Get Firebase ID token
+      const idToken = await user.getIdToken();
+
+      // Call backend API with Firebase ID token
+      const res = await authApi.firebaseLogin({ id_token: idToken });
+
+      if (res && res.success && res.data) {
         // Set cookies for access_token and refresh_token
-        document.cookie = `access_token=${res.data.access_token}; path=/;`;
-        document.cookie = `refresh_token=${res.data.refresh_token}; path=/;`;
+        Cookies.set('access_token', res.data.token.access_token, { expires: 7 });
+        Cookies.set('refresh_token', res.data.token.refresh_token, { expires: 30 });
         login();
         // Dispatch Redux login action with user info
-        dispatch(loginAction(res.data as MeResponse));
-        showToast('success', t('loginSuccess'), 3000);
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 1000);
+        dispatch(loginAction({
+          id: res.data.user.id,
+          email: res.data.user.email,
+          name: res.data.user.name,
+          avatar_url: res.data.user.avatar_url
+        } as MeResponse));
+        onSuccess?.();
       } else {
-        setError(res?.message || t('loginFailed'));
+        setError(res?.message || t('networkError'));
       }
     } catch (err: any) {
-      setError(err?.response?.data?.message || t('loginFailed'));
+      console.error('Login error:', err);
+
+      // Handle Firebase errors
+      let errorMessage = t('networkError');
+      if (err.code === 'auth/user-not-found') {
+        errorMessage = t('userNotFound');
+      } else if (err.code === 'auth/wrong-password') {
+        errorMessage = t('wrongPassword');
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = t('invalidEmail');
+      } else if (err.code === 'auth/invalid-credential') {
+        errorMessage = t('invalidCredentials');
+      } else if (err.code === 'auth/user-disabled') {
+        errorMessage = t('userDisabled');
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = t('tooManyRequests');
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = t('networkErrorConnection');
+      } else if (err.response) {
+        // Handle backend API errors
+        const responseMessage = err.response.data?.message || err.response.data?.detail || '';
+
+        // Check for specific token timing errors
+        if (responseMessage.includes('Token used too early') ||
+          responseMessage.includes('clock is set correctly') ||
+          responseMessage.includes('Invalid Google token')) {
+          errorMessage = t('tokenUsedTooEarly');
+        } else if (responseMessage.includes('Invalid token') ||
+          responseMessage.includes('Token expired')) {
+          errorMessage = t('invalidToken');
+        } else {
+          errorMessage = responseMessage || t('networkError');
+        }
+      } else if (err.message) {
+        // Check for Firebase token timing errors
+        if (err.message.includes('Token used too early') ||
+          err.message.includes('clock is set correctly')) {
+          errorMessage = t('tokenUsedTooEarly');
+        } else if (err.message.includes('Invalid token') ||
+          err.message.includes('Token expired')) {
+          errorMessage = t('invalidToken');
+        } else {
+          errorMessage = err.message;
+        }
+      }
+
+      setError(errorMessage);
     }
     setLoading(false);
+  };
+
+  const handleGoogleSuccess = () => {
+    // FirebaseAuth component đã handle backend API call và error handling
+    // Chúng ta chỉ cần call onSuccess callback ở đây
+    onSuccess?.();
   };
 
   const inputStyle = {
@@ -144,6 +234,19 @@ const LoginForm: React.FC<LoginFormProps> = (props) => {
         >
           {t('loginButton')}
         </Button>
+
+        {/* Separator */}
+        <div className="flex items-center w-full my-4">
+          <div className="flex-1 h-px bg-gray-300" />
+          <span className="mx-3 text-sm text-gray-500">hoặc</span>
+          <div className="flex-1 h-px bg-gray-300" />
+        </div>
+
+        {/* OAuth Login Buttons */}
+        <div className="space-y-3">
+          <OAuthLoginButtons onSuccess={handleGoogleSuccess} />
+        </div>
+
         <div className="text-center mt-6">
           <span className="text-sm text-[var(--text-color)]">
             {t('noAccount')}{' '}

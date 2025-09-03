@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { IoFish } from "react-icons/io5";
 import authApi from '@/services/api/auth';
 import { showToast } from '@/hooks/useShowToast';
+import Cookies from 'js-cookie';
 
 export default function Sidebar() {
   const t = useTranslations('Sidebar');
@@ -45,17 +46,21 @@ export default function Sidebar() {
   const handleLogout = async () => {
     try {
       await authApi.logout();
-      // Remove tokens from cookies
-      document.cookie = 'access_token=; Max-Age=0; path=/;';
-      document.cookie = 'refresh_token=; Max-Age=0; path=/;';
+      // Remove tokens from cookies using js-cookie
+      Cookies.remove('access_token', { path: '/' });
+      Cookies.remove('refresh_token', { path: '/' });
       // Update context and redux
       logoutContext();
       dispatch(logoutRedux());
 
-      window.location.reload();
+      showToast('success', 'Đã đăng xuất thành công!');
+      // Redirect to auth page after a short delay
+      setTimeout(() => {
+        window.location.href = '/auth';
+      }, 1000);
     } catch (e) {
-      showToast('error', `${e}`);
-      // Optionally: show error toast
+      console.error('Logout error:', e);
+      showToast('error', 'Có lỗi xảy ra khi đăng xuất');
     }
   };
 

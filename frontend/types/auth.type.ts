@@ -41,6 +41,27 @@ export interface UserUpdateRequest {
   avatar_url?: string;
 }
 
+// Signup Request
+export interface SignupRequest {
+  email: string;
+  password: string;
+  confirm_password: string;
+  device_address: string;
+  role?: string;
+}
+
+// Login Response
+export interface MeResponse {
+  id: string;
+  email: string;
+  name?: string;
+  avatar_url?: string;
+  bio?: string;
+  position?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 // Common API Response (matches backend ApiResponse)
 export interface ApiResponse<T> {
   success: boolean;
@@ -53,3 +74,4 @@ export type FirebaseLoginResponse = ApiResponse<AuthResponse>;
 export type TokenRefreshResponse = ApiResponse<TokenResponse>;
 export type UserProfileResponse = ApiResponse<UserProfile>;
 export type UserUpdateResponse = ApiResponse<UserProfile>;
+export type SignupResponseModel = ApiResponse<UserProfile>;
