@@ -33,6 +33,7 @@ redis_client = redis.Redis(connection_pool=redis_pool)
 # Async Redis client for WebSocket pub/sub operations
 try:
     import redis.asyncio as aioredis
+
     redis_async_client = aioredis.Redis(
         host=settings.REDIS_HOST,
         port=int(settings.REDIS_PORT),
@@ -128,6 +129,7 @@ async def publish_to_user_channel(user_id: str, message: dict) -> bool:
         client = await get_async_redis_client()
         channel = f"user:{user_id}:{message.get('type', 'notification')}"
         import json
+
         data = json.dumps(message)
         result = await client.publish(channel, data)
         logger.debug("Published to %s (subscribers=%s): %s", channel, result, message)
@@ -158,7 +160,7 @@ async def get_recent_messages_for_user(user_id: str, limit: int = 10) -> list:
                     task_id = parts[1] if len(parts) >= 3 else None
                     message = {
                         "type": "task_progress",
-                        "data": {**data, "task_id": task_id}
+                        "data": {**data, "task_id": task_id},
                     }
                     messages.append(message)
             except Exception as e:

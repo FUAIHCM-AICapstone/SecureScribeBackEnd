@@ -49,6 +49,7 @@ def test_create_user_invalid_email(client):
     resp = client.post("/api/v1/users", json=payload)
     assert resp.status_code == 422  # Validation error
 
+
 def test_create_user_duplicate_email(client):
     email = faker.email()
 

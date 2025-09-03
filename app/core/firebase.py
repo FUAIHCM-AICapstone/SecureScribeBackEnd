@@ -27,7 +27,9 @@ def initialize_firebase():
 
         except Exception as e:
             logger.error(f"Failed to initialize Firebase: {str(e)}")
-            logger.error(f"Firebase apps before error: {list(firebase_admin._apps.keys())}")
+            logger.error(
+                f"Firebase apps before error: {list(firebase_admin._apps.keys())}"
+            )
             raise
     else:
         logger.info("Firebase already initialized")

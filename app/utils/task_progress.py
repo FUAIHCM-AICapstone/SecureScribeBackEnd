@@ -12,10 +12,12 @@ logger = logging.getLogger(__name__)
 # TTL cho last state (ví dụ giữ 1 giờ) — ephemeral requirement
 TASK_PROGRESS_TTL_SECONDS = 60 * 60  # 1 hour
 
+
 def normalize_user_id(user_id: Union[str, UUID]) -> str:
     if isinstance(user_id, UUID):
         return str(user_id)
     return str(user_id)
+
 
 def publish_task_progress(user_id: str, payload: dict) -> bool:
     """
@@ -34,6 +36,7 @@ def publish_task_progress(user_id: str, payload: dict) -> bool:
         # don't raise to avoid crashing workers
         return False
 
+
 def update_task_progress(
     task_id: str,
     user_id: str | UUID,
@@ -44,8 +47,13 @@ def update_task_progress(
 ) -> bool:
     """Update task progress in Redis and publish to WebSocket"""
     normalized_user_id = normalize_user_id(user_id)
-    logger.info("Updating task progress for task_id=%s user_id=%s progress=%s status=%s",
-                task_id, normalized_user_id, progress, status)
+    logger.info(
+        "Updating task progress for task_id=%s user_id=%s progress=%s status=%s",
+        task_id,
+        normalized_user_id,
+        progress,
+        status,
+    )
     try:
         r = get_redis_client()
         key = f"task_progress:{task_id}:{normalized_user_id}"
@@ -69,5 +77,7 @@ def update_task_progress(
 
         return True
     except Exception as e:
-        logger.exception("update_task_progress failed for task %s user %s: %s", task_id, user_id, e)
+        logger.exception(
+            "update_task_progress failed for task %s user %s: %s", task_id, user_id, e
+        )
         return False

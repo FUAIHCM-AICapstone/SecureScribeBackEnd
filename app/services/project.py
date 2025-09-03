@@ -35,6 +35,9 @@ def create_project(
     db.commit()
     db.refresh(project)
 
+    # Add creator as project owner
+    add_user_to_project(db, project.id, created_by, "owner")
+
     return project
 
 
@@ -141,22 +144,6 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
     return True
 
 
-def archive_project(db: Session, project_id: uuid.UUID) -> Optional[Project]:
-    """
-    Archive a project (soft delete)
-    """
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        return None
-
-    project.is_archived = True
-    project.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(project)
-
-    return project
-
-
 # User-Project relationship management
 def add_user_to_project(
     db: Session, project_id: uuid.UUID, user_id: uuid.UUID, role: str = "member"
@@ -253,18 +240,6 @@ def get_project_members(db: Session, project_id: uuid.UUID) -> List[UserProject]
         db.query(UserProject)
         .options(joinedload(UserProject.user))
         .filter(UserProject.project_id == project_id)
-        .all()
-    )
-
-
-def get_user_projects(db: Session, user_id: uuid.UUID) -> List[UserProject]:
-    """
-    Get all projects a user belongs to
-    """
-    return (
-        db.query(UserProject)
-        .options(joinedload(UserProject.project))
-        .filter(UserProject.user_id == user_id)
         .all()
     )
 

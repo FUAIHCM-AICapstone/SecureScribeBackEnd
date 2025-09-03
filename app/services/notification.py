@@ -115,12 +115,15 @@ def send_fcm_notification(
                 .filter(UserDevice.user_id == user_id, UserDevice.is_active == True)
                 .all()
             )
-            user_tokens = [device.fcm_token for device in devices if device.fcm_token and device.fcm_token.strip()]
+            user_tokens = [
+                device.fcm_token
+                for device in devices
+                if device.fcm_token and device.fcm_token.strip()
+            ]
             tokens.extend(user_tokens)
 
         if not tokens:
             return
-
 
         # Ensure all data values are strings as required by FCM
         fcm_data = {}

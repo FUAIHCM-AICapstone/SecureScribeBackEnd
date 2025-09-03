@@ -22,6 +22,7 @@ from app.utils.auth import (
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Auth"])
 security = HTTPBearer()
 
+
 @router.post("/auth/refresh", response_model=ApiResponse[dict])
 def refresh_token_endpoint(refresh_token: str):
     payload = verify_token(refresh_token)
@@ -88,6 +89,8 @@ def update_current_user_info(
 def firebase_login_endpoint(request: GoogleAuthRequest, db: Session = Depends(get_db)):
     try:
         result = firebase_login(db, request.id_token)
-        return ApiResponse(success=True, message="Firebase login successful", data=result)
+        return ApiResponse(
+            success=True, message="Firebase login successful", data=result
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -9,7 +9,7 @@ from fastapi import WebSocket
 from app.utils.redis import (
     get_async_redis_client,
     publish_to_user_channel,
-    get_recent_messages_for_user
+    get_recent_messages_for_user,
 )
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,9 @@ class WebSocketConnectionManager:
     """
 
     def __init__(self):
-        self.connections: Dict[str, Set[WebSocket]] = {}  # user_id -> set of WebSocket connections
+        self.connections: Dict[
+            str, Set[WebSocket]
+        ] = {}  # user_id -> set of WebSocket connections
         self._redis_client = None
         self._pubsub_task: Optional[asyncio.Task] = None
         self._stop = False
@@ -42,11 +44,15 @@ class WebSocketConnectionManager:
 
         self.connections[user_id].add(websocket)
         self._metrics["total_connections"] += 1
-        self._metrics["active_connections"] = sum(len(conns) for conns in self.connections.values())
+        self._metrics["active_connections"] = sum(
+            len(conns) for conns in self.connections.values()
+        )
 
         logger.info(
             "Added WebSocket connection for user %s (total users: %s, active connections: %s)",
-            user_id, len(self.connections), self._metrics["active_connections"]
+            user_id,
+            len(self.connections),
+            self._metrics["active_connections"],
         )
 
     def remove_connection(self, user_id: str, websocket: WebSocket) -> None:
@@ -57,10 +63,13 @@ class WebSocketConnectionManager:
             if not self.connections[user_id]:
                 del self.connections[user_id]
 
-            self._metrics["active_connections"] = sum(len(conns) for conns in self.connections.values())
+            self._metrics["active_connections"] = sum(
+                len(conns) for conns in self.connections.values()
+            )
             logger.info(
                 "Removed WebSocket connection for user %s (remaining connections: %s)",
-                user_id, self._metrics["active_connections"]
+                user_id,
+                self._metrics["active_connections"],
             )
 
     async def broadcast_to_user(self, user_id: str, message_data: dict) -> int:
@@ -93,8 +102,12 @@ class WebSocketConnectionManager:
             self.remove_connection(user_id, websocket)
 
         if sent_count > 0:
-            logger.debug("Sent message to %s/%s connections for user %s",
-                        sent_count, len(connections), user_id)
+            logger.debug(
+                "Sent message to %s/%s connections for user %s",
+                sent_count,
+                len(connections),
+                user_id,
+            )
 
         return sent_count
 
@@ -129,8 +142,12 @@ class WebSocketConnectionManager:
             # Broadcast to user's WebSocket connections
             sent_count = await self.broadcast_to_user(user_id, message)
 
-            logger.debug("Processed Redis message for user %s (type: %s, sent to %s connections)",
-                        user_id, message_type, sent_count)
+            logger.debug(
+                "Processed Redis message for user %s (type: %s, sent to %s connections)",
+                user_id,
+                message_type,
+                sent_count,
+            )
 
         except Exception as e:
             logger.exception("Error handling Redis message: %s", e)
@@ -179,7 +196,7 @@ class WebSocketConnectionManager:
                     try:
                         message = await asyncio.wait_for(
                             pubsub.get_message(ignore_subscribe_messages=True),
-                            timeout=1.0
+                            timeout=1.0,
                         )
 
                         if message is None:
@@ -221,14 +238,19 @@ class WebSocketConnectionManager:
             recent_messages = await get_recent_messages_for_user(user_id, limit=10)
 
             if recent_messages:
-                logger.info("Replaying %s recent messages for user %s",
-                           len(recent_messages), user_id)
+                logger.info(
+                    "Replaying %s recent messages for user %s",
+                    len(recent_messages),
+                    user_id,
+                )
 
                 for message in recent_messages:
                     try:
                         await websocket.send_json(message)
                     except Exception as e:
-                        logger.exception("Failed to replay message to user %s: %s", user_id, e)
+                        logger.exception(
+                            "Failed to replay message to user %s: %s", user_id, e
+                        )
                         break
 
         except Exception as e:
@@ -242,7 +264,7 @@ class WebSocketConnectionManager:
             "connections_per_user": {
                 user_id: len(connections)
                 for user_id, connections in self.connections.items()
-            }
+            },
         }
 
     async def publish_user_message(self, user_id: str, message: dict) -> bool:

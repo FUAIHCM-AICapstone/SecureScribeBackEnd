@@ -2,7 +2,7 @@ import uuid
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
 from app.db import get_db
@@ -14,7 +14,6 @@ from app.schemas.project import (
     ProjectApiResponse,
     ProjectCreate,
     ProjectFilter,
-    ProjectMembersApiResponse,
     ProjectResponse,
     ProjectsPaginatedResponse,
     ProjectUpdate,
@@ -37,10 +36,13 @@ from app.services.project import (
     format_user_project_response,
     get_project,
     get_project_members,
+    get_project_membership,
     get_projects,
     get_user_projects,
     get_user_role_in_project,
     is_user_in_project,
+    join_project,
+    leave_project,
     remove_user_from_project,
     update_project,
     update_user_role_in_project,
@@ -89,9 +91,25 @@ def get_projects_endpoint(
     member_id: Optional[str] = Query(None),
     created_at_gte: Optional[str] = Query(None),
     created_at_lte: Optional[str] = Query(None),
+    my_projects_only: bool = Query(
+        False, description="Only show projects where current user is a member"
+    ),
 ):
     """
     Get projects with filtering and pagination
+
+    Query Parameters:
+    - my_projects_only: Only show projects where current user is a member
+    - name: Filter by project name (partial match)
+    - is_archived: Filter by archived status
+    - created_by: Filter by creator user ID
+    - member_id: Filter by member user ID
+    - created_at_gte: Filter by creation date >=
+    - created_at_lte: Filter by creation date <=
+    - page: Page number (default: 1)
+    - limit: Items per page (default: 20, max: 100)
+    - order_by: Sort field (default: created_at)
+    - dir: Sort direction (default: desc)
     """
     try:
         # Parse UUID fields
@@ -112,6 +130,10 @@ def get_projects_endpoint(
                 raise HTTPException(
                     status_code=400, detail="Invalid member_id UUID format"
                 )
+
+        # Override member_id if my_projects_only is True
+        if my_projects_only:
+            member_id_uuid = current_user.id
 
         # Create filter object
         filters = ProjectFilter(
@@ -165,6 +187,7 @@ def get_project_endpoint(
             raise HTTPException(status_code=404, detail="Project not found")
 
         # Check if user has access to this project
+        print(f"user id {current_user.id}, project id {project_id}")
         if not is_user_in_project(db, project_id, current_user.id):
             raise HTTPException(status_code=403, detail="Access denied")
 
@@ -247,38 +270,6 @@ def delete_project_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.patch("/projects/{project_id}/archive", response_model=ProjectApiResponse)
-def archive_project_endpoint(
-    project_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Archive a project (soft delete)
-    """
-    try:
-        # Check if user has admin access to this project
-        user_role = get_user_role_in_project(db, project_id, current_user.id)
-        if not user_role or user_role not in ["admin", "owner"]:
-            raise HTTPException(status_code=403, detail="Admin access required")
-
-        archived_project = archive_project(db, project_id)
-        if not archived_project:
-            raise HTTPException(status_code=404, detail="Project not found")
-
-        response_data = format_project_response(archived_project)
-
-        return ApiResponse(
-            success=True,
-            message="Project archived successfully",
-            data=response_data,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
 # ===== USER-PROJECT RELATIONSHIP ENDPOINTS =====
 
 
@@ -327,30 +318,49 @@ def remove_member_from_project_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Remove a user from a project
+    Remove a user from a project (leave project if removing yourself)
     """
     try:
-        # Check if current user has admin access to this project
-        user_role = get_user_role_in_project(db, project_id, current_user.id)
-        if not user_role or user_role not in ["admin", "owner"]:
-            raise HTTPException(status_code=403, detail="Admin access required")
+        # Check permissions based on whether user is removing themselves or others
+        is_self_removal = user_id == current_user.id
 
-        # Prevent removing yourself if you're the only admin
-        if user_id == current_user.id:
-            members = get_project_members(db, project_id)
-            admin_count = sum(1 for m in members if m.role in ["admin", "owner"])
-            if admin_count <= 1:
+        if is_self_removal:
+            # Allow self-removal (leaving project) but prevent leaving if last admin
+            user_role = get_user_role_in_project(db, project_id, current_user.id)
+            if user_role in ["admin", "owner"]:
+                members = get_project_members(db, project_id)
+                admin_count = sum(
+                    1
+                    for m in members
+                    if m.role in ["admin", "owner"] and m.user_id != current_user.id
+                )
+                if admin_count == 0:
+                    raise HTTPException(
+                        status_code=400, detail="Cannot leave project as the last admin"
+                    )
+        else:
+            # Require admin access for removing other users
+            user_role = get_user_role_in_project(db, project_id, current_user.id)
+            if not user_role or user_role not in ["admin", "owner"]:
                 raise HTTPException(
-                    status_code=400, detail="Cannot remove the last admin from project"
+                    status_code=403,
+                    detail="Admin access required to remove other members",
                 )
 
         success = remove_user_from_project(db, project_id, user_id)
         if not success:
             raise HTTPException(status_code=404, detail="User not found in project")
 
+        # Different success messages for self-removal vs admin removal
+        message = (
+            "Successfully left project"
+            if is_self_removal
+            else "User removed from project successfully"
+        )
+
         return ApiResponse(
             success=True,
-            message="User removed from project successfully",
+            message=message,
             data={},
         )
     except HTTPException:
@@ -398,42 +408,6 @@ def update_member_role_endpoint(
         return ApiResponse(
             success=True,
             message="User role updated successfully",
-            data=response_data,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/projects/{project_id}/members", response_model=ProjectMembersApiResponse)
-def get_project_members_endpoint(
-    project_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Get all members of a project
-    """
-    try:
-        # Check if user has access to this project
-        if not is_user_in_project(db, project_id, current_user.id):
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        members = get_project_members(db, project_id)
-        formatted_members = [format_user_project_response(member) for member in members]
-
-        from app.schemas.project import ProjectMembersResponse
-
-        response_data = ProjectMembersResponse(
-            project_id=project_id,
-            members=formatted_members,
-            total_count=len(formatted_members),
-        )
-
-        return ApiResponse(
-            success=True,
-            message="Project members retrieved successfully",
             data=response_data,
         )
     except HTTPException:
@@ -537,107 +511,136 @@ def bulk_remove_members_endpoint(
 # ===== USER'S PROJECTS =====
 
 
-@router.get("/users/me/projects", response_model=ApiResponse[List[ProjectResponse]])
-def get_my_projects_endpoint(
+# ===== CURRENT USER PROJECT ENDPOINTS =====
+
+
+@router.get("/users/me/project-stats", response_model=ApiResponse[dict])
+def get_my_project_stats_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Get all projects the current user belongs to
+    Get current user's project statistics
     """
     try:
-        user_projects = get_user_projects(db, current_user.id)
-        projects_data = []
+        # Get user's projects directly (merged from get_user_projects function)
+        user_projects = (
+            db.query(UserProject)
+            .options(joinedload(UserProject.project))
+            .filter(UserProject.user_id == current_user.id)
+            .all()
+        )
 
-        for user_project in user_projects:
-            if user_project.project:
-                project_data = format_project_response(user_project.project)
-                projects_data.append(project_data)
+        # Calculate statistics
+        total_projects = len(user_projects)
+        admin_projects = sum(1 for up in user_projects if up.role in ["admin", "owner"])
+        member_projects = total_projects - admin_projects
+        active_projects = sum(
+            1 for up in user_projects if up.project and not up.project.is_archived
+        )
+
+        stats = {
+            "total_projects": total_projects,
+            "admin_projects": admin_projects,
+            "member_projects": member_projects,
+            "active_projects": active_projects,
+            "archived_projects": total_projects - active_projects,
+        }
 
         return ApiResponse(
             success=True,
-            message="User projects retrieved successfully",
-            data=projects_data,
+            message="Project statistics retrieved successfully",
+            data=stats,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/projects/{project_id}/join", response_model=UserProjectApiResponse)
-def join_project_endpoint(
+@router.post("/projects/{project_id}/me/request-role", response_model=ApiResponse[dict])
+def request_role_change_endpoint(
     project_id: uuid.UUID,
+    role_request: UserProjectUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Join a project as a member (if project allows self-join)
-    """
-    try:
-        # Check if project exists
-        project = get_project(db, project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-
-        # Check if already a member
-        if is_user_in_project(db, project_id, current_user.id):
-            raise HTTPException(
-                status_code=400, detail="Already a member of this project"
-            )
-
-        # For now, allow anyone to join any project (this can be restricted later)
-        user_project = add_user_to_project(db, project_id, current_user.id, "member")
-        if not user_project:
-            raise HTTPException(status_code=400, detail="Failed to join project")
-
-        response_data = format_user_project_response(user_project)
-
-        return ApiResponse(
-            success=True,
-            message="Successfully joined project",
-            data=response_data,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/projects/{project_id}/leave", response_model=ApiResponse[dict])
-def leave_project_endpoint(
-    project_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Leave a project
+    Request a role change in a project (creates a notification for admins)
     """
     try:
         # Check if user is a member
         if not is_user_in_project(db, project_id, current_user.id):
-            raise HTTPException(status_code=400, detail="Not a member of this project")
-
-        # Prevent leaving if you're the only admin
-        user_role = get_user_role_in_project(db, project_id, current_user.id)
-        if user_role in ["admin", "owner"]:
-            members = get_project_members(db, project_id)
-            admin_count = sum(
-                1
-                for m in members
-                if m.role in ["admin", "owner"] and m.user_id != current_user.id
+            raise HTTPException(
+                status_code=403, detail="You are not a member of this project"
             )
-            if admin_count == 0:
-                raise HTTPException(
-                    status_code=400, detail="Cannot leave project as the last admin"
+
+        # Get current role
+        current_role = get_user_role_in_project(db, project_id, current_user.id)
+        if not current_role:
+            raise HTTPException(status_code=404, detail="Current role not found")
+
+        # Prevent requesting same role
+        if role_request.role == current_role:
+            raise HTTPException(
+                status_code=400, detail=f"You already have the '{current_role}' role"
+            )
+
+        # Get project details
+        project = get_project(db, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Create notification for project admins
+        try:
+            from app.schemas.notification import NotificationCreate
+            from app.services.notification import create_notifications_bulk
+
+            # Find all admin users in the project
+            members = get_project_members(db, project_id)
+            admin_user_ids = [
+                member.user_id
+                for member in members
+                if member.role in ["admin", "owner"]
+                and member.user_id != current_user.id
+            ]
+
+            if admin_user_ids:
+                # Create notification
+                notification_data = NotificationCreate(
+                    user_ids=admin_user_ids,
+                    type="role_change_request",
+                    payload={
+                        "project_id": str(project_id),
+                        "project_name": project.name,
+                        "requester_id": str(current_user.id),
+                        "requester_name": current_user.name or current_user.email,
+                        "current_role": current_role,
+                        "requested_role": role_request.role,
+                        "message": f"{current_user.name or current_user.email} requested to change role from '{current_role}' to '{role_request.role}' in project '{project.name}'",
+                    },
+                    channel="in_app",
                 )
 
-        success = remove_user_from_project(db, project_id, current_user.id)
-        if not success:
-            raise HTTPException(status_code=400, detail="Failed to leave project")
+                create_notifications_bulk(
+                    db,
+                    notification_data.user_ids,
+                    type=notification_data.type,
+                    payload=notification_data.payload,
+                    channel=notification_data.channel,
+                )
+
+        except Exception as e:
+            # Log error but don't fail the request
+            print(f"Failed to create role change notification: {e}")
 
         return ApiResponse(
             success=True,
-            message="Successfully left project",
-            data={},
+            message="Role change request submitted successfully",
+            data={
+                "project_id": str(project_id),
+                "current_role": current_role,
+                "requested_role": role_request.role,
+                "status": "pending_approval",
+            },
         )
     except HTTPException:
         raise

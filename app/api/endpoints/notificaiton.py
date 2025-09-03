@@ -96,7 +96,12 @@ def send_notification_endpoint(
     # Publish to Redis channels for real-time WebSocket delivery
     from app.utils.redis import publish_to_user_channel
     import asyncio
-    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+    from tenacity import (
+        retry,
+        stop_after_attempt,
+        wait_exponential,
+        retry_if_exception_type,
+    )
 
     @retry(
         stop=stop_after_attempt(3),
@@ -112,8 +117,8 @@ def send_notification_endpoint(
                     "notification_type": notification_data.type,
                     "payload": notification_data.payload,
                     "channel": notification_data.channel,
-                    "timestamp": asyncio.get_event_loop().time()
-                }
+                    "timestamp": asyncio.get_event_loop().time(),
+                },
             }
             success = await publish_to_user_channel(str(user_id), message)
             if not success:
@@ -160,7 +165,12 @@ def send_global_notification_endpoint(
     # Publish to Redis channels for real-time WebSocket delivery
     from app.utils.redis import publish_to_user_channel
     import asyncio
-    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+    from tenacity import (
+        retry,
+        stop_after_attempt,
+        wait_exponential,
+        retry_if_exception_type,
+    )
 
     @retry(
         stop=stop_after_attempt(3),
@@ -178,16 +188,20 @@ def send_global_notification_endpoint(
                     "payload": notification_data.payload,
                     "channel": notification_data.channel,
                     "is_global": True,
-                    "timestamp": asyncio.get_event_loop().time()
-                }
+                    "timestamp": asyncio.get_event_loop().time(),
+                },
             }
             success = await publish_to_user_channel(str(user_id), message)
             if success:
                 success_count += 1
             else:
-                print(f"Failed to publish global notification to user {user_id} after retries")
+                print(
+                    f"Failed to publish global notification to user {user_id} after retries"
+                )
 
-        print(f"Published global notifications to {success_count}/{len(user_ids)} users")
+        print(
+            f"Published global notifications to {success_count}/{len(user_ids)} users"
+        )
 
     # Run async publishing in background with error handling
     try:
@@ -249,9 +263,13 @@ def delete_notification_endpoint(
 @router.websocket("/notifications/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    authorization: str = Query(None, description="Bearer token in format: Bearer <token>"),
+    authorization: str = Query(
+        None, description="Bearer token in format: Bearer <token>"
+    ),
     token: str = Query(None, description="JWT token (legacy support)"),
-    sec_websocket_protocol: str = Query(None, description="WebSocket subprotocols", alias="sec-websocket-protocol")
+    sec_websocket_protocol: str = Query(
+        None, description="WebSocket subprotocols", alias="sec-websocket-protocol"
+    ),
 ):
     """
     WebSocket endpoint for real-time notifications and task progress updates.
@@ -272,7 +290,7 @@ async def websocket_endpoint(
         # Get token from either authorization or token parameter
         auth_token = None
         if authorization and authorization.lower().startswith("bearer "):
-            auth_token = authorization[len("bearer "):].strip()
+            auth_token = authorization[len("bearer ") :].strip()
         elif authorization:
             auth_token = authorization.strip()
         elif token:
@@ -308,7 +326,10 @@ async def websocket_endpoint(
         websocket_manager.add_connection(user_id_str, websocket)
 
         # Start Redis listener if not already started
-        if websocket_manager._pubsub_task is None or websocket_manager._pubsub_task.done():
+        if (
+            websocket_manager._pubsub_task is None
+            or websocket_manager._pubsub_task.done()
+        ):
             asyncio.create_task(websocket_manager.start_redis_listener())
 
         # Send simple connection confirmation
@@ -316,8 +337,8 @@ async def websocket_endpoint(
             "type": "connected",
             "data": {
                 "user_id": user_id_str,
-                "message": "WebSocket connection established"
-            }
+                "message": "WebSocket connection established",
+            },
         }
         await websocket.send_json(connection_message)
 
@@ -326,7 +347,7 @@ async def websocket_endpoint(
             "type": "capabilities",
             "data": {
                 "supported_message_types": ["task_progress", "notification", "system"]
-            }
+            },
         }
         await websocket.send_json(capabilities_message)
 
@@ -334,10 +355,7 @@ async def websocket_endpoint(
         while True:
             try:
                 # Wait for message with timeout
-                message = await asyncio.wait_for(
-                    websocket.receive_json(),
-                    timeout=30.0
-                )
+                message = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
 
                 # Handle client messages
                 message_type = message.get("type", "")
@@ -349,10 +367,12 @@ async def websocket_endpoint(
 
                 elif message_type == "status":
                     # Send simple status
-                    await websocket.send_json({
-                        "type": "status",
-                        "data": {"user_id": user_id_str, "connected": True}
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "status",
+                            "data": {"user_id": user_id_str, "connected": True},
+                        }
+                    )
 
                 else:
                     print(f"Message from user {user_id_str}: {message_type}")
@@ -378,7 +398,7 @@ async def websocket_endpoint(
 
     finally:
         # Clean up connection
-        if user_id_str and 'websocket_manager' in locals():
+        if user_id_str and "websocket_manager" in locals():
             try:
                 websocket_manager.remove_connection(user_id_str, websocket)
             except Exception:

@@ -88,6 +88,7 @@ app = FastAPI(
     generate_unique_id_function=custom_generate_unique_id,
 )
 
+
 @app.on_event("startup")
 async def startup_event():
     """Application startup event"""
@@ -95,18 +96,22 @@ async def startup_event():
 
     # Start WebSocket manager Redis listener
     from app.services.websocket_manager import websocket_manager
+
     await websocket_manager.start_redis_listener()
     print("🔌 WebSocket Redis listener started")
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown event"""
     # Stop WebSocket manager Redis listener
     from app.services.websocket_manager import websocket_manager
+
     await websocket_manager.stop_redis_listener()
     print("🔌 WebSocket Redis listener stopped")
 
     print("🛑 Application shutdown")
+
 
 # Add middleware to log all requests
 @app.middleware("http")
@@ -116,6 +121,7 @@ async def log_requests(request, call_next):
     response = await call_next(request)
     print(f"[RESPONSE] {response.status_code}")
     return response
+
 
 # Override the default OpenAPI schema generator
 app.openapi = custom_openapi
@@ -129,7 +135,13 @@ app.add_middleware(
         else ["*"]
     ),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicitly allow methods
+    allow_methods=[
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS",
+    ],  # Explicitly allow methods
     allow_headers=["*"],  # Allow all headers including Authorization
     expose_headers=["*"],  # Expose all headers for EventSource
 )
