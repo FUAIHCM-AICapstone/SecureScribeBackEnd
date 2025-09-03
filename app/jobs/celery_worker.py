@@ -1,15 +1,12 @@
-import time
 import asyncio
-from uuid import UUID
+import time
 
 from celery import Celery
 
 from app.core.config import settings
 from app.core.firebase import initialize_firebase
-from app.db import SessionLocal
-from app.services.notification import create_notification, send_fcm_notification
-from app.utils.task_progress import update_task_progress
 from app.utils.redis import publish_to_user_channel
+from app.utils.task_progress import update_task_progress
 
 initialize_firebase()
 
