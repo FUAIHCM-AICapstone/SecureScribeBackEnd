@@ -1,50 +1,172 @@
+# app/clients/redis_client.py
+import logging
+
 import redis
 from redis import ConnectionPool
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from app.core.config import settings
 
-# Create connection pool for better performance
+logger = logging.getLogger(__name__)
+
+# Create connection pool for better performance (sync client)
 redis_pool = ConnectionPool(
     host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
-    db=settings.REDIS_DB,
+    port=int(settings.REDIS_PORT),
+    db=int(settings.REDIS_DB),
     decode_responses=True,
-    max_connections=20,
     retry_on_timeout=True,
     socket_timeout=5,
     socket_connect_timeout=5,
-    socket_keepalive=True,
-    socket_keepalive_options={},
+    # socket_keepalive handled by OS; don't pass empty options
     health_check_interval=30,
+    max_connections=50,
 )
 
 redis_client = redis.Redis(connection_pool=redis_pool)
 
+# Async Redis client for WebSocket pub/sub operations
+try:
+    import redis.asyncio as aioredis
+    redis_async_client = aioredis.Redis(
+        host=settings.REDIS_HOST,
+        port=int(settings.REDIS_PORT),
+        db=int(settings.REDIS_DB),
+        decode_responses=True,
+        retry_on_timeout=True,
+        socket_timeout=5,
+        socket_connect_timeout=5,
+        health_check_interval=30,
+        max_connections=20,  # Lower for async
+    )
+    logger.info("Async Redis client initialized successfully")
+except ImportError:
+    logger.warning("aioredis not available, async Redis operations will be limited")
+    redis_async_client = None
 
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=0.2, min=0.2, max=2),
+    retry=retry_if_exception_type(redis.exceptions.ConnectionError),
+)
 def get_redis_client():
     """
-    Get Redis client with error handling
+    Get Redis client with error handling and retry.
     """
     try:
+        # quick ping to ensure connection usable
+        redis_client.ping()
         return redis_client
     except Exception as e:
-        print(f"Redis connection error: {e}")
-        # Fallback to new connection if pool fails
-        return redis.Redis(
+        logger.exception("Redis connection error (pool): %s", e)
+        # Fallback to fresh connection (no pool)
+        fallback = redis.Redis(
             host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            db=settings.REDIS_DB,
+            port=int(settings.REDIS_PORT),
+            db=int(settings.REDIS_DB),
             decode_responses=True,
+            socket_connect_timeout=5,
+            socket_timeout=5,
         )
+        try:
+            fallback.ping()
+            logger.warning("Using fallback redis connection (no pool).")
+            return fallback
+        except Exception as e2:
+            logger.exception("Fallback redis connection also failed: %s", e2)
+            raise
 
 
-def test_redis_connection():
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=0.2, min=0.2, max=2),
+    retry=retry_if_exception_type(redis.exceptions.ConnectionError),
+)
+async def get_async_redis_client():
     """
-    Test Redis connection
+    Get async Redis client with error handling and retry.
+    """
+    if redis_async_client is None:
+        raise RuntimeError("Async Redis client not available. Please install aioredis.")
+
+    try:
+        # quick ping to ensure connection usable
+        await redis_async_client.ping()
+        return redis_async_client
+    except Exception as e:
+        logger.exception("Async Redis connection error: %s", e)
+        # Try to create fresh connection
+        try:
+            fresh_client = aioredis.Redis(
+                host=settings.REDIS_HOST,
+                port=int(settings.REDIS_PORT),
+                db=int(settings.REDIS_DB),
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+            )
+            await fresh_client.ping()
+            logger.warning("Using fresh async redis connection.")
+            return fresh_client
+        except Exception as e2:
+            logger.exception("Fresh async redis connection also failed: %s", e2)
+            raise
+
+
+async def publish_to_user_channel(user_id: str, message: dict) -> bool:
+    """
+    Publish message to user's Redis channel using hierarchical pattern.
+    Channel format: user:{user_id}:{message_type}
     """
     try:
-        redis_client.ping()
+        client = await get_async_redis_client()
+        channel = f"user:{user_id}:{message.get('type', 'notification')}"
+        import json
+        data = json.dumps(message)
+        result = await client.publish(channel, data)
+        logger.debug("Published to %s (subscribers=%s): %s", channel, result, message)
         return True
     except Exception as e:
-        print(f"Redis connection test failed: {e}")
+        logger.exception("Failed to publish to user channel %s: %s", user_id, e)
         return False
+
+
+async def get_recent_messages_for_user(user_id: str, limit: int = 10) -> list:
+    """
+    Get recent messages for a user from Redis for replay functionality.
+    This is used when a WebSocket client reconnects.
+    """
+    try:
+        client = await get_async_redis_client()
+        # Get all task progress keys for this user
+        pattern = f"task_progress:*:{user_id}"
+        keys = await client.keys(pattern)
+
+        messages = []
+        for key in keys[:limit]:  # Limit to prevent overwhelming
+            try:
+                data = await client.hgetall(key)
+                if data:
+                    # Extract task_id from key: task_progress:{task_id}:{user_id}
+                    parts = key.split(":")
+                    task_id = parts[1] if len(parts) >= 3 else None
+                    message = {
+                        "type": "task_progress",
+                        "data": {**data, "task_id": task_id}
+                    }
+                    messages.append(message)
+            except Exception as e:
+                logger.exception("Failed to read message from key %s: %s", key, e)
+
+        # Sort by last_update timestamp (most recent first)
+        messages.sort(key=lambda x: x["data"].get("last_update", ""), reverse=True)
+        return messages[:limit]
+    except Exception as e:
+        logger.exception("Failed to get recent messages for user %s: %s", user_id, e)
+        return []

@@ -115,20 +115,31 @@ def send_fcm_notification(
                 .filter(UserDevice.user_id == user_id, UserDevice.is_active == True)
                 .all()
             )
-            tokens.extend([device.fcm_token for device in devices])
+            user_tokens = [device.fcm_token for device in devices if device.fcm_token and device.fcm_token.strip()]
+            tokens.extend(user_tokens)
 
         if not tokens:
             return
 
+
+        # Ensure all data values are strings as required by FCM
+        fcm_data = {}
+        if data:
+            for key, value in data.items():
+                fcm_data[str(key)] = str(value)
+
         message = messaging.MulticastMessage(
             notification=messaging.Notification(title=title, body=body),
-            data=data or {},
+            data=fcm_data,
             tokens=tokens,
         )
 
         try:
-            messaging.send_each_for_multicast(message)
+            response = messaging.send_each_for_multicast(message)
+            for i, resp in enumerate(response.responses):
+                if resp.exception:
+                    print(f"FCM device {i} failed: {resp.exception}")
         except Exception as e:
-            print("Error sending FCM notification:", e)
+            raise
     finally:
         db.close()

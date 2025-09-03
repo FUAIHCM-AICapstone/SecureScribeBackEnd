@@ -15,7 +15,6 @@ from app.api import api_router
 from app.core.config import settings
 from app.core.firebase import initialize_firebase
 from app.db import get_db
-from app.services.websocket_manager import websocket_manager
 from app.utils.auth import get_current_user_from_token
 
 
@@ -91,17 +90,23 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup_event():
-    """Start WebSocket cleanup task on application startup"""
-    print("🚀 Starting WebSocket cleanup task...")
-    asyncio.create_task(websocket_manager.start_cleanup_task())
-    print("✅ WebSocket cleanup task started")
+    """Application startup event"""
+    print("🚀 Application started successfully")
+
+    # Start WebSocket manager Redis listener
+    from app.services.websocket_manager import websocket_manager
+    await websocket_manager.start_redis_listener()
+    print("🔌 WebSocket Redis listener started")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Stop WebSocket cleanup task on application shutdown"""
-    print("🛑 Stopping WebSocket cleanup task...")
-    websocket_manager.stop_cleanup_task()
-    print("✅ WebSocket cleanup task stopped")
+    """Application shutdown event"""
+    # Stop WebSocket manager Redis listener
+    from app.services.websocket_manager import websocket_manager
+    await websocket_manager.stop_redis_listener()
+    print("🔌 WebSocket Redis listener stopped")
+
+    print("🛑 Application shutdown")
 
 # Add middleware to log all requests
 @app.middleware("http")

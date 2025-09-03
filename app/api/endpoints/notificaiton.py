@@ -5,7 +5,7 @@ from typing import List, Optional
 from uuid import UUID
 
 # Third-party imports
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket
+from fastapi import APIRouter, Depends, Query, WebSocket
 from sqlalchemy.orm import Session
 
 # Local imports
@@ -92,12 +92,48 @@ def send_notification_endpoint(
         payload=notification_data.payload,
         channel=notification_data.channel,
     )
+
+    # Publish to Redis channels for real-time WebSocket delivery
+    from app.utils.redis import publish_to_user_channel
+    import asyncio
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=0.5, min=0.5, max=5),
+        retry=retry_if_exception_type(Exception),
+    )
+    async def publish_notifications():
+        """Publish notifications to Redis with retry logic"""
+        for user_id in notification_data.user_ids:
+            message = {
+                "type": "notification",
+                "data": {
+                    "notification_type": notification_data.type,
+                    "payload": notification_data.payload,
+                    "channel": notification_data.channel,
+                    "timestamp": asyncio.get_event_loop().time()
+                }
+            }
+            success = await publish_to_user_channel(str(user_id), message)
+            if not success:
+                print(f"Failed to publish notification to user {user_id} after retries")
+
+    # Run async publishing in background with error handling
+    try:
+        asyncio.create_task(publish_notifications())
+    except Exception as e:
+        print(f"Failed to start notification publishing task: {e}")
+        # Continue with FCM even if Redis publishing fails
+
+    # Send FCM notifications
     if notification_data.payload:
         title = notification_data.payload.get("title", "Notification")
         body = notification_data.payload.get("body", "")
         send_fcm_notification(
             notification_data.user_ids, title, body, notification_data.payload
         )
+
     return ApiResponse(
         success=True,
         message="Notifications sent successfully",
@@ -121,6 +157,46 @@ def send_global_notification_endpoint(
 
     user_ids = [n.user_id for n in notifications]
 
+    # Publish to Redis channels for real-time WebSocket delivery
+    from app.utils.redis import publish_to_user_channel
+    import asyncio
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=0.5, min=0.5, max=5),
+        retry=retry_if_exception_type(Exception),
+    )
+    async def publish_global_notifications():
+        """Publish global notifications to Redis with retry logic"""
+        success_count = 0
+        for user_id in user_ids:
+            message = {
+                "type": "notification",
+                "data": {
+                    "notification_type": notification_data.type,
+                    "payload": notification_data.payload,
+                    "channel": notification_data.channel,
+                    "is_global": True,
+                    "timestamp": asyncio.get_event_loop().time()
+                }
+            }
+            success = await publish_to_user_channel(str(user_id), message)
+            if success:
+                success_count += 1
+            else:
+                print(f"Failed to publish global notification to user {user_id} after retries")
+
+        print(f"Published global notifications to {success_count}/{len(user_ids)} users")
+
+    # Run async publishing in background with error handling
+    try:
+        asyncio.create_task(publish_global_notifications())
+    except Exception as e:
+        print(f"Failed to start global notification publishing task: {e}")
+        # Continue with FCM even if Redis publishing fails
+
+    # Send FCM notifications
     if notification_data.payload:
         title = notification_data.payload.get("title", "Global Notification")
         body = notification_data.payload.get("body", "")
@@ -171,106 +247,144 @@ def delete_notification_endpoint(
 
 
 @router.websocket("/notifications/ws")
-async def websocket_endpoint(websocket: WebSocket, token: str = Query(..., description="JWT access token")):
+async def websocket_endpoint(
+    websocket: WebSocket,
+    authorization: str = Query(None, description="Bearer token in format: Bearer <token>"),
+    token: str = Query(None, description="JWT token (legacy support)"),
+    sec_websocket_protocol: str = Query(None, description="WebSocket subprotocols", alias="sec-websocket-protocol")
+):
     """
-    WebSocket endpoint for real-time task progress updates
-    Requires JWT token as query parameter for authentication
+    WebSocket endpoint for real-time notifications and task progress updates.
+
+    Supports JWT token authentication via query parameters.
+
+    Query Parameters:
+    - authorization: Bearer token (format: "Bearer <jwt_token>") - RECOMMENDED
+    - token: JWT token (legacy support)
     """
-    print("=== WEBSOCKET ENDPOINT CALLED ===")
-    print(f"Token received: {token[:50]}...")
+    user_id = None
+    user_id_str = None
+
+    # Import WebSocket manager outside try block
+    from app.services.websocket_manager import websocket_manager
 
     try:
-        print("Step 1: Verifying token...")
-        # Verify token manually
-        user_id = get_current_user_from_token(token)
-        print(f"Step 2: get_current_user_from_token returned: {user_id}")
+        # Get token from either authorization or token parameter
+        auth_token = None
+        if authorization and authorization.lower().startswith("bearer "):
+            auth_token = authorization[len("bearer "):].strip()
+        elif authorization:
+            auth_token = authorization.strip()
+        elif token:
+            auth_token = token.strip()
 
+        if not auth_token:
+            await websocket.close(code=4001, reason="Missing token")
+            return
+
+        # Authenticate user
+        user_id = get_current_user_from_token(auth_token)
         if not user_id:
-            print("Step 3: user_id is None/empty - rejecting connection")
             await websocket.close(code=4001, reason="Invalid token")
             return
 
-        print(f"Step 4: Valid user_id obtained: {user_id}")
-
-        # Get user from database
-        print("Step 5: Opening database session...")
+        # Validate user exists
         db = SessionLocal()
         try:
-            print(f"Step 6: Converting user_id to UUID: {UUID(user_id)}")
             user = db.query(User).filter(User.id == UUID(user_id)).first()
-            print(f"Step 7: Database query result: {user}")
-
             if not user:
-                print("Step 8: User not found in database - rejecting connection")
                 await websocket.close(code=4002, reason="User not found")
                 return
-
-            print(f"Step 9: User found successfully: {user.id}")
         finally:
-            print("Step 10: Closing database session")
             db.close()
 
-        print("Step 11: Authentication successful, accepting WebSocket connection")
-
-        # Accept the WebSocket connection
-        await websocket.accept()
-        print("Step 12: WebSocket connection accepted")
-
-        # Import websocket_manager here to avoid circular imports
-        from app.services.websocket_manager import websocket_manager
-
-        # Register the connection
         user_id_str = str(user.id)
+        print(f"WebSocket connected for user: {user_id_str}")
+
+        # Accept WebSocket connection
+        await websocket.accept()
+
+        # Add connection to manager
         websocket_manager.add_connection(user_id_str, websocket)
-        print(f"Step 13: WebSocket registered for user: {user_id_str}")
 
-        try:
-            # Send initial connection message
-            await websocket.send_json({
-                "type": "connected",
-                "data": {
-                    "user_id": user_id_str,
-                    "message": "WebSocket connection established"
-                }
-            })
-            print("Step 14: Initial connection message sent")
+        # Start Redis listener if not already started
+        if websocket_manager._pubsub_task is None or websocket_manager._pubsub_task.done():
+            asyncio.create_task(websocket_manager.start_redis_listener())
 
-            # Handle incoming messages and maintain connection
-            while True:
+        # Send simple connection confirmation
+        connection_message = {
+            "type": "connected",
+            "data": {
+                "user_id": user_id_str,
+                "message": "WebSocket connection established"
+            }
+        }
+        await websocket.send_json(connection_message)
+
+        # Send capabilities info
+        capabilities_message = {
+            "type": "capabilities",
+            "data": {
+                "supported_message_types": ["task_progress", "notification", "system"]
+            }
+        }
+        await websocket.send_json(capabilities_message)
+
+        # Main message loop
+        while True:
+            try:
+                # Wait for message with timeout
+                message = await asyncio.wait_for(
+                    websocket.receive_json(),
+                    timeout=30.0
+                )
+
+                # Handle client messages
+                message_type = message.get("type", "")
+
+                if message_type == "ping":
+                    # Respond to ping
+                    await websocket.send_json({"type": "pong"})
+                    print(f"Ping received from user {user_id_str}")
+
+                elif message_type == "status":
+                    # Send simple status
+                    await websocket.send_json({
+                        "type": "status",
+                        "data": {"user_id": user_id_str, "connected": True}
+                    })
+
+                else:
+                    print(f"Message from user {user_id_str}: {message_type}")
+
+            except asyncio.TimeoutError:
+                # Send ping to keep connection alive
                 try:
-                    # Wait for messages with timeout (heartbeat)
-                    data = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
-                    print(f"Received message from {user_id_str}: {data}")
-
-                    # Handle client messages if needed
-                    if data.get("type") == "ping":
-                        await websocket.send_json({"type": "pong"})
-                        print(f"Sent pong to {user_id_str}")
-
-                except asyncio.TimeoutError:
-                    # Send ping to keep connection alive
-                    try:
-                        await websocket.send_json({"type": "ping"})
-                        print(f"Sent ping to {user_id_str}")
-                    except Exception:
-                        print(f"Failed to send ping to {user_id_str}, connection may be dead")
-                        break
-
-                except Exception as e:
-                    print(f"WebSocket error for {user_id_str}: {e}")
+                    await websocket.send_json({"type": "ping"})
+                except Exception:
+                    print(f"Failed to send ping to user {user_id_str}")
                     break
 
-        except Exception as e:
-            print(f"WebSocket connection error for {user_id_str}: {e}")
-
-        finally:
-            # Clean up connection
-            websocket_manager.remove_connection(user_id_str)
-            print(f"Step 15: WebSocket connection cleaned up for user: {user_id_str}")
+            except Exception as e:
+                print(f"WebSocket error for user {user_id_str}: {e}")
+                break
 
     except Exception as e:
-        print(f"WebSocket authentication error: {type(e).__name__}: {str(e)}")
+        print(f"WebSocket error: {str(e)}")
         try:
-            await websocket.close(code=4000, reason=f"Authentication failed: {str(e)}")
+            await websocket.close(code=4000, reason="Connection error")
         except Exception:
-            pass  # Connection might already be closed
+            pass
+
+    finally:
+        # Clean up connection
+        if user_id_str and 'websocket_manager' in locals():
+            try:
+                websocket_manager.remove_connection(user_id_str, websocket)
+            except Exception:
+                pass
+
+        try:
+            await websocket.close()
+        except Exception:
+            pass

@@ -75,43 +75,29 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 
 def verify_token(token: str):
-    print(f"[JWT DEBUG] verify_token called with token: {token[:30]}...")
-    print(f"[JWT DEBUG] SECRET_KEY length: {len(settings.SECRET_KEY)}")
-
     try:
-        print("[JWT DEBUG] Attempting to decode JWT...")
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-        print(f"[JWT DEBUG] JWT decoded successfully. Payload keys: {list(payload.keys()) if payload else 'None'}")
         return payload
-    except jwt.ExpiredSignatureError as e:
-        print(f"[JWT DEBUG] ExpiredSignatureError: {e}")
+    except jwt.ExpiredSignatureError:
         return None
-    except jwt.InvalidTokenError as e:
-        print(f"[JWT DEBUG] InvalidTokenError: {e}")
+    except jwt.InvalidTokenError:
         return None
-    except Exception as e:
-        print(f"[JWT DEBUG] Unexpected error in verify_token: {type(e).__name__}: {e}")
+    except Exception:
         return None
 
 
 def get_current_user_from_token(token: str):
-    print(f"[AUTH DEBUG] get_current_user_from_token called with token: {token[:30]}...")
     payload = verify_token(token)
-    print(f"[AUTH DEBUG] verify_token returned: {payload}")
 
     if not payload:
-        print("[AUTH DEBUG] Payload is None - returning None")
         return None
 
     token_type = payload.get("type")
-    print(f"[AUTH DEBUG] Token type: {token_type}")
 
     if token_type != "access":
-        print(f"[AUTH DEBUG] Token type is not 'access' (got '{token_type}') - returning None")
         return None
 
     user_id = payload.get("sub")
-    print(f"[AUTH DEBUG] User ID from token: {user_id}")
     return user_id
 
 

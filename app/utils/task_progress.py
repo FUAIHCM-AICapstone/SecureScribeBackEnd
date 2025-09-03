@@ -1,116 +1,73 @@
-from datetime import datetime
-from typing import Dict, Optional
+# app/utils/task_progress.py
+import json
+import logging
+from datetime import datetime, timedelta
+from typing import Optional, Union
+from uuid import UUID
 
-from app.utils.redis import redis_client
+from app.utils.redis import get_redis_client
 
+logger = logging.getLogger(__name__)
+
+# TTL cho last state (ví dụ giữ 1 giờ) — ephemeral requirement
+TASK_PROGRESS_TTL_SECONDS = 60 * 60  # 1 hour
+
+def normalize_user_id(user_id: Union[str, UUID]) -> str:
+    if isinstance(user_id, UUID):
+        return str(user_id)
+    return str(user_id)
+
+def publish_task_progress(user_id: str, payload: dict) -> bool:
+    """
+    Publish to user's channel. Uses Redis pub/sub.
+    Return True if published (or at least attempted).
+    """
+    try:
+        r = get_redis_client()
+        channel = f"user_progress:{user_id}"
+        # publish returns number of subscribers (may be 0)
+        num = r.publish(channel, json.dumps(payload))
+        logger.debug("Published to %s (subscribers=%s): %s", channel, num, payload)
+        return True
+    except Exception as e:
+        logger.exception("Failed to publish task progress for user %s: %s", user_id, e)
+        # don't raise to avoid crashing workers
+        return False
 
 def update_task_progress(
     task_id: str,
-    user_id: str,
+    user_id: str | UUID,
     progress: int,
     status: str,
-    estimated_time: Optional[str] = None
+    estimated_time: Optional[str] = None,
+    task_type: str = "test_notification",
 ) -> bool:
-    """
-    Update task progress in Redis with retry logic
-    """
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            key = f"task_progress:{task_id}:{user_id}"
-            data = {
-                "progress": progress,
-                "status": status,
-                "estimated_time": estimated_time,
-                "last_update": datetime.utcnow().isoformat(),
-                "task_type": "test_notification"
-            }
-
-            # Store in Redis hash
-            redis_client.hset(key, mapping=data)
-
-            # Emit progress event
-            emit_progress_event(task_id, user_id, data)
-
-            return True
-        except Exception as e:
-            print(f"Error updating task progress (attempt {attempt + 1}/{max_retries}): {e}")
-            if attempt == max_retries - 1:
-                return False
-            # Wait before retry
-            import time
-            time.sleep(0.1 * (attempt + 1))
-
-
-def get_task_progress(task_id: str, user_id: str) -> Optional[Dict]:
-    """
-    Get current task progress from Redis
-    """
+    """Update task progress in Redis and publish to WebSocket"""
+    normalized_user_id = normalize_user_id(user_id)
+    logger.info("Updating task progress for task_id=%s user_id=%s progress=%s status=%s",
+                task_id, normalized_user_id, progress, status)
     try:
-        key = f"task_progress:{task_id}:{user_id}"
-        data = redis_client.hgetall(key)
-
-        if not data:
-            return None
-
-        return {
+        r = get_redis_client()
+        key = f"task_progress:{task_id}:{normalized_user_id}"
+        data = {
             "task_id": task_id,
-            "user_id": user_id,
-            "progress": int(data.get("progress", 0)),
-            "status": data.get("status", "unknown"),
-            "estimated_time": data.get("estimated_time"),
-            "last_update": data.get("last_update"),
-            "task_type": data.get("task_type")
-        }
-    except Exception as e:
-        print(f"Error getting task progress: {e}")
-        return None
-
-
-def emit_progress_event(task_id: str, user_id: str, event_data: Dict) -> bool:
-    """
-    Emit progress event to WebSocket connection
-    """
-    try:
-        # Import here to avoid circular imports
-        from app.services.websocket_manager import websocket_manager
-
-        # Create WebSocket message format
-        message = {
-            "type": "task_progress",
-            "data": {
-                "task_id": task_id,
-                "user_id": user_id,
-                **event_data
-            }
+            "progress": int(progress),
+            "status": status,
+            "estimated_time": estimated_time or "",
+            "last_update": datetime.utcnow().isoformat() + "Z",
+            "task_type": task_type,
         }
 
-        # Get the current event loop
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # store last-state as hash, set TTL so ephemeral
+        r.hset(key, mapping=data)
+        r.expire(key, TASK_PROGRESS_TTL_SECONDS)
 
-        try:
-            # Broadcast to user via WebSocket
-            loop.run_until_complete(websocket_manager.broadcast_to_user(user_id, message))
-            print(f"Progress event emitted to WebSocket for user {user_id}: {event_data.get('status', 'unknown')}")
-            return True
-        finally:
-            loop.close()
+        publish_task_progress(
+            normalized_user_id,
+            {"type": "task_progress", "data": data},
+        )
 
-    except Exception as e:
-        print(f"Error emitting progress event: {e}")
-        return False
-
-
-def cleanup_task_progress(task_id: str, user_id: str) -> bool:
-    """
-    Clean up task progress data from Redis
-    """
-    try:
-        key = f"task_progress:{task_id}:{user_id}"
-        redis_client.delete(key)
         return True
     except Exception as e:
-        print(f"Error cleaning up task progress: {e}")
+        logger.exception("update_task_progress failed for task %s user %s: %s", task_id, user_id, e)
         return False

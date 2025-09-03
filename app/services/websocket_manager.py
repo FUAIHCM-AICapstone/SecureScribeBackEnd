@@ -1,174 +1,257 @@
 import asyncio
 import json
-import threading
-import time
-from typing import Any, Dict, Optional
+import logging
+from typing import Dict, Set, Optional
+from datetime import datetime
 
 from fastapi import WebSocket
+
+from app.utils.redis import (
+    get_async_redis_client,
+    publish_to_user_channel,
+    get_recent_messages_for_user
+)
+
+logger = logging.getLogger(__name__)
 
 
 class WebSocketConnectionManager:
     """
-    Manages WebSocket connections and broadcasts events to connected users
+    Enhanced WebSocket manager with Redis pub/sub integration.
+    Supports hierarchical channels, message replay, and connection management.
     """
 
     def __init__(self):
-        self.connections: Dict[str, WebSocket] = {}
-        self.connection_info: Dict[str, Dict[str, Any]] = {}
-        self._cleanup_task = None
-        self._running = True
+        self.connections: Dict[str, Set[WebSocket]] = {}  # user_id -> set of WebSocket connections
+        self._redis_client = None
+        self._pubsub_task: Optional[asyncio.Task] = None
+        self._stop = False
+        self._metrics = {
+            "total_connections": 0,
+            "active_connections": 0,
+            "messages_sent": 0,
+            "messages_received": 0,
+            "redis_errors": 0,
+            "websocket_errors": 0,
+        }
 
     def add_connection(self, user_id: str, websocket: WebSocket) -> None:
-        """
-        Add WebSocket connection for user
-        """
-        self.connections[user_id] = websocket
-        self.connection_info[user_id] = {
-            "connected_at": time.time(),
-            "last_active": time.time()
-        }
-        print(f"WebSocket connection added for user: {user_id}")
+        """Add a WebSocket connection for a user."""
+        if user_id not in self.connections:
+            self.connections[user_id] = set()
 
-    def remove_connection(self, user_id: str) -> None:
-        """
-        Remove WebSocket connection for user
-        """
+        self.connections[user_id].add(websocket)
+        self._metrics["total_connections"] += 1
+        self._metrics["active_connections"] = sum(len(conns) for conns in self.connections.values())
+
+        logger.info(
+            "Added WebSocket connection for user %s (total users: %s, active connections: %s)",
+            user_id, len(self.connections), self._metrics["active_connections"]
+        )
+
+    def remove_connection(self, user_id: str, websocket: WebSocket) -> None:
+        """Remove a WebSocket connection for a user."""
         if user_id in self.connections:
-            del self.connections[user_id]
-            del self.connection_info[user_id]
-            print(f"WebSocket connection removed for user: {user_id}")
+            self.connections[user_id].discard(websocket)
 
-    async def broadcast_to_user(self, user_id: str, message_data: Dict) -> bool:
+            if not self.connections[user_id]:
+                del self.connections[user_id]
+
+            self._metrics["active_connections"] = sum(len(conns) for conns in self.connections.values())
+            logger.info(
+                "Removed WebSocket connection for user %s (remaining connections: %s)",
+                user_id, self._metrics["active_connections"]
+            )
+
+    async def broadcast_to_user(self, user_id: str, message_data: dict) -> int:
         """
-        Broadcast message to specific user via WebSocket
+        Broadcast message to all WebSocket connections for a user.
+        Returns the number of connections that received the message.
         """
-        try:
-            if user_id not in self.connections:
-                print(f"No active WebSocket connection for user: {user_id}")
-                return False
+        if user_id not in self.connections:
+            return 0
 
-            websocket = self.connections[user_id]
-            connection_info = self.connection_info[user_id]
+        connections = list(self.connections[user_id])
+        if not connections:
+            return 0
 
-            # Check if connection is still active (within 5 minutes)
-            if time.time() - connection_info["last_active"] > 300:
-                print(f"WebSocket connection for user {user_id} is stale, removing...")
-                self.remove_connection(user_id)
-                return False
+        sent_count = 0
+        failed_connections = []
 
-            # Update last active time
-            connection_info["last_active"] = time.time()
-
-            # Send message via WebSocket
+        for websocket in connections:
             try:
                 await websocket.send_json(message_data)
-                print(f"Successfully sent message to user {user_id}: {message_data.get('type', 'unknown')}")
-                return True
-            except Exception as send_error:
-                print(f"Failed to send message to user {user_id}: {send_error}")
-                # Remove failed connection
-                self.remove_connection(user_id)
-                return False
-
-        except Exception as e:
-            print(f"Error broadcasting to user {user_id}: {e}")
-            # Remove failed connection
-            self.remove_connection(user_id)
-            return False
-
-    async def broadcast_to_all(self, message_data: Dict) -> None:
-        """
-        Broadcast message to all connected users
-        """
-        disconnected_users = []
-
-        for user_id in list(self.connections.keys()):
-            success = await self.broadcast_to_user(user_id, message_data)
-            if not success:
-                disconnected_users.append(user_id)
-
-        # Clean up disconnected users
-        for user_id in disconnected_users:
-            self.remove_connection(user_id)
-
-    def get_active_connections(self) -> Dict[str, Any]:
-        """
-        Get information about active WebSocket connections
-        """
-        return {
-            user_id: {
-                "connected_at": info["connected_at"],
-                "last_active": info["last_active"],
-                "active_time": time.time() - info["connected_at"]
-            }
-            for user_id, info in self.connection_info.items()
-        }
-
-    def get_connection_count(self) -> int:
-        """
-        Get the number of active connections
-        """
-        return len(self.connections)
-
-    async def cleanup_inactive_connections(self) -> None:
-        """
-        Remove WebSocket connections that have been inactive for more than 5 minutes
-        """
-        current_time = time.time()
-        inactive_threshold = 300  # 5 minutes
-
-        disconnected_users = []
-        for user_id, info in self.connection_info.items():
-            if current_time - info["last_active"] > inactive_threshold:
-                disconnected_users.append(user_id)
-                print(f"WebSocket connection for user {user_id} is inactive, will remove")
-
-        # Close connections and remove from tracking
-        for user_id in disconnected_users:
-            try:
-                websocket = self.connections[user_id]
-                await websocket.close(code=1001, reason="Connection inactive")
+                sent_count += 1
+                self._metrics["messages_sent"] += 1
             except Exception as e:
-                print(f"Error closing inactive connection for user {user_id}: {e}")
-            finally:
-                self.remove_connection(user_id)
-
-    async def start_cleanup_task(self) -> None:
-        """
-        Start background task for cleaning up inactive connections
-        """
-        while self._running:
-            try:
-                await asyncio.sleep(60)  # Check every minute
-                await self.cleanup_inactive_connections()
-            except Exception as e:
-                print(f"Error in cleanup task: {e}")
-
-    def stop_cleanup_task(self) -> None:
-        """
-        Stop cleanup task
-        """
-        self._running = False
-
-    async def send_ping_to_all(self) -> None:
-        """
-        Send ping messages to all connected clients to keep connections alive
-        """
-        ping_message = {"type": "ping", "timestamp": time.time()}
-
-        disconnected_users = []
-        for user_id in list(self.connections.keys()):
-            try:
-                await self.connections[user_id].send_json(ping_message)
-                print(f"Sent ping to user {user_id}")
-            except Exception as e:
-                print(f"Failed to ping user {user_id}: {e}")
-                disconnected_users.append(user_id)
+                logger.exception("Failed to send message to user %s: %s", user_id, e)
+                failed_connections.append(websocket)
+                self._metrics["websocket_errors"] += 1
 
         # Clean up failed connections
-        for user_id in disconnected_users:
-            self.remove_connection(user_id)
+        for websocket in failed_connections:
+            self.remove_connection(user_id, websocket)
+
+        if sent_count > 0:
+            logger.debug("Sent message to %s/%s connections for user %s",
+                        sent_count, len(connections), user_id)
+
+        return sent_count
+
+    async def handle_redis_message(self, channel: str, message_data: str) -> None:
+        """Handle incoming Redis pub/sub message."""
+        try:
+            # Parse hierarchical channel: user:{user_id}:{message_type}
+            if not channel.startswith("user:"):
+                return
+
+            parts = channel.split(":")
+            if len(parts) < 3:
+                logger.warning("Invalid channel format: %s", channel)
+                return
+
+            user_id = parts[1]
+            message_type = parts[2]
+
+            # Parse message data
+            try:
+                message = json.loads(message_data)
+            except json.JSONDecodeError as e:
+                logger.exception("Invalid JSON in Redis message: %s", e)
+                return
+
+            # Add metadata
+            message["received_at"] = datetime.utcnow().isoformat() + "Z"
+            message["channel"] = channel
+
+            self._metrics["messages_received"] += 1
+
+            # Broadcast to user's WebSocket connections
+            sent_count = await self.broadcast_to_user(user_id, message)
+
+            logger.debug("Processed Redis message for user %s (type: %s, sent to %s connections)",
+                        user_id, message_type, sent_count)
+
+        except Exception as e:
+            logger.exception("Error handling Redis message: %s", e)
+            self._metrics["redis_errors"] += 1
+
+    async def start_redis_listener(self) -> None:
+        """Start the Redis pub/sub listener for user channels."""
+        if self._pubsub_task and not self._pubsub_task.done():
+            logger.info("Redis listener already running")
+            return
+
+        self._stop = False
+        self._pubsub_task = asyncio.create_task(self._run_pubsub())
+        logger.info("Started Redis pub/sub listener for user channels")
+
+    async def stop_redis_listener(self) -> None:
+        """Stop the Redis pub/sub listener."""
+        self._stop = True
+        if self._pubsub_task:
+            self._pubsub_task.cancel()
+            try:
+                await self._pubsub_task
+            except asyncio.CancelledError:
+                pass
+
+        if self._redis_client:
+            await self._redis_client.close()
+
+        logger.info("Stopped Redis pub/sub listener")
+
+    async def _run_pubsub(self) -> None:
+        """Run the Redis pub/sub listener with exponential backoff."""
+        backoff = 0.5
+        max_backoff = 30.0
+
+        while not self._stop:
+            try:
+                self._redis_client = await get_async_redis_client()
+                pubsub = self._redis_client.pubsub()
+
+                # Subscribe to hierarchical user channels: user:*:*
+                await pubsub.psubscribe("user:*:*")
+                logger.info("Subscribed to user:*:* pattern")
+
+                while not self._stop:
+                    try:
+                        message = await asyncio.wait_for(
+                            pubsub.get_message(ignore_subscribe_messages=True),
+                            timeout=1.0
+                        )
+
+                        if message is None:
+                            continue
+
+                        # Handle the message
+                        channel = message.get("channel", "")
+                        data = message.get("data", "")
+
+                        if isinstance(data, bytes):
+                            data = data.decode("utf-8")
+
+                        await self.handle_redis_message(channel, data)
+
+                    except asyncio.TimeoutError:
+                        continue
+                    except Exception as e:
+                        logger.exception("Error processing Redis message: %s", e)
+                        break
+
+                # Clean up subscription
+                await pubsub.punsubscribe("user:*:*")
+                await self._redis_client.close()
+
+            except Exception as e:
+                logger.exception("Redis pub/sub listener error: %s", e)
+                self._metrics["redis_errors"] += 1
+
+                if not self._stop:
+                    logger.info("Retrying Redis connection in %.1f seconds", backoff)
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 1.5, max_backoff)
+                else:
+                    break
+
+    async def replay_recent_messages(self, user_id: str, websocket: WebSocket) -> None:
+        """Replay recent messages for a reconnecting client."""
+        try:
+            recent_messages = await get_recent_messages_for_user(user_id, limit=10)
+
+            if recent_messages:
+                logger.info("Replaying %s recent messages for user %s",
+                           len(recent_messages), user_id)
+
+                for message in recent_messages:
+                    try:
+                        await websocket.send_json(message)
+                    except Exception as e:
+                        logger.exception("Failed to replay message to user %s: %s", user_id, e)
+                        break
+
+        except Exception as e:
+            logger.exception("Failed to replay messages for user %s: %s", user_id, e)
+
+    def get_connection_stats(self) -> dict:
+        """Get connection statistics."""
+        return {
+            **self._metrics,
+            "unique_users": len(self.connections),
+            "connections_per_user": {
+                user_id: len(connections)
+                for user_id, connections in self.connections.items()
+            }
+        }
+
+    async def publish_user_message(self, user_id: str, message: dict) -> bool:
+        """
+        Publish a message to a user's Redis channel.
+        This can be used by other parts of the application.
+        """
+        return await publish_to_user_channel(user_id, message)
 
 
-# Global WebSocket manager instance
+# Global instance
 websocket_manager = WebSocketConnectionManager()
