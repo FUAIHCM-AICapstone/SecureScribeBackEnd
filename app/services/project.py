@@ -1,0 +1,453 @@
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import and_
+from sqlalchemy.orm import Session, joinedload
+
+from app.models.project import Project, UserProject
+from app.models.user import User
+from app.schemas.project import (
+    ProjectCreate,
+    ProjectFilter,
+    ProjectResponse,
+    ProjectUpdate,
+    ProjectWithMembers,
+    UserProjectCreate,
+    UserProjectResponse,
+    UserProjectUpdate,
+)
+
+
+def create_project(
+    db: Session, project_data: ProjectCreate, created_by: uuid.UUID
+) -> Project:
+    """
+    Create a new project
+    """
+    project = Project(
+        name=project_data.name,
+        description=project_data.description,
+        created_by=created_by,
+    )
+
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    return project
+
+
+def get_project(
+    db: Session, project_id: uuid.UUID, include_members: bool = False
+) -> Optional[Project]:
+    """
+    Get a project by ID
+    """
+    if include_members:
+        return (
+            db.query(Project)
+            .options(
+                joinedload(Project.users).joinedload(UserProject.user),
+                joinedload(Project.created_by_user),
+            )
+            .filter(Project.id == project_id)
+            .first()
+        )
+    else:
+        return db.query(Project).filter(Project.id == project_id).first()
+
+
+def get_projects(
+    db: Session,
+    filters: Optional[ProjectFilter] = None,
+    page: int = 1,
+    limit: int = 20,
+    order_by: str = "created_at",
+    dir: str = "desc",
+) -> tuple[List[Project], int]:
+    """
+    Get projects with filtering and pagination
+    """
+    query = db.query(Project)
+
+    # Apply filters
+    if filters:
+        if filters.name:
+            query = query.filter(Project.name.ilike(f"%{filters.name}%"))
+        if filters.is_archived is not None:
+            query = query.filter(Project.is_archived == filters.is_archived)
+        if filters.created_by:
+            query = query.filter(Project.created_by == filters.created_by)
+        if filters.created_at_gte:
+            query = query.filter(Project.created_at >= filters.created_at_gte)
+        if filters.created_at_lte:
+            query = query.filter(Project.created_at <= filters.created_at_lte)
+
+        # Filter by member
+        if filters.member_id:
+            query = query.join(UserProject).filter(
+                UserProject.user_id == filters.member_id
+            )
+
+    # Apply ordering
+    if hasattr(Project, order_by):
+        order_column = getattr(Project, order_by)
+        if dir.lower() == "desc":
+            query = query.order_by(order_column.desc())
+        else:
+            query = query.order_by(order_column.asc())
+
+    # Get total count
+    total = query.count()
+
+    # Apply pagination
+    projects = query.offset((page - 1) * limit).limit(limit).all()
+
+    return projects, total
+
+
+def update_project(
+    db: Session, project_id: uuid.UUID, updates: ProjectUpdate
+) -> Optional[Project]:
+    """
+    Update a project
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return None
+
+    update_data = updates.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(project, key, value)
+
+    project.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(project)
+
+    return project
+
+
+def delete_project(db: Session, project_id: uuid.UUID) -> bool:
+    """
+    Delete a project
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return False
+
+    db.delete(project)
+    db.commit()
+    return True
+
+
+def archive_project(db: Session, project_id: uuid.UUID) -> Optional[Project]:
+    """
+    Archive a project (soft delete)
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return None
+
+    project.is_archived = True
+    project.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(project)
+
+    return project
+
+
+# User-Project relationship management
+def add_user_to_project(
+    db: Session, project_id: uuid.UUID, user_id: uuid.UUID, role: str = "member"
+) -> Optional[UserProject]:
+    """
+    Add a user to a project
+    """
+    # Check if user is already in project
+    existing = (
+        db.query(UserProject)
+        .filter(
+            and_(UserProject.project_id == project_id, UserProject.user_id == user_id)
+        )
+        .first()
+    )
+
+    if existing:
+        return existing
+
+    # Check if project exists
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return None
+
+    # Check if user exists
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None
+
+    user_project = UserProject(
+        user_id=user_id,
+        project_id=project_id,
+        role=role,
+    )
+
+    db.add(user_project)
+    db.commit()
+    db.refresh(user_project)
+
+    return user_project
+
+
+def remove_user_from_project(
+    db: Session, project_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """
+    Remove a user from a project
+    """
+    user_project = (
+        db.query(UserProject)
+        .filter(
+            and_(UserProject.project_id == project_id, UserProject.user_id == user_id)
+        )
+        .first()
+    )
+
+    if not user_project:
+        return False
+
+    db.delete(user_project)
+    db.commit()
+    return True
+
+
+def update_user_role_in_project(
+    db: Session, project_id: uuid.UUID, user_id: uuid.UUID, new_role: str
+) -> Optional[UserProject]:
+    """
+    Update a user's role in a project
+    """
+    user_project = (
+        db.query(UserProject)
+        .filter(
+            and_(UserProject.project_id == project_id, UserProject.user_id == user_id)
+        )
+        .first()
+    )
+
+    if not user_project:
+        return None
+
+    user_project.role = new_role
+    db.commit()
+    db.refresh(user_project)
+
+    return user_project
+
+
+def get_project_members(db: Session, project_id: uuid.UUID) -> List[UserProject]:
+    """
+    Get all members of a project
+    """
+    return (
+        db.query(UserProject)
+        .options(joinedload(UserProject.user))
+        .filter(UserProject.project_id == project_id)
+        .all()
+    )
+
+
+def get_user_projects(db: Session, user_id: uuid.UUID) -> List[UserProject]:
+    """
+    Get all projects a user belongs to
+    """
+    return (
+        db.query(UserProject)
+        .options(joinedload(UserProject.project))
+        .filter(UserProject.user_id == user_id)
+        .all()
+    )
+
+
+def is_user_in_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """
+    Check if a user is a member of a project
+    """
+    count = (
+        db.query(UserProject)
+        .filter(
+            and_(UserProject.project_id == project_id, UserProject.user_id == user_id)
+        )
+        .count()
+    )
+    return count > 0
+
+
+def get_user_role_in_project(
+    db: Session, project_id: uuid.UUID, user_id: uuid.UUID
+) -> Optional[str]:
+    """
+    Get a user's role in a project
+    """
+    user_project = (
+        db.query(UserProject)
+        .filter(
+            and_(UserProject.project_id == project_id, UserProject.user_id == user_id)
+        )
+        .first()
+    )
+    return user_project.role if user_project else None
+
+
+# Bulk operations
+def bulk_add_users_to_project(
+    db: Session, project_id: uuid.UUID, users_data: List[UserProjectCreate]
+) -> List[Dict[str, Any]]:
+    """
+    Bulk add users to a project
+    """
+    results = []
+
+    for user_data in users_data:
+        try:
+            user_project = add_user_to_project(
+                db, project_id, user_data.user_id, user_data.role
+            )
+            if user_project:
+                results.append(
+                    {
+                        "success": True,
+                        "user_id": str(user_data.user_id),
+                        "message": f"User {user_data.user_id} added to project",
+                    }
+                )
+            else:
+                results.append(
+                    {
+                        "success": False,
+                        "user_id": str(user_data.user_id),
+                        "message": "Failed to add user (user or project not found)",
+                    }
+                )
+        except Exception as e:
+            results.append(
+                {
+                    "success": False,
+                    "user_id": str(user_data.user_id),
+                    "message": f"Error: {str(e)}",
+                }
+            )
+
+    return results
+
+
+def bulk_remove_users_from_project(
+    db: Session, project_id: uuid.UUID, user_ids: List[uuid.UUID]
+) -> List[Dict[str, Any]]:
+    """
+    Bulk remove users from a project
+    """
+    results = []
+
+    for user_id in user_ids:
+        try:
+            success = remove_user_from_project(db, project_id, user_id)
+            if success:
+                results.append(
+                    {
+                        "success": True,
+                        "user_id": str(user_id),
+                        "message": f"User {user_id} removed from project",
+                    }
+                )
+            else:
+                results.append(
+                    {
+                        "success": False,
+                        "user_id": str(user_id),
+                        "message": "User not found in project",
+                    }
+                )
+        except Exception as e:
+            results.append(
+                {
+                    "success": False,
+                    "user_id": str(user_id),
+                    "message": f"Error: {str(e)}",
+                }
+            )
+
+    return results
+
+
+# Helper functions for response formatting
+def format_project_response(project: Project) -> ProjectResponse:
+    """
+    Format project data for API response
+    """
+    member_count = len(project.users) if hasattr(project, "users") else None
+
+    return ProjectResponse(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        is_archived=project.is_archived,
+        created_by=project.created_by,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+        member_count=member_count,
+    )
+
+
+def format_project_with_members_response(project: Project) -> ProjectWithMembers:
+    """
+    Format project with members data for API response
+    """
+    base_response = format_project_response(project)
+
+    members = []
+    if hasattr(project, "users"):
+        for user_project in project.users:
+            members.append(
+                UserProjectResponse(
+                    user_id=user_project.user_id,
+                    project_id=user_project.project_id,
+                    role=user_project.role,
+                    joined_at=user_project.joined_at,
+                    user={
+                        "id": user_project.user.id,
+                        "email": user_project.user.email,
+                        "name": user_project.user.name,
+                        "avatar_url": user_project.user.avatar_url,
+                        "position": user_project.user.position,
+                    }
+                    if user_project.user
+                    else None,
+                )
+            )
+
+    return ProjectWithMembers(
+        **base_response.model_dump(),
+        members=members,
+    )
+
+
+def format_user_project_response(user_project: UserProject) -> UserProjectResponse:
+    """
+    Format user-project relationship data for API response
+    """
+    return UserProjectResponse(
+        user_id=user_project.user_id,
+        project_id=user_project.project_id,
+        role=user_project.role,
+        joined_at=user_project.joined_at,
+        user={
+            "id": user_project.user.id,
+            "email": user_project.user.email,
+            "name": user_project.user.name,
+            "avatar_url": user_project.user.avatar_url,
+            "position": user_project.user.position,
+        }
+        if user_project.user
+        else None,
+    )
