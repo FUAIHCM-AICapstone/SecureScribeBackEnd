@@ -1,0 +1,1024 @@
+{
+  "MeetingDetailPanel": {
+    "emptyState": "Select a meeting to view",
+    "tabs": {
+      "summary": "Meeting Summary",
+      "transcript": "Transcript",
+      "dialogue": "Summary Files",
+      "recording": "Meeting Recording"
+    },
+    "meetings": "Meetings List"
+  },
+  "MeetingEditModal": {
+    "title": "Title",
+    "description": "Description",
+    "meeting_date": "Meeting Date",
+    "group": "Group",
+    "search_groups": "Search groups...",
+    "no_groups_found": "No groups found",
+    "no_group": "No group",
+    "no_description": "No description",
+    "loading": "Loading...",
+    "current_group": "Current Group",
+    "cancel": "Cancel",
+    "success": "Meeting updated successfully!"
+  },
+  "MeetingDetailHeader": {
+    "meetingDetail": "Meeting detail",
+    "pending": "Pending",
+    "unknown": "Unknown",
+    "organizer": "Organizer",
+    "email": "Email",
+    "version": "Version",
+    "loading": "(Loading...)",
+    "emptyState": "No meeting selected",
+    "emptyHint": "Please select a meeting to view details."
+  },
+  "ChatContent": {
+    "assistant": "Assistant",
+    "you": "You",
+    "chatWithAssistant": "Chat with Assistant",
+    "attachedFiles": "Attached Files",
+    "manageFiles": "Manage Files",
+    "enableNotifications": "Enable Notifications",
+    "notificationsEnabled": "Notifications Enabled",
+    "notificationsEnabledMessage": "You will receive new messages from Assistant.",
+    "messagePlaceholder": "Type a message...",
+    "send": "Send",
+    "assistantTyping": "Assistant is typing...",
+    "newMessageNotification": "New message from Assistant",
+    "manageContextFiles": "Manage Context Files",
+    "fileSizeError": "File exceeds 50MB",
+    "uploadError": "Upload failed, please try again",
+    "dragDropFileAriaLabel": "Drag & drop files here, or click to select",
+    "dragDropFileText": "Drag & drop files here, or click to select",
+    "close": "Close",
+    "uploading": "Uploading...",
+    "upload": "Upload",
+    "loading": "Loading...",
+    "noFilesYet": "No files yet",
+    "noFilesHint": "Drag & drop files into this area or use the Upload button above.",
+    "fileName": "File Name",
+    "actions": "Actions",
+    "downloadMock": "Download (mock)",
+    "delete": "Delete"
+  },
+  "MeetingContent": {
+    "MeetingItemEditModal": {
+      "editItem": "Edit Item",
+      "closeOverlay": "Close overlay",
+      "task": "Title",
+      "taskRequired": "Title is required",
+      "taskPlaceholder": "Enter task title...",
+      "assignee": "Assignee (Email)",
+      "assigneePlaceholder": "Enter assignee email...",
+      "assignees": "Assignees (Email)",
+      "assigneesPlaceholder": "Enter assignee emails...",
+      "status": "Status",
+      "selectStatus": "Select status...",
+      "pending": "Not Started",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "deadline": "Deadline",
+      "notes": "Description",
+      "notesPlaceholder": "Enter task description...",
+      "question": "Question",
+      "questionRequired": "Question is required",
+      "questionPlaceholder": "Enter question...",
+      "asker": "Asker",
+      "askerPlaceholder": "Who asked this question?",
+      "answer": "Answer",
+      "answerPlaceholder": "Enter answer...",
+      "answered": "Answered",
+      "context": "Context",
+      "contextPlaceholder": "Additional context...",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saveAndSync": "Save & Sync Calendar",
+      "saving": "Saving...",
+      "updateSuccess": "Item updated successfully!",
+      "updateError": "Failed to update item",
+      "updateAndSyncSuccess": "Item updated and synced to calendar successfully!",
+      "updateSuccessSyncFailed": "Item updated successfully but calendar sync failed",
+      "updateSuccessSyncError": "Item updated successfully but calendar sync error",
+      "calendarSyncNotice": "Will automatically sync calendar for assignee when saved"
+    },
+    "AudioUploadModal": {
+      "title": "Upload audio file (m4a, mp3, webm)",
+      "dragOrClick": "Drag & drop an audio file here, or click to select",
+      "cancel": "Cancel",
+      "upload": "Upload",
+      "uploading": "Uploading...",
+      "uploadSuccess": "Upload successful!",
+      "uploadError": "Upload failed. Please try again."
+    },
+    "MarkdownEditor": {
+      "placeholder": "Enter markdown content...",
+      "noContent": "No content",
+      "saveHint": "Press ",
+      "saveHintSuffix": " to save quickly"
+    },
+    "TranscriptContent": {
+      "speaker": "Speaker",
+      "content": "Content",
+      "time": "Time",
+      "version": "Version",
+      "noTranscript": "No transcript available",
+      "reprocess": "Reprocess Transcript",
+      "reprocessing": "Reprocessing...",
+      "reprocessSuccess": "Transcript re-processing started successfully!",
+      "reprocessError": "Re-processing failed. Please try again."
+    },
+    "SummaryContent": {
+      "selectNote": "Select note",
+      "noteOption": "Note",
+      "noNote": "No note available",
+      "download": "Download",
+      "downloading": "Downloading...",
+      "loading": "Loading",
+      "edit": "Edit",
+      "save": "Save",
+      "general": "General summary",
+      "project": "Project summary",
+      "business": "Business summary",
+      "product": "Product summary",
+      "report": "Report summary",
+      "custom": "Custom summary",
+      "noContent": "No content available",
+      "summaryType": "Summarize",
+      "generateSuccess": "Note generated successfully!",
+      "generateError": "Failed to generate note!",
+      "generating": "Generating...",
+      "enterCustomPrompt": "Enter your custom prompt",
+      "customPromptPlaceholder": "Custom prompt...",
+      "apply": "Apply",
+      "customPromptTitle": "Custom Prompt",
+      "customPromptDescription": "Create a custom prompt to generate your meeting summary",
+      "promptLabel": "Your Custom Prompt",
+      "promptTip": "Tip: Be specific about the format and details you want",
+      "cancel": "Cancel",
+      "deleteSuccess": "Item deleted successfully!",
+      "deleteError": "Failed to delete item",
+      "QuestionTab": {
+        "untitled_question": "Untitled Question",
+        "asker": "Asked by",
+        "answered": "Answered",
+        "unanswered": "Unanswered",
+        "no_questions": "No questions found.",
+        "answer": "Answer",
+        "edit": "Edit",
+        "delete": "Delete",
+        "pending": "Pending"
+      },
+      "TaskTab": {
+        "action_item": "Action Item",
+        "task": "Task",
+        "issue": "Issue",
+        "other": "Other",
+        "untitled_task": "Untitled Task",
+        "assignee": "Assignee",
+        "status": "Status",
+        "deadline": "Deadline",
+        "no_tasks": "No tasks found.",
+        "edit": "Edit",
+        "delete": "Delete",
+        "pending": "Pending",
+        "in_progress": "In Progress",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      }
+    },
+    "TextUploadModal": {
+      "title": "Upload text file (.txt)",
+      "placeholder": "Enter or paste text content...",
+      "dragOrClick": "Drag & drop a .txt file here, or click to select",
+      "cancel": "Cancel",
+      "upload": "Upload",
+      "uploading": "Uploading...",
+      "uploadSuccess": "Upload successful!",
+      "uploadError": "Upload failed. Please try again."
+    },
+    "calendarSyncSuccess": "Calendar synced successfully: {processed} events processed, {created} created, {updated} updated{errors}",
+    "calendarSyncError": "Failed to sync calendar. Please try again later.",
+    "syncingCalendar": "Syncing calendar...",
+    "MeetingFileContent": {
+      "fileName": "File name",
+      "actions": "Actions",
+      "download": "Download",
+      "delete": "Delete",
+      "noFiles": "No audio files found.",
+      "loading": "Loading...",
+      "error": "Failed to load files."
+    },
+    "AudioContent": {
+      "fileName": "File name",
+      "actions": "Actions",
+      "download": "Download",
+      "delete": "Delete",
+      "noFiles": "No audio files found.",
+      "loading": "Loading...",
+      "error": "Failed to load files."
+    }
+  },
+  "MeetingBookingModal": {
+    "remove": "Remove",
+    "title": "Book a meeting",
+    "meetingTitle": "Title",
+    "meetingTitlePh": "Enter meeting title",
+    "language": "Language",
+    "description": "Description",
+    "datetime": "Date & time (Asia/Ho_Chi_Minh)",
+    "datetimePh": "Pick date & time",
+    "duration": "Duration (minutes)",
+    "meetingLink": "Meeting link",
+    "group": "Group",
+    "groupSelectPh": "Select or search a group...",
+    "participants": "Participants (email)",
+    "participantsPh": "Type to search email...",
+    "participantsNote": "Only emails existing in the system are allowed",
+    "dragDrop": "Add context documents (PDF/DOCX/TXT) — max 50MB/file",
+    "uploadHint": "Files will be uploaded after the meeting is created.",
+    "close": "Close",
+    "creating": "Creating...",
+    "create": "Create meeting",
+    "created": "Meeting created successfully!",
+    "createError": "Failed to create meeting",
+    "inviteError": "Failed to invite member",
+    "calendarError": "Failed to update calendar",
+    "fileTooLarge": "File exceeds 50MB"
+  },
+  "MeetingListPanel": {
+    "title": "Meetings",
+    "searchPlaceholder": "Search meetings...",
+    "datePlaceholder": "Select date",
+    "clearDate": "Clear date filter",
+    "error": "Failed to load meetings.",
+    "empty": "No meetings found.",
+    "perPage": "Per page",
+    "newMeeting": "New meeting"
+  },
+  "MeetingCard": {
+    "status": {
+      "scheduled": "Scheduled",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "failed": "Failed",
+      "reprocessing": "Reprocessing",
+      "other": "Other"
+    },
+    "statusTag": {
+      "customer": "Customer",
+      "work": "Work",
+      "urgent": "Urgent reply",
+      "later": "Reply later"
+    },
+    "viewDetail": "View detail",
+    "edit": "Edit",
+    "add_to_group": "Add to group",
+    "anonymous": "Anonymous",
+    "weekday": "{weekday}",
+    "monthShort": "thg {month}",
+    "delete": "Delete",
+    "more": "More",
+    "meetingDeleted": "Meeting deleted successfully!"
+  },
+  "GroupContent": {
+    "title": "Group List",
+    "createGroup": "Create Group",
+    "searchPlaceholder": "Search groups...",
+    "error": "Error loading groups",
+    "empty": "No groups found",
+    "perPage": "Per page",
+    "accept": "Accept",
+    "reject": "Reject",
+    "table": {
+      "groupName": "Group Name",
+      "description": "Description",
+      "createdDate": "Created Date",
+      "members": "Members",
+      "actions": "Actions",
+      "view": "View",
+      "noDescription": "No description"
+    },
+    "actions": {
+      "groupSettings": "Group Settings",
+      "deleteGroup": "Delete Group",
+      "confirmDelete": "Are you sure you want to delete this group?",
+      "deleteSuccess": "Group deleted successfully!",
+      "deleteError": "Failed to delete group",
+      "deleting": "Deleting...",
+      "editSuccess": "Group updated successfully!",
+      "editError": "Failed to update group",
+      "acceptSuccess": "Invitation accepted!",
+      "acceptError": "Failed to accept invitation",
+      "rejectSuccess": "Invitation rejected!",
+      "rejectError": "Failed to reject invitation"
+    },
+    "statistics": {
+      "groupOverview": "Group Overview",
+      "recentActivity": "Recent Activity",
+      "totalGroups": "Total Groups",
+      "totalMembers": "Total Members",
+      "activeGroups": "Active Groups",
+      "pendingInvites": "Pending Invites",
+      "newGroupsThisWeek": "New Groups This Week",
+      "newMembersThisWeek": "New Members This Week",
+      "groupsCreatedToday": "Groups Created Today",
+      "membersJoinedToday": "Members Joined Today"
+    }
+  },
+  "GroupCreateModal": {
+    "title": "Create New Group",
+    "name": "Group Name",
+    "namePlaceholder": "Enter group name...",
+    "nameRequired": "Group name is required",
+    "description": "Description",
+    "descriptionPlaceholder": "Enter group description (optional)...",
+    "descriptionTip": "Tip: Describe the purpose and goals of this group",
+    "cancel": "Cancel",
+    "create": "Create Group",
+    "creating": "Creating...",
+    "success": "Group created successfully!",
+    "error": "Failed to create group. Please try again."
+  },
+  "GroupEditModal": {
+    "title": "Edit Group",
+    "name": "Group Name",
+    "namePlaceholder": "Enter group name",
+    "nameRequired": "Group name is required",
+    "description": "Description",
+    "descriptionPlaceholder": "Enter group description (optional)",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving..."
+  },
+  "GroupInviteModal": {
+    "title": "Invite Member",
+    "email": "Email",
+    "emailPlaceholder": "Type to search email...",
+    "emailRequired": "Email is required",
+    "searching": "Searching...",
+    "noResults": "No results",
+    "role": "Role",
+    "roleMember": "Member",
+    "roleLeader": "Leader",
+    "cancel": "Cancel",
+    "invite": "Invite",
+    "inviting": "Inviting..."
+  },
+  "GroupDeleteConfirmModal": {
+    "title": "Confirm Delete Group",
+    "message": "Are you sure you want to delete group",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "GroupDetailPanel": {
+    "emptyState": "Select a group to view",
+    "error": "Failed to load group."
+  },
+  "GroupInfo": {
+    "loading": "Loading...",
+    "noName": "Untitled group",
+    "noDescription": "No description",
+    "createdAt": "Created at",
+    "updatedAt": "Updated at",
+    "back": "Back",
+    "edit": "Edit",
+    "delete": "Delete",
+    "editSuccess": "Group updated successfully!",
+    "editError": "Failed to update group",
+    "deleteSuccess": "Group deleted successfully!",
+    "deleteError": "Failed to delete group",
+    "namePrompt": "Enter new group name",
+    "descPrompt": "Enter new description (optional)",
+    "confirmDelete": "Are you sure you want to delete group",
+    "invite": "Invite",
+    "inviteSuccess": "Invitation sent successfully!",
+    "inviteError": "Failed to send invitation"
+  },
+  "GroupMembers": {
+    "searchPlaceholder": "Search members...",
+    "invite": "Invite",
+    "inviteInfo": "Open the invite modal to add members (coming soon)",
+    "inviteSuccess": "Invitation sent successfully!",
+    "inviteError": "Failed to send invitation",
+    "loading": "Loading...",
+    "error": "Failed to load members",
+    "username": "Username",
+    "email": "Email",
+    "role": "Role / Status",
+    "actions": "Actions",
+    "remove": "Remove",
+    "confirmRemove": "Remove this member?",
+    "confirmRemoveTitle": "Remove Member",
+    "confirmRemoveMessage": "Are you sure you want to remove this member from the group?",
+    "removeSuccess": "Member removed successfully!",
+    "removeError": "Failed to remove member",
+    "empty": "No members found"
+  },
+
+  "AuthLayout": {
+    "logoAlt": "FPT Telecom logo",
+    "title": "Welcome to Meobeo.ai",
+    "aiAgent": "AI Agent",
+    "community": "community",
+    "aiFirst": "AI-first",
+    "pioneer": "pioneer",
+    "fptTelecom": "FPT Telecom",
+    "taskForce": "Task Force",
+    "description": "A modern login experience powered by FPT Telecom and Meobeo.ai.",
+    "welcomeTitle": "Welcome to Meobeo.ai",
+    "subtitle": "Smart AI meeting assistant",
+    "tagline": "Improve meeting efficiency | AI solution optimized for Vietnamese",
+    "mascotAlt": "Meobeo.ai mascot",
+    "mascotLabel": "Meobeo.ai Cat",
+    "or": "or",
+    "loginGoogle": "Sign in with Google",
+    "loginAzure": "Sign in with Azure AD",
+    "copyright": "© {year} Meobeo.ai. All rights reserved."
+  },
+  "HomePage": {
+    "title": "Hello, world!",
+    "hero": {
+      "welcome": "A comprehensive solution for",
+      "title": "meeting management",
+      "description": "Optimize meetings with full tools for note-taking, analysis, and turning information into action",
+      "buttons": {
+        "chromeStore": "Available on Chrome Web Store",
+        "viewGithub": "View on GitHub"
+      },
+      "users": "+50",
+      "userLabel": "users have trusted us",
+      "brand": "Meobeo.ai",
+      "summaryCard": {
+        "title": "Meeting Summary",
+        "description": "Summarize meetings using real-time or post-meeting AI",
+        "imageAlt": "Summary icon"
+      },
+      "analyzeCard": {
+        "title": "Analysis & Insights",
+        "description": "Analyze number of meetings and activity statistics",
+        "imageAlt": "Analytics icon"
+      }
+    },
+    "features": {
+      "title": {
+        "prefix": "Great features for a ",
+        "suffix": "creative meeting"
+      },
+      "carousel": {
+        "features": [
+          {
+            "title": "Automatic Summarization",
+            "subtitle": "Summarize meetings using real-time or post-meeting AI"
+          },
+          {
+            "title": "Meeting Analysis",
+            "subtitle": "Analyze attended meetings and statistics"
+          },
+          {
+            "title": "Calendar Sync",
+            "subtitle": "Sync with personal calendar, stay informed and reminded"
+          },
+          {
+            "title": "Group Management",
+            "subtitle": "Statistics and reports for groups beyond individuals"
+          }
+        ]
+      },
+      "items": {
+        "openSource": {
+          "name": "Free & Open Source",
+          "summary": "Build, customize, and create freely!",
+          "description": "Our Next.js starter is fully open-source, allowing contributions, customization, and updates to the latest standards at no cost."
+        },
+        "devStack": {
+          "name": "Modern Development Stack",
+          "summary": "Smooth dev experience with Next.js, React, and TypeScript.",
+          "description": "Designed for scalability, integrated with React Query for data fetching, Redux for state management, and Tailwind CSS for rapid UI building."
+        },
+        "stateManagement": {
+          "name": "Optimized State Management",
+          "summary": "Easily handle complex state with Redux and React Query.",
+          "description": "This combo enables efficient data fetching, caching, and global state management for responsive and fast apps."
+        },
+        "i18n": {
+          "name": "Multilingual Support (i18n)",
+          "summary": "Global-ready with built-in i18n support.",
+          "description": "Easily localize the app to improve user experience and attract diverse audiences with minimal config."
+        },
+        "cicd": {
+          "name": "Robust CI/CD & Testing",
+          "summary": "Focus on development, let GitHub Actions handle automation.",
+          "description": "Includes unit, integration, and end-to-end testing for a solid platform."
+        },
+        "devEnv": {
+          "name": "Developer-Friendly Environment",
+          "summary": "Enjoy a clean, maintainable codebase with ESLint, Prettier, and TypeScript.",
+          "description": "Optimized starter includes reusable UI components, hooks, and modular architecture for fast and scalable development."
+        }
+      }
+    },
+    "stack": {
+      "catAlt": "Cat icon",
+      "laptopAlt": "Laptop with Meobeo.ai",
+      "miniCatAlt": "Small cat icon",
+      "chromeStoreAlt": "Chrome Web Store",
+      "bottom": {
+        "title": "Easy installation, no time wasted",
+        "strong": "Why not try it now!",
+        "desc": "Click to install"
+      },
+      "title": "Work smarter with Meobeo.ai",
+      "overview": "Overview",
+      "description": "Speed up your development with a powerful, feature-rich Next.js starter built for performance, scalability, and developer productivity. Highlights include:",
+      "timeline": [
+        {
+          "title": "Upload Transcript",
+          "desc": "Upload your meeting audio or transcript"
+        },
+        {
+          "title": "AI Analysis",
+          "desc": "System analyzes the content and extracts insights"
+        },
+        {
+          "title": "Access Results",
+          "desc": "View reports, summaries, and key points for action"
+        }
+      ],
+      "benefits": {
+        "title": "Benefits",
+        "items": [
+          "Extension works directly in the browser",
+          "Easily share results and notes with colleagues",
+          "Never miss any important meeting event",
+          "Built-in CMS for tracking and analyzing content"
+        ]
+      }
+    },
+    "installation": "Easy project installation and setup guide.",
+    "testimonials": {
+      "title": "What users say about Meobeo.ai",
+      "description": "Hear from developers who've accelerated their projects using the Next.js Starter Kit.",
+      "ctaTitle": "Why choose Meobeo.ai?",
+      "ctaButton": "Explore now",
+      "benefits": [
+        "Save time with automatic note-taking",
+        "Never miss important meeting information",
+        "Analyze sentiment and trends in content",
+        "Detect issues and opportunities from meeting data"
+      ],
+      "items": [
+        {
+          "name": "Nguyễn Văn A",
+          "title": "Frontend Developer",
+          "review": "Meobeo.ai helped me launch projects much faster. The starter is easy to use and extend."
+        },
+        {
+          "name": "Trần Thị B",
+          "title": "Fullstack Engineer",
+          "review": "I highly value the i18n and Redux integration. Clean UI and codebase."
+        },
+        {
+          "name": "Lê Văn C",
+          "title": "Tech Lead",
+          "review": "This starter saved my team weeks of development. Great for large-scale projects."
+        },
+        {
+          "name": "Phạm Thị D",
+          "title": "Product Manager",
+          "review": "I love how Meobeo.ai helps manage meetings and analyze data. Very useful!"
+        }
+      ]
+    }
+  },
+  "Header": {
+    "navigation": {
+      "home": "Home",
+      "features": "Features",
+      "techStack": "Tech Stack",
+      "testimonials": "Testimonials",
+      "userGuide": "User Guide",
+      "startNow": "Start Now",
+      "personal": "Personal",
+      "group": "Group",
+      "addText": "Add text",
+      "addAudio": "Add audio"
+    },
+    "getStarted": "Get Started"
+  },
+  "Footer": {
+    "copyright": "© {year} Meobeo.ai. All rights reserved.",
+    "title": "Meobeo.ai",
+    "rights": "All rights reserved.",
+    "github": "GitHub",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service"
+  },
+  "LanguageSwitcher": {
+    "selectLanguage": "Select language (current: {current})"
+  },
+  "ThemeToggle": {
+    "toggleTheme": "Toggle theme"
+  },
+  "Components": {
+    "title": "UI Component Demos",
+    "description": "Explore reusable UI components with previews and source samples.",
+    "button": {
+      "title": "Buttons",
+      "description": "Various button styles for different actions.",
+      "primary": "Primary Button",
+      "default": "Default Button",
+      "danger": "Danger Button",
+      "dashed": "Dashed Button",
+      "link": "Link Button"
+    },
+    "alert": {
+      "title": "Alerts",
+      "description": "Show important messages with various alert types.",
+      "info": "Info Alert",
+      "warning": "Warning Alert",
+      "success": "Success Alert",
+      "error": "Error Alert",
+      "sampleDescription": "This is a sample description for the alert."
+    },
+    "card": {
+      "title": "Info Cards",
+      "description": "Display information in card layout.",
+      "user": "User Card",
+      "text": "Dan is a software engineer working with React.",
+      "comment": "Comment",
+      "share": "Share"
+    },
+    "common": {
+      "showCode": "Show source code",
+      "hideCode": "Hide source code"
+    }
+  },
+  "DynamicPage": {
+    "title": "Buttons",
+    "description": "Easily localize your app to improve user experience and attract diverse audiences with minimal configuration."
+  },
+  "NotFound": {
+    "notFound": {
+      "title": "Page not found",
+      "description": "Sorry, the page you're looking for doesn't exist or has been moved.",
+      "goBack": "Go back",
+      "goHome": "Go to homepage",
+      "contactUs": "contact us",
+      "forSupport": "for support."
+    }
+  },
+  "ForgotPassword": {
+    "title": "Forgot Password",
+    "description": "Enter your registered email to reset your password.",
+    "emailPlaceholder": "Enter your email",
+    "sendRequest": "Send Request",
+    "successMessage": "Password reset instructions have been sent to your email.",
+    "errorEmail": "Please enter your email.",
+    "errorFailed": "Failed to send reset instructions. Please try again.",
+    "backToLogin": "Back to Login",
+    "registerNow": "Register Now"
+  },
+  "AuthForm": {
+    "sideTitle": "Find your true self",
+    "sideDescription": "Sign in to access Meobeo, your smart meeting note assistant.",
+    "welcome": "Welcome Back",
+    "subtitle": "Please sign in to continue",
+    "emailPlaceholder": "Enter your email",
+    "passwordPlaceholder": "Enter your password",
+    "usernamePlaceholder": "Enter your username",
+    "confirmPasswordPlaceholder": "Confirm your password",
+    "rememberMe": "Remember me",
+    "forgotPassword": "Forgot password?",
+    "loginButton": "Sign In",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "registerNow": "Register Now",
+    "errorEmail": "Please enter your email.",
+    "errorPassword": "Please enter your password.",
+    "errorUsername": "Please enter your username.",
+    "loginSuccess": "Login successful!",
+    "registerSuccess": "Registration successful!",
+    "sessionExpired": "Session expired, please login again"
+  },
+  "Sidebar": {
+    "userAvatar": "User Avatar",
+    "home": "Home",
+    "meeting": "Meeting",
+    "email": "Email",
+    "setting": "Setting",
+    "store": "Store",
+    "logout": "Logout",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "sidebarAriaLabel": "Sidebar navigation"
+  },
+  "Dashboard": {
+    "home": {
+      "title": "Dashboard",
+      "welcome": "Welcome back, {name}!",
+      "subtitle": "Here's your comprehensive service usage analytics dashboard",
+      "analyticsDashboard": "Analytics Dashboard",
+      "description": "Monitor your token usage, analyze trends, and optimize your service consumption"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "trends": "Usage Trends",
+      "breakdown": "Operation Breakdown",
+      "overviewDescription": "General usage statistics and key metrics",
+      "trendsDescription": "Time-series analysis of token consumption",
+      "breakdownDescription": "Detailed analysis by operation type"
+    },
+    "loading": "Loading...",
+    "welcomeTitle": "Welcome to Meobeo V2",
+    "welcomeDescription": "Please log in to view your service usage analytics dashboard",
+    "footer": {
+      "copyright": "© 2025 Meobeo.ai. All rights reserved.",
+      "tagline": "Empowering smarter meetings through AI"
+    }
+  },
+  "Charts": {
+    "tokenUsage": {
+      "title": "Token Usage Analytics",
+      "inputTokens": "Input Tokens",
+      "outputTokens": "Output Tokens",
+      "contextTokens": "Context Tokens",
+      "totalTokens": "Total Tokens",
+      "usageDistribution": "Usage Distribution",
+      "usageByOperationType": "Usage by Operation Type",
+      "tokenDistribution": "Token Distribution",
+      "usageTrends": "Usage Trend"
+    },
+    "usageTrends": {
+      "title": "Usage Trends - Last {period} Days",
+      "avgDaily": "Avg Daily",
+      "peakUsage": "Peak Usage",
+      "minUsage": "Min Usage",
+      "activeDays": "Active Days",
+      "peakUsageDay": "Peak Usage Day",
+      "dailyTokens": "tokens",
+      "totalTokens": "Total Tokens"
+    },
+    "operationBreakdown": {
+      "title": "Operation Breakdown",
+      "usageCount": "Usage Count",
+      "totalTokens": "Total Tokens",
+      "avgTokensPerOp": "Avg Tokens/Op",
+      "percentage": "Percentage",
+      "operationType": "Operation Type",
+      "mostUsed": "Most Used",
+      "totalOperations": "Total Operations",
+      "usageCountByOperation": "Usage Count by Operation",
+      "tokenUsageByOperation": "Token Usage by Operation",
+      "operationDetails": "Operation Details",
+      "inputTokens": "Input Tokens",
+      "avgTokensPerOperation": "Avg Tokens/Op"
+    },
+    "summaryCards": {
+      "totalTokens": "Total Tokens",
+      "totalCost": "Total Cost",
+      "efficiencyRatio": "Efficiency Ratio",
+      "avgCostPerOperation": "Avg Cost/Operation",
+      "mostUsedOperation": "Most Used Operation",
+      "activeDays": "Active Days",
+      "usageTrend": "Usage Trend",
+      "totalOperations": "Total Operations",
+      "totalTokensDesc": "Total tokens consumed",
+      "totalCostDesc": "Estimated cost",
+      "efficiencyDesc": "Output/Input ratio",
+      "avgCostDesc": "Average cost per operation",
+      "mostUsedDesc": "operations",
+      "activeDaysDesc": "Days with usage",
+      "usageTrendDesc": "Compared to previous period",
+      "totalOperationsDesc": "Total operations performed"
+    }
+  },
+  "Email": {
+    "title": "Send Email",
+    "meeting": "Meeting",
+    "selectMeeting": "Select a meeting",
+    "newMeeting": "New meeting",
+    "recipients": "Recipients",
+    "recipientsPh": "Type to search or enter emails, press Enter to add",
+    "subject": "Subject",
+    "subjectPh": "Enter email subject",
+    "content": "Content",
+    "contentPh": "Write your email content...",
+    "signature": "Signature",
+    "signaturePh": "Your name, title, contact...",
+    "sendNow": "Send now",
+    "sending": "Sending...",
+    "send": "Send",
+    "compose": "Compose Email",
+    "errorNoRecipient": "Please add at least one recipient",
+    "errorInvalidRecipient": "Some email addresses are invalid",
+    "errorNoSubject": "Please enter email subject",
+    "errorNoBody": "Please enter email content",
+    "sendSuccess": "Email sent successfully!",
+    "sendError": "Failed to send email. Please try again.",
+    "attachments": "Attachments",
+    "dropHere": "Drop files here or",
+    "chooseFiles": "Choose files",
+    "clear": "Clear",
+    "fileTooLarge": "{count} file(s) exceed 200KB limit and were not added",
+    "contentTooLong": "Content exceeds 200KB limit",
+    "history": "History",
+    "emailHistory": "Email History",
+    "noEmailHistory": "No email history found",
+    "emailDetail": "Email Detail",
+    "sentAt": "Sent At",
+    "notSent": "Not sent yet",
+    "errorMessage": "Error Message",
+    "viewDetail": "View Detail",
+    "validation": {
+      "noRecipients": "Please add at least one recipient",
+      "noSubject": "Please enter subject"
+    },
+    "note": "Note: This is a mock email sender. Real API is specified below.",
+    "status": {
+      "sent": "Sent",
+      "failed": "Failed",
+      "pending": "Pending"
+    },
+    "meetingInfo": {
+      "header": "--- MEETING INFO ---",
+      "titleLabel": "Title",
+      "linkLabel": "Link",
+      "dateLabel": "Date",
+      "durationLabel": "Duration",
+      "durationUnit": "minutes",
+      "statusLabel": "Status",
+      "groupLabel": "Group",
+      "noGroup": "None",
+      "footer": "--- END OF MEETING INFO ---"
+    }
+  },
+  "ProfileForm": {
+    "loading": "Loading...",
+    "loadError": "Failed to load user data",
+    "updateSuccess": "Profile updated successfully!",
+    "updateError": "Failed to update profile. Please try again.",
+    "verified": "Verified",
+    "pendingVerification": "Pending Verification",
+    "basicInformation": "Basic Information",
+    "firstName": "First Name",
+    "firstNamePlaceholder": "Enter first name",
+    "lastName": "Last Name",
+    "lastNamePlaceholder": "Enter last name",
+    "username": "Username",
+    "usernamePlaceholder": "Enter username",
+    "email": "Email",
+    "readOnly": "Read-only",
+    "emailCannotChange": "Email cannot be changed from this form",
+    "accountDetails": "Account Details",
+    "role": "Role",
+    "roleCannotChange": "Role cannot be changed",
+    "language": "Language",
+    "english": "English",
+    "vietnamese": "Tiếng Việt",
+    "memberSince": "Member Since",
+    "cannotChange": "Cannot be changed",
+    "accountStatus": "Account Status",
+    "saveChanges": "Save Changes",
+    "saving": "Saving...",
+    "reset": "Reset"
+  },
+  "SettingContent": {
+    "title": "Profile Settings",
+    "description": "Manage your account information and settings",
+    "personalInformation": "Personal Information",
+    "personalInformationDescription": "Edit your personal details and contact information"
+  },
+  "MeetingDeleteConfirmModal": {
+    "title": "Confirm Delete Meeting",
+    "message": "Are you sure you want to delete",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting..."
+  },
+  "Common": {
+    "close": "Close",
+    "insufficientFishTitle": "Insufficient Balance",
+    "insufficientFishMessage": "You don't have enough Fish to perform this action. Please top up your Fish balance to continue.",
+    "topUpFish": "Top Up Fish"
+  },
+  "FishHistory": {
+    "title": "Fish Transaction History",
+    "subtitle": "View your fish token usage and transaction history",
+    "table": {
+      "no": "No.",
+      "operationType": "Operation",
+      "amount": "Amount",
+      "balanceBefore": "Balance Before",
+      "balanceAfter": "Balance After",
+      "status": "Status",
+      "description": "Description",
+      "date": "Date",
+      "actions": "Actions"
+    },
+    "filters": {
+      "title": "Filters",
+      "transactionType": "Transaction Type",
+      "operationType": "Operation Type",
+      "status": "Status",
+      "dateFrom": "Date From",
+      "dateTo": "Date To",
+      "search": "Search transactions...",
+      "clear": "Clear Filters",
+      "apply": "Apply Filters"
+    },
+    "status": {
+      "pending": "Pending",
+      "success": "Success",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "transactionType": {
+      "credit": "Credit",
+      "debit": "Debit"
+    },
+    "operationType": {
+      "purchase": "Purchase",
+      "transcription": "Transcription",
+      "summarization": "Summarization",
+      "translation": "Translation",
+      "meeting": "Meeting",
+      "bonus": "Bonus",
+      "refund": "Refund",
+      "other": "Other"
+    },
+    "noData": "No transactions found",
+    "loading": "Loading transactions...",
+    "error": "Failed to load transactions",
+    "retry": "Retry",
+    "viewDetails": "View Details",
+    "refresh": "Refresh",
+    "transactionDetails": "Transaction Details",
+    "transactionDetailsSubtitle": "Detailed information about this transaction",
+    "close": "Close",
+    "filtersApplied": "Filters applied successfully!",
+    "dataRefreshed": "Data refreshed successfully!",
+    "viewingDetails": "Viewing details for transaction {id}",
+    "errorLoadingData": "Failed to load fish history data. Please try again.",
+    "noTransactions": "No fish transactions found. Try adjusting your filters or check back later.",
+    "showingResults": "Showing {start} to {end} of {total} transactions",
+    "perPage": "Per page:",
+    "paymentAmount": "Payment Amount (VND)",
+    "packageInformation": "Package Information",
+    "createdDate": "Created Date",
+    "updatedDate": "Updated Date"
+  },
+  "Store": {
+    "title": "Fish Store",
+    "subtitle": "Purchase fish tokens with real money",
+    "availablePackages": "Available Packages",
+    "packages": "Packages",
+    "fishTokens": "Fish Tokens",
+    "bestValue": "Best Value",
+    "popular": "Popular",
+    "featured": "Featured",
+    "premium": "Premium",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "purchaseNow": "Purchase Now",
+    "contactUs": "Contact Us",
+    "contactForPricing": "Contact for pricing",
+    "customPricing": "Custom pricing available",
+    "perFish": "per fish",
+    "maxPurchase": "Max: {count}/user",
+    "loading": "Loading...",
+    "errorLoading": "Error loading packages",
+    "retry": "Retry",
+    "noPackages": "No packages available",
+    "noPackagesDesc": "Fish packages will be available soon. Please check back later.",
+    "confirmPurchase": "Confirm Purchase",
+    "redirectMessage": "You will be redirected to PayOS to complete your payment",
+    "package": "Package",
+    "fishAmount": "Fish Amount",
+    "price": "Price",
+    "pricing": "Pricing",
+    "description": "Description",
+    "features": "Features",
+    "recommendedFor": "Recommended for",
+    "cancel": "Cancel",
+    "processing": "Processing...",
+    "paymentReady": "Payment Link Ready!",
+    "completePayment": "Complete Payment",
+    "close": "Close",
+    "transactionId": "Transaction ID",
+    "status": "Status",
+    "paymentDesc": "Complete your payment to receive the fish tokens",
+    "authRequired": "Authentication Required",
+    "authDesc": "Please log in to access the fish store and top up your balance.",
+    "purchaseSuccess": "Payment link generated successfully!",
+    "purchaseFailed": "Purchase failed",
+    "redirectingToPayOS": "Please wait while we prepare your PayOS payment link...",
+    "businessPackageDesc": "This is a premium business package with custom pricing and team features.",
+    "chooseYourPlan": "Choose Your Plan",
+    "planDescription": "Select the perfect package that fits your needs and start maximizing your fish tokens today.",
+    "fishBalance": "Fish Balance",
+    "backToHome": "Back to Home"
+  }
+}

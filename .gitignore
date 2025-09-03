@@ -211,9 +211,6 @@ __marimo__/
 .vscode/
 .github/
 
-*.json
-
 # Firebase service account keys
 config/keys/*.json
 app/static/*
-*.js

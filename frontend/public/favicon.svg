@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <style type="text/css">
+      @font-face {
+        font-family: 'Sofia';
+        src: url('https://fonts.gstatic.com/s/sofia/v20/8QINdiTz-M8zCcdwrmD4SK6oaj2Q.woff2') format('woff2');
+      }
+    </style>
+  </defs>
+  <!-- First letter "N" using textColorPrimary -->
+  <text 
+    x="0" 
+    y="24" 
+    font-family="Sofia" 
+    font-size="25" 
+    fill="#FFFFFF"
+    style="filter: drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.1));"
+  >N</text>
+  
+  <!-- Second letter "S" using textColorSecondary -->
+  <text 
+    x="15" 
+    y="24" 
+    font-family="Sofia" 
+    font-size="25" 
+    fill="#60A5FA"
+    style="filter: drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.1));"
+  >S</text>
+</svg>

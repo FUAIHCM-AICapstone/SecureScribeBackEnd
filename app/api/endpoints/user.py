@@ -176,7 +176,6 @@ def update_fcm_token_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-
     # Find existing device or create new one
     device = (
         db.query(UserDevice)
@@ -226,11 +225,7 @@ def test_stream_progress(current_user: User = Depends(get_current_user)):
     return ApiResponse(
         success=True,
         message="Stream test started",
-        data={
-            "task_id": task.id,
-            "user_id": user_id_str,
-            "status": "started"
-        },
+        data={"task_id": task.id, "user_id": user_id_str, "status": "started"},
     )
 
 
@@ -251,7 +246,9 @@ def get_websocket_status(current_user: User = Depends(get_current_user)):
         data={
             "user_id": user_id_str,
             "is_connected": user_id_str in websocket_manager.connections,
-            "user_connections": stats.get("connections_per_user", {}).get(user_id_str, 0),
+            "user_connections": stats.get("connections_per_user", {}).get(
+                user_id_str, 0
+            ),
             "total_active_connections": stats.get("active_connections", 0),
             "total_unique_users": stats.get("unique_users", 0),
             "metrics": {
@@ -260,54 +257,6 @@ def get_websocket_status(current_user: User = Depends(get_current_user)):
                 "messages_received": stats.get("messages_received", 0),
                 "redis_errors": stats.get("redis_errors", 0),
                 "websocket_errors": stats.get("websocket_errors", 0),
-            }
+            },
         },
     )
-
-
-@router.get("/admin/metrics/websocket", response_model=ApiResponse[dict])
-def get_websocket_metrics(current_user: User = Depends(get_current_user)):
-    """
-    Get comprehensive WebSocket and Redis metrics (admin endpoint)
-    """
-    from app.services.websocket_manager import websocket_manager
-
-    # Check if user has admin privileges (you can customize this logic)
-    # For now, allowing all authenticated users to view metrics
-
-    stats = websocket_manager.get_connection_stats()
-
-    return ApiResponse(
-        success=True,
-        message="WebSocket metrics retrieved",
-        data={
-            "websocket_manager": {
-                "status": "running" if websocket_manager._pubsub_task and not websocket_manager._pubsub_task.done() else "stopped",
-                "pubsub_active": websocket_manager._pubsub_task is not None and not websocket_manager._pubsub_task.done(),
-            },
-            "connections": {
-                "total_active": stats.get("active_connections", 0),
-                "unique_users": stats.get("unique_users", 0),
-                "total_ever_connected": stats.get("total_connections", 0),
-                "connections_per_user": stats.get("connections_per_user", {}),
-            },
-            "messages": {
-                "total_sent": stats.get("messages_sent", 0),
-                "total_received": stats.get("messages_received", 0),
-            },
-            "errors": {
-                "redis_errors": stats.get("redis_errors", 0),
-                "websocket_errors": stats.get("websocket_errors", 0),
-            },
-            "performance": {
-                "avg_messages_per_connection": (
-                    stats.get("messages_sent", 0) / max(stats.get("active_connections", 1), 1)
-                ),
-                "error_rate_percent": (
-                    (stats.get("redis_errors", 0) + stats.get("websocket_errors", 0)) /
-                    max(stats.get("messages_sent", 1), 1) * 100
-                ),
-            }
-        },
-    )
-

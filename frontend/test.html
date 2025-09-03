@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scrollable Cards</title>
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+    }
+
+    .outer-container {
+      width: 100%;
+      max-height: 80vh; /* Không cố định, nhưng giới hạn bằng viewport */
+      border: 2px solid #333;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    .inner-scrollable {
+      max-height: 100%;
+      overflow-y: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .card {
+      width: 150px;
+      height: 100px;
+      background-color: #f2f2f2;
+      border: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="outer-container">
+  <div class="inner-scrollable" id="card-container">
+    <!-- Cards will be generated here -->
+  </div>
+</div>
+
+<script>
+  const container = document.getElementById('card-container');
+  for (let i = 1; i <= 80; i++) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.textContent = `Card ${i}`;
+    container.appendChild(card);
+  }
+</script>
+
+</body>
+</html>

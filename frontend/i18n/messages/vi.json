@@ -1,0 +1,1026 @@
+{
+  "MeetingDetailPanel": {
+    "emptyState": "Chọn một cuộc họp để xem chi tiết",
+    "tabs": {
+      "summary": "Tóm tắt",
+      "transcript": "Bản ghi",
+      "dialogue": "Tập tin",
+      "recording": "Ghi âm"
+    },
+    "meetings": "Danh sách cuộc họp"
+  },
+  "MeetingEditModal": {
+    "title": "Tiêu đề",
+    "description": "Mô tả",
+    "meeting_date": "Thời gian họp",
+    "group": "Nhóm",
+    "search_groups": "Tìm kiếm nhóm...",
+    "no_groups_found": "Không tìm thấy nhóm nào",
+    "no_group": "Không có nhóm",
+    "no_description": "Không có mô tả",
+    "loading": "Đang tải...",
+    "current_group": "Nhóm Hiện Tại",
+    "cancel": "Hủy",
+    "success": "Cập nhật cuộc họp thành công!"
+  },
+  "MeetingDetailHeader": {
+    "meetingDetail": "Chi tiết cuộc họp",
+    "pending": "Đang chờ",
+    "unknown": "Không rõ",
+    "organizer": "Chủ trì",
+    "email": "Email",
+    "version": "Phiên bản",
+    "loading": "(Đang tải...)",
+    "emptyState": "Chưa chọn cuộc họp nào",
+    "emptyHint": "Vui lòng chọn một cuộc họp để xem chi tiết."
+  },
+  "ChatContent": {
+    "assistant": "Trợ lý",
+    "you": "Bạn",
+    "chatWithAssistant": "Chat với Trợ lý",
+    "attachedFiles": "Tệp đính kèm",
+    "manageFiles": "Quản lý tệp",
+    "enableNotifications": "Bật thông báo",
+    "notificationsEnabled": "Thông báo đã bật",
+    "notificationsEnabledMessage": "Bạn sẽ nhận tin nhắn mới từ Trợ lý.",
+    "messagePlaceholder": "Nhập tin nhắn...",
+    "send": "Gửi",
+    "assistantTyping": "Assistant đang nhập...",
+    "newMessageNotification": "Tin nhắn mới từ Trợ lý",
+    "manageContextFiles": "Quản lý tệp ngữ cảnh",
+    "fileSizeError": "File vượt quá 50MB",
+    "uploadError": "Upload lỗi, thử lại",
+    "dragDropFileAriaLabel": "Kéo & thả tệp vào đây, hoặc click để chọn",
+    "dragDropFileText": "Kéo & thả tệp vào đây, hoặc click để chọn",
+    "close": "Đóng",
+    "uploading": "Đang tải...",
+    "upload": "Tải lên",
+    "loading": "Đang tải...",
+    "noFilesYet": "Chưa có tệp nào",
+    "noFilesHint": "Kéo & thả tệp vào vùng này hoặc dùng nút Tải lên ở trên.",
+    "fileName": "Tên tệp",
+    "actions": "Thao tác",
+    "downloadMock": "Tải xuống (mock)",
+    "delete": "Xóa"
+  },
+  "MeetingContent": {
+    "MeetingItemEditModal": {
+      "editItem": "Chỉnh sửa mục",
+      "closeOverlay": "Đóng lớp phủ",
+      "task": "Tiêu đề",
+      "taskRequired": "Bắt buộc nhập tiêu đề",
+      "taskPlaceholder": "Nhập tiêu đề công việc...",
+      "assignee": "Người phụ trách (Email)",
+      "assigneePlaceholder": "Nhập email người phụ trách...",
+      "assignees": "Người phụ trách (Email)",
+      "assigneesPlaceholder": "Nhập email người phụ trách...",
+      "status": "Trạng thái",
+      "selectStatus": "Chọn trạng thái...",
+      "pending": "Chưa bắt đầu",
+      "inProgress": "Đang thực hiện",
+      "completed": "Hoàn thành",
+      "cancelled": "Đã hủy",
+      "deadline": "Deadline",
+      "notes": "Mô tả",
+      "notesPlaceholder": "Nhập mô tả công việc...",
+      "question": "Câu hỏi",
+      "questionRequired": "Bắt buộc nhập câu hỏi",
+      "questionPlaceholder": "Nhập câu hỏi...",
+      "asker": "Người hỏi",
+      "askerPlaceholder": "Ai là người hỏi?",
+      "answer": "Câu trả lời",
+      "answerPlaceholder": "Nhập câu trả lời...",
+      "answered": "Đã trả lời",
+      "context": "Ngữ cảnh",
+      "contextPlaceholder": "Ngữ cảnh bổ sung...",
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "saveAndSync": "Lưu & Đồng bộ lịch",
+      "saving": "Đang lưu...",
+      "updateSuccess": "Cập nhật mục thành công!",
+      "updateError": "Không thể cập nhật mục",
+      "updateAndSyncSuccess": "Cập nhật mục và đồng bộ lịch thành công!",
+      "updateSuccessSyncFailed": "Cập nhật mục thành công nhưng đồng bộ lịch thất bại",
+      "updateSuccessSyncError": "Cập nhật mục thành công nhưng lỗi đồng bộ lịch",
+      "calendarSyncNotice": "Sẽ tự động đồng bộ lịch cho người phụ trách khi lưu"
+    },
+    "MeetingFileContent": {
+      "fileName": "Tên file",
+      "actions": "Thao tác",
+      "download": "Tải xuống",
+      "delete": "Xóa",
+      "noFiles": "Không có file audio nào.",
+      "loading": "Đang tải...",
+      "error": "Không thể tải file."
+    },
+    "AudioContent": {
+      "fileName": "Tên file",
+      "actions": "Thao tác",
+      "download": "Tải xuống",
+      "delete": "Xóa",
+      "noFiles": "Không có file audio nào.",
+      "loading": "Đang tải...",
+      "error": "Không thể tải file."
+    },
+    "AudioUploadModal": {
+      "title": "Tải lên file âm thanh (m4a, mp3, webm)",
+      "dragOrClick": "Kéo thả file âm thanh vào đây hoặc bấm để chọn",
+      "cancel": "Hủy",
+      "upload": "Tải lên",
+      "uploading": "Đang tải...",
+      "uploadSuccess": "Tải lên thành công!",
+      "uploadError": "Tải lên thất bại. Vui lòng thử lại."
+    },
+    "MarkdownEditor": {
+      "placeholder": "Nhập nội dung markdown...",
+      "noContent": "Không có nội dung",
+      "saveHint": "Nhấn ",
+      "saveHintSuffix": " để lưu nhanh"
+    },
+    "TranscriptContent": {
+      "speaker": "Người nói",
+      "content": "Nội dung",
+      "time": "Thời gian",
+      "version": "Phiên bản",
+      "noTranscript": "Không có transcript nào",
+      "reprocess": "Xử lý lại Transcript",
+      "reprocessing": "Đang xử lý lại...",
+      "reprocessSuccess": "Đã bắt đầu xử lý lại transcript thành công!",
+      "reprocessError": "Xử lý lại thất bại. Vui lòng thử lại."
+    },
+    "SummaryContent": {
+      "selectNote": "Chọn ghi chú",
+      "noteOption": "Ghi chú",
+      "noNote": "Không có ghi chú nào",
+      "download": "Tải xuống",
+      "downloading": "Đang tải...",
+      "loading": "Đang tải...",
+      "edit": "Chỉnh sửa",
+      "save": "Lưu",
+      "general": "Tóm tắt tổng quan",
+      "project": "Tóm tắt dự án",
+      "business": "Tóm tắt kinh doanh",
+      "product": "Tóm tắt sản phẩm",
+      "report": "Tóm tắt báo cáo",
+      "custom": "Tóm tắt tuỳ chỉnh",
+      "noContent": "Chưa có nội dung",
+      "summaryType": "Tóm tắt",
+      "generateSuccess": "Tạo ghi chú thành công!",
+      "generateError": "Tạo ghi chú thất bại!",
+      "generating": "Đang tạo...",
+      "enterCustomPrompt": "Nhập prompt tuỳ chỉnh của bạn",
+      "customPromptPlaceholder": "Prompt tuỳ chỉnh...",
+      "apply": "Áp dụng",
+      "customPromptTitle": "Prompt tuỳ chỉnh",
+      "customPromptDescription": "Tạo prompt tuỳ chỉnh để sinh tóm tắt cuộc họp",
+      "promptLabel": "Prompt của bạn",
+      "promptTip": "Mẹo: Hãy mô tả cụ thể định dạng và nội dung bạn muốn",
+      "cancel": "Hủy",
+      "deleteSuccess": "Xóa mục thành công!",
+      "deleteError": "Xóa mục thất bại!",
+      "QuestionTab": {
+        "untitled_question": "Câu hỏi chưa đặt tên",
+        "asker": "Người hỏi",
+        "answered": "Đã trả lời",
+        "unanswered": "Chưa trả lời",
+        "no_questions": "Không có câu hỏi nào.",
+        "answer": "Trả lời",
+        "edit": "Chỉnh sửa",
+        "delete": "Xóa",
+        "pending": "Đang chờ"
+      },
+      "TaskTab": {
+        "task": "Nhiệm vụ",
+        "issue": "Vấn đề",
+        "other": "Khác",
+        "untitled_task": "Nhiệm vụ chưa đặt tên",
+        "assignee": "Người thực hiện",
+        "status": "Trạng thái",
+        "deadline": "Hạn chót",
+        "no_tasks": "Không có nhiệm vụ nào.",
+        "edit": "Chỉnh sửa",
+        "delete": "Xóa",
+        "pending": "Đang chờ",
+        "in_progress": "Đang thực hiện",
+        "completed": "Hoàn thành",
+        "cancelled": "Đã hủy",
+        "action_item": "Hành động"
+      }
+    },
+    "TextUploadModal": {
+      "title": "Tải lên văn bản (.txt)",
+      "placeholder": "Nhập hoặc dán nội dung văn bản...",
+      "dragOrClick": "Kéo thả file .txt vào đây hoặc bấm để chọn",
+      "cancel": "Hủy",
+      "upload": "Tải lên",
+      "uploading": "Đang tải...",
+      "uploadSuccess": "Tải lên thành công!",
+      "uploadError": "Tải lên thất bại. Vui lòng thử lại."
+    },
+    "calendarSyncSuccess": "Đồng bộ lịch thành công: {processed} sự kiện đã xử lý, {created} đã tạo, {updated} đã cập nhật{errors}",
+    "calendarSyncError": "Đồng bộ lịch thất bại. Vui lòng thử lại sau.",
+    "syncingCalendar": "Đang đồng bộ lịch..."
+  },
+  "MeetingBookingModal": {
+    "remove": "Xóa",
+    "title": "Đặt lịch cuộc họp",
+    "meetingTitle": "Tiêu đề",
+    "meetingTitlePh": "Nhập tiêu đề cuộc họp",
+    "language": "Ngôn ngữ",
+    "description": "Mô tả",
+    "datetime": "Ngày giờ (Asia/Ho_Chi_Minh)",
+    "datetimePh": "Chọn ngày giờ",
+    "duration": "Thời lượng (phút)",
+    "meetingLink": "Đường dẫn họp",
+    "group": "Nhóm",
+    "groupSelectPh": "Chọn hoặc tìm nhóm...",
+    "participants": "Người tham gia (email)",
+    "participantsPh": "Nhập để tìm email...",
+    "participantsNote": "Chỉ cho phép email đã tồn tại trong hệ thống",
+    "dragDrop": "Thêm tài liệu bối cảnh (PDF/DOCX/TXT) — tối đa 50MB/tệp",
+    "uploadHint": "Tệp sẽ được upload sau khi tạo cuộc họp.",
+    "close": "Đóng",
+    "creating": "Đang tạo...",
+    "create": "Tạo cuộc họp",
+    "created": "Tạo cuộc họp thành công",
+    "createError": "Tạo cuộc họp thất bại",
+    "inviteError": "Lỗi khi mời thành viên",
+    "calendarError": "Lỗi khi cập nhật lịch",
+    "fileTooLarge": "Tệp vượt quá 50MB"
+  },
+  "GroupContent": {
+    "title": "Danh sách nhóm",
+    "createGroup": "Tạo nhóm",
+    "searchPlaceholder": "Tìm kiếm nhóm...",
+    "error": "Lỗi tải danh sách nhóm",
+    "empty": "Không tìm thấy nhóm nào",
+    "perPage": "Mỗi trang",
+    "accept": "Chấp nhận",
+    "reject": "Từ chối",
+    "table": {
+      "groupName": "Tên nhóm",
+      "description": "Mô tả",
+      "createdDate": "Ngày tạo",
+      "members": "Thành viên",
+      "actions": "Thao tác",
+      "view": "Xem",
+      "noDescription": "Không có mô tả"
+    },
+    "actions": {
+      "groupSettings": "Cài đặt",
+      "deleteGroup": "Xóa nhóm",
+      "confirmDelete": "Bạn có chắc chắn muốn xóa nhóm này?",
+      "deleteSuccess": "Xóa nhóm thành công!",
+      "deleteError": "Xóa nhóm thất bại",
+      "deleting": "Đang xóa...",
+      "editSuccess": "Cập nhật nhóm thành công!",
+      "editError": "Cập nhật nhóm thất bại",
+      "acceptSuccess": "Đã chấp nhận lời mời!",
+      "acceptError": "Không thể chấp nhận lời mời",
+      "rejectSuccess": "Đã từ chối lời mời!",
+      "rejectError": "Không thể từ chối lời mời"
+    },
+    "statistics": {
+      "groupOverview": "Tổng quan nhóm",
+      "recentActivity": "Hoạt động gần đây",
+      "totalGroups": "Tổng số nhóm",
+      "totalMembers": "Tổng số thành viên",
+      "activeGroups": "Nhóm hoạt động",
+      "pendingInvites": "Lời mời chờ xử lý",
+      "newGroupsThisWeek": "Nhóm mới tuần này",
+      "newMembersThisWeek": "Thành viên mới tuần này",
+      "groupsCreatedToday": "Nhóm tạo hôm nay",
+      "membersJoinedToday": "Thành viên tham gia hôm nay"
+    }
+  },
+  "GroupCreateModal": {
+    "title": "Tạo nhóm mới",
+    "name": "Tên nhóm",
+    "namePlaceholder": "Nhập tên nhóm...",
+    "nameRequired": "Tên nhóm là bắt buộc",
+    "description": "Mô tả",
+    "descriptionPlaceholder": "Nhập mô tả nhóm (tùy chọn)...",
+    "descriptionTip": "Mẹo: Mô tả mục đích và mục tiêu của nhóm này",
+    "cancel": "Hủy",
+    "create": "Tạo nhóm",
+    "creating": "Đang tạo...",
+    "success": "Tạo nhóm thành công!",
+    "error": "Tạo nhóm thất bại. Vui lòng thử lại."
+  },
+  "AuthLayout": {
+    "logoAlt": "Logo FPT Telecom",
+    "title": "Chào mừng đến với Meobeo.ai",
+    "aiAgent": "AI Agent",
+    "community": "cộng đồng",
+    "aiFirst": "AI-first",
+    "pioneer": "tiên phong",
+    "fptTelecom": "FPT Telecom",
+    "taskForce": "Task Force",
+    "description": "Trải nghiệm đăng nhập hiện đại bởi FPT Telecom và Meobeo.ai.",
+    "welcomeTitle": "Chào mừng đến với Meobeo.ai",
+    "subtitle": "Trợ lý cuộc họp AI thông minh",
+    "tagline": "Nâng cao hiệu quả cuộc họp | Giải pháp AI tối ưu hoá cho tiếng Việt",
+    "mascotAlt": "Mascot Meobeo",
+    "mascotLabel": "Meobeo.ai",
+    "or": "hoặc",
+    "loginGoogle": "Đăng nhập với Google",
+    "loginAzure": "Đăng nhập với Azure AD",
+    "copyright": "© 2025 Meobeo.ai. Đã đăng ký bản quyền."
+  },
+  "HomePage": {
+    "title": "Xin chào thế giới!",
+    "hero": {
+      "welcome": "Giải pháp toàn diện cho",
+      "title": "quản lý cuộc họp",
+      "description": "Tối ưu hóa quá trình họp với đầy đủ công cụ để ghi chép, phân tích và biến thông tin thành hành động",
+      "buttons": {
+        "chromeStore": "Có mặt trên Chrome Web Store",
+        "viewGithub": "Xem trên GitHub"
+      },
+      "users": "+50",
+      "userLabel": "người dùng đã tin tưởng sử dụng chúng tôi",
+      "brand": "Meobeo.ai",
+      "summaryCard": {
+        "title": "Tóm tắt cuộc họp",
+        "description": "Cô đọng, tóm tắt lại cuộc họp bằng AI trực tiếp & gián tiếp",
+        "imageAlt": "Icon tóm tắt"
+      },
+      "analyzeCard": {
+        "title": "Phân tích, tổng hợp",
+        "description": "Phân tích số lượng cuộc họp, thống kê hoạt động",
+        "imageAlt": "Icon phân tích"
+      }
+    },
+    "features": {
+      "title": {
+        "prefix": "Các tính năng tuyệt vời cho một buổi họp ",
+        "suffix": "đầy sáng tạo"
+      },
+      "carousel": {
+        "features": [
+          {
+            "title": "Tự động tóm tắt",
+            "subtitle": "Cô đọng, tóm tắt lại cuộc họp bằng AI trực tiếp & gián tiếp"
+          },
+          {
+            "title": "Phân tích cuộc họp",
+            "subtitle": "Phân tích số lượng cuộc họp đã tham gia và thống kê"
+          },
+          {
+            "title": "Đồng bộ lịch",
+            "subtitle": "Đồng bộ qua lịch cá nhân, nắm bắt và nhắc nhở"
+          },
+          {
+            "title": "Quản lý nhóm",
+            "subtitle": "Thống kê, báo cáo cho nhóm nhiều hơn một cá nhân"
+          }
+        ]
+      },
+      "items": {
+        "openSource": {
+          "name": "Miễn phí & Mã nguồn mở",
+          "summary": "Xây dựng, tuỳ chỉnh và sáng tạo tự do!",
+          "description": "Starter Next.js của chúng tôi hoàn toàn mã nguồn mở, cho phép bạn đóng góp, tuỳ biến và cập nhật các tiêu chuẩn mới nhất mà không tốn chi phí."
+        },
+        "devStack": {
+          "name": "Stack phát triển hiện đại",
+          "summary": "Trải nghiệm phát triển mượt mà với Next.js, React và TypeScript.",
+          "description": "Starter được thiết kế hướng đến khả năng mở rộng, tích hợp React Query để lấy dữ liệu, Redux cho quản lý trạng thái và Tailwind CSS để xây dựng UI nhanh chóng."
+        },
+        "stateManagement": {
+          "name": "Quản lý trạng thái tối ưu",
+          "summary": "Xử lý trạng thái phức tạp dễ dàng với Redux và React Query.",
+          "description": "Kết hợp này giúp lấy dữ liệu, cache và quản lý trạng thái toàn cục hiệu quả, giúp ứng dụng nhanh và phản hồi tốt."
+        },
+        "i18n": {
+          "name": "Đa ngôn ngữ (i18n)",
+          "summary": "Mở rộng dự án ra toàn cầu với hỗ trợ i18n tích hợp.",
+          "description": "Dễ dàng bản địa hoá ứng dụng để nâng cao trải nghiệm người dùng và thu hút đa dạng đối tượng chỉ với vài bước cấu hình."
+        },
+        "cicd": {
+          "name": "Thiết lập CI/CD & kiểm thử mạnh mẽ",
+          "summary": "Tập trung phát triển, để pipeline GitHub Actions tự động kiểm thử, lint và kiểm tra triển khai.",
+          "description": "Tích hợp kiểm thử đơn vị, tích hợp và end-to-end cho nền tảng vững chắc."
+        },
+        "devEnv": {
+          "name": "Môi trường ưu tiên lập trình viên",
+          "summary": "Tận hưởng codebase sạch, dễ bảo trì với ESLint, Prettier và TypeScript.",
+          "description": "Starter tối ưu cho năng suất, gồm các thành phần UI tái sử dụng, hooks và kiến trúc module giúp phát triển nhanh, mở rộng dễ dàng."
+        }
+      }
+    },
+
+    "stack": {
+      "catAlt": "Biểu tượng mèo",
+      "laptopAlt": "Laptop với Meobeo.ai",
+      "miniCatAlt": "Biểu tượng mèo nhỏ",
+      "chromeStoreAlt": "Chrome Web Store",
+      "bottom": {
+        "title": "Cài đặt dễ dàng, không tốn quá nhiều thời gian",
+        "strong": "Chờ gì mà không thử ngay!",
+        "desc": "Nhấn để cài đặt"
+      },
+      "title": "Làm việc thông minh hơn với Meobeo.ai",
+      "overview": "Tổng quan",
+      "description": "Tăng tốc quá trình phát triển với bộ khởi động Next.js mạnh mẽ, giàu tính năng, được thiết kế cho tốc độ, khả năng mở rộng và năng suất lập trình viên. Đây là những điểm nổi bật:",
+      "timeline": [
+        {
+          "title": "Tải lên Transcript",
+          "desc": "Tải lên âm thanh hoặc văn bản từ cuộc họp của bạn"
+        },
+        {
+          "title": "AI phân tích",
+          "desc": "Hệ thống phân tích nội dung và trích xuất thông tin chi tiết"
+        },
+        {
+          "title": "Truy cập kết quả",
+          "desc": "Xem báo cáo, tóm tắt và điểm chính để hành động"
+        }
+      ],
+      "benefits": {
+        "title": "Ưu điểm",
+        "items": [
+          "Extension hoạt động trên trình duyệt trực tiếp",
+          "Chia sẻ kết quả và ghi chú với đồng nghiệp một cách dễ dàng",
+          "Không bỏ lỡ bất kì sự kiện quan trọng nào trong cuộc họp",
+          "CMS hỗ trợ để theo dõi và phân tích nội dung"
+        ]
+      }
+    },
+    "installation": "Hướng dẫn cài đặt và thiết lập dự án dễ dàng.",
+    "testimonials": {
+      "title": "Người dùng nói gì về Meobeo.ai",
+      "description": "Lắng nghe chia sẻ từ các lập trình viên đã tăng tốc dự án với Next.js Starter Kit này.",
+      "ctaTitle": "Tại sao nên chọn Meobeo.ai?",
+      "ctaButton": "Khám phá ngay",
+      "benefits": [
+        "Tiết kiệm thời gian với ghi chép tự động",
+        "Không bỏ lỡ thông tin quan trọng từ cuộc họp",
+        "Phân tích cảm xúc và xu hướng trong nội dung",
+        "Phát hiện vấn đề và cơ hội từ dữ liệu cuộc họp"
+      ],
+      "items": [
+        {
+          "name": "Nguyễn Văn A",
+          "title": "Frontend Developer",
+          "review": "Meobeo.ai giúp tôi triển khai dự án nhanh hơn rất nhiều. Bộ starter rất dễ dùng và mở rộng."
+        },
+        {
+          "name": "Trần Thị B",
+          "title": "Fullstack Engineer",
+          "review": "Tôi đánh giá cao khả năng tích hợp i18n và Redux. UI đẹp, codebase sạch sẽ."
+        },
+        {
+          "name": "Lê Văn C",
+          "title": "Tech Lead",
+          "review": "Starter này tiết kiệm cho team tôi hàng tuần phát triển. Hỗ trợ tốt cho các dự án lớn."
+        },
+        {
+          "name": "Phạm Thị D",
+          "title": "Product Manager",
+          "review": "Tôi thích cách Meobeo.ai giúp quản lý cuộc họp và phân tích dữ liệu. Rất hữu ích!"
+        }
+      ]
+    }
+  },
+  "Header": {
+    "navigation": {
+      "home": "Trang chủ",
+      "features": "Tính năng",
+      "techStack": "Công nghệ",
+      "testimonials": "Đánh giá",
+      "userGuide": "Hướng dẫn sử dụng",
+      "startNow": "Bắt đầu ngay",
+      "personal": "Cá nhân",
+      "group": "Nhóm",
+      "addText": "Thêm văn bản",
+      "addAudio": "Thêm bản ghi"
+    },
+    "getStarted": "Thử ngay"
+  },
+  "Footer": {
+    "copyright": "Bản quyền © {year} Meobeo.ai. Đã đăng ký bản quyền.",
+    "title": "Meobeo.ai",
+    "rights": "Đã đăng ký bản quyền.",
+    "github": "GitHub",
+    "privacy": "Chính sách bảo mật",
+    "terms": "Điều khoản sử dụng"
+  },
+  "LanguageSwitcher": {
+    "selectLanguage": "Chọn ngôn ngữ (hiện tại: {current})"
+  },
+  "ThemeToggle": {
+    "toggleTheme": "Chuyển đổi giao diện"
+  },
+  "Components": {
+    "title": "Demo thành phần UI",
+    "description": "Khám phá các thành phần UI có thể tái sử dụng với bản xem trước và mẫu mã nguồn.",
+    "button": {
+      "title": "Nút bấm",
+      "description": "Các kiểu nút khác nhau cho từng hành động.",
+      "primary": "Nút chính",
+      "default": "Nút mặc định",
+      "danger": "Nút nguy hiểm",
+      "dashed": "Nút nét đứt",
+      "link": "Nút liên kết"
+    },
+    "alert": {
+      "title": "Thông báo",
+      "description": "Hiển thị thông điệp quan trọng với các loại thông báo khác nhau.",
+      "info": "Thông báo thông tin",
+      "warning": "Thông báo cảnh báo",
+      "success": "Thông báo thành công",
+      "error": "Thông báo lỗi",
+      "sampleDescription": "Đây là mô tả mẫu cho thông báo."
+    },
+    "card": {
+      "title": "Thẻ thông tin",
+      "description": "Hiển thị thông tin dưới dạng thẻ.",
+      "user": "Thẻ người dùng",
+      "text": "Dan là kỹ sư phần mềm làm việc với React.",
+      "comment": "Bình luận",
+      "share": "Chia sẻ"
+    },
+    "common": {
+      "showCode": "Xem mã nguồn",
+      "hideCode": "Ẩn mã nguồn"
+    }
+  },
+  "DynamicPage": {
+    "title": "Nút bấm",
+    "description": "Dễ dàng bản địa hoá ứng dụng để nâng cao trải nghiệm người dùng và thu hút đa dạng đối tượng chỉ với vài bước cấu hình."
+  },
+  "NotFound": {
+    "notFound": {
+      "title": "Không tìm thấy trang",
+      "description": "Xin lỗi, trang bạn đang tìm kiếm không tồn tại hoặc đã được di chuyển.",
+      "goBack": "Quay lại",
+      "goHome": "Về trang chủ",
+      "contactUs": "liên hệ với chúng tôi",
+      "forSupport": "để được hỗ trợ."
+    }
+  },
+  "ForgotPassword": {
+    "title": "Quên mật khẩu",
+    "description": "Nhập email đã đăng ký để khôi phục mật khẩu.",
+    "emailPlaceholder": "Nhập email của bạn",
+    "sendRequest": "Gửi yêu cầu",
+    "successMessage": "Hướng dẫn đặt lại mật khẩu đã được gửi đến email của bạn.",
+    "errorEmail": "Vui lòng nhập email.",
+    "errorFailed": "Gửi yêu cầu thất bại. Vui lòng thử lại.",
+    "backToLogin": "Quay lại đăng nhập",
+    "registerNow": "Đăng Ký Ngay"
+  },
+  "AuthForm": {
+    "sideTitle": "Tìm lại chính mình",
+    "sideDescription": "Đăng nhập để truy cập vào Meobeo, trợ lý thông minh ghi chú cuộc họp của bạn.",
+    "welcome": "Chào Mừng Trở Lại",
+    "subtitle": "Vui lòng đăng nhập để tiếp tục",
+    "emailPlaceholder": "Nhập email của bạn",
+    "passwordPlaceholder": "Nhập mật khẩu của bạn",
+    "usernamePlaceholder": "Nhập tên đăng nhập của bạn",
+    "confirmPasswordPlaceholder": "Xác nhận mật khẩu",
+    "rememberMe": "Ghi nhớ đăng nhập",
+    "forgotPassword": "Quên mật khẩu?",
+    "loginButton": "Đăng Nhập",
+    "noAccount": "Chưa có tài khoản?",
+    "haveAccount": "Đã có tài khoản?",
+    "registerNow": "Đăng Ký Ngay",
+    "errorEmail": "Vui lòng nhập email.",
+    "errorPassword": "Vui lòng nhập mật khẩu.",
+    "errorUsername": "Vui lòng nhập tên đăng nhập.",
+    "loginSuccess": "Đăng nhập thành công!",
+    "registerSuccess": "Đăng ký thành công!",
+    "sessionExpired": "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại"
+  },
+  "Sidebar": {
+    "userAvatar": "Tài khoản",
+    "home": "Trang chủ",
+    "meeting": "Cuộc họp",
+    "email": "Email",
+    "setting": "Cài đặt",
+    "store": "Cửa hàng",
+    "logout": "Đăng xuất",
+    "collapseSidebar": "Thu gọn thanh bên",
+    "expandSidebar": "Mở rộng thanh bên",
+    "sidebarAriaLabel": "Điều hướng thanh bên"
+  },
+  "Dashboard": {
+    "home": {
+      "title": "Bảng điều khiển",
+      "welcome": "Chào mừng trở lại, {name}!",
+      "subtitle": "Đây là bảng điều khiển phân tích sử dụng dịch vụ toàn diện của bạn",
+      "analyticsDashboard": "Bảng điều khiển phân tích",
+      "description": "Theo dõi việc sử dụng token, phân tích xu hướng và tối ưu hóa việc tiêu thụ dịch vụ"
+    },
+    "tabs": {
+      "overview": "Tổng quan",
+      "trends": "Xu hướng sử dụng",
+      "breakdown": "Phân tích hoạt động",
+      "overviewDescription": "Thống kê sử dụng chung và các chỉ số chính",
+      "trendsDescription": "Phân tích chuỗi thời gian về việc tiêu thụ token",
+      "breakdownDescription": "Phân tích chi tiết theo loại hoạt động"
+    },
+    "loading": "Đang tải...",
+    "welcomeTitle": "Chào mừng đến với Meobeo V2",
+    "welcomeDescription": "Vui lòng đăng nhập để xem bảng điều khiển phân tích sử dụng dịch vụ",
+    "footer": {
+      "copyright": "© 2025 Meobeo.ai. Tất cả quyền được bảo lưu.",
+      "tagline": "Trao quyền cho các cuộc họp thông minh hơn thông qua AI"
+    }
+  },
+  "Charts": {
+    "tokenUsage": {
+      "title": "Phân tích sử dụng Token",
+      "inputTokens": "Token đầu vào",
+      "outputTokens": "Token đầu ra",
+      "contextTokens": "Token ngữ cảnh",
+      "totalTokens": "Tổng Token",
+      "usageDistribution": "Phân bố sử dụng",
+      "usageByOperationType": "Sử dụng theo loại hoạt động",
+      "tokenDistribution": "Phân bố Token",
+      "usageTrends": "Xu hướng sử dụng"
+    },
+    "usageTrends": {
+      "title": "Xu hướng sử dụng - {period} ngày qua",
+      "avgDaily": "Trung bình ngày",
+      "peakUsage": "Sử dụng cao nhất",
+      "minUsage": "Sử dụng thấp nhất",
+      "activeDays": "Ngày hoạt động",
+      "peakUsageDay": "Ngày sử dụng cao nhất",
+      "dailyTokens": "token",
+      "totalTokens": "Tổng Token"
+    },
+    "operationBreakdown": {
+      "title": "Phân tích hoạt động",
+      "usageCount": "Số lần sử dụng",
+      "totalTokens": "Tổng Token",
+      "avgTokensPerOp": "TB Token/hoạt động",
+      "percentage": "Tỷ lệ phần trăm",
+      "operationType": "Loại hoạt động",
+      "mostUsed": "Được sử dụng nhiều nhất",
+      "totalOperations": "Tổng hoạt động",
+      "usageCountByOperation": "Số lần sử dụng theo hoạt động",
+      "tokenUsageByOperation": "Sử dụng Token theo hoạt động",
+      "operationDetails": "Chi tiết hoạt động",
+      "inputTokens": "Token đầu vào",
+      "avgTokensPerOperation": "TB Token/hoạt động"
+    },
+    "summaryCards": {
+      "totalTokens": "Tổng Token",
+      "totalCost": "Tổng chi phí",
+      "efficiencyRatio": "Tỷ lệ hiệu quả",
+      "avgCostPerOperation": "TB chi phí/hoạt động",
+      "mostUsedOperation": "Hoạt động được sử dụng nhiều nhất",
+      "activeDays": "Ngày hoạt động",
+      "usageTrend": "Xu hướng sử dụng",
+      "totalOperations": "Tổng hoạt động",
+      "totalTokensDesc": "Tổng token đã tiêu thụ",
+      "totalCostDesc": "Chi phí ước tính",
+      "efficiencyDesc": "Tỷ lệ đầu ra/đầu vào",
+      "avgCostDesc": "Chi phí trung bình mỗi hoạt động",
+      "mostUsedDesc": "hoạt động",
+      "activeDaysDesc": "Ngày có hoạt động sử dụng",
+      "usageTrendDesc": "So với kỳ trước",
+      "totalOperationsDesc": "Tổng số hoạt động đã thực hiện"
+    }
+  },
+  "Email": {
+    "title": "Gửi Email",
+    "recipients": "Người nhận",
+    "meeting": "Cuộc họp",
+    "selectMeeting": "Chọn cuộc họp",
+    "newMeeting": "Cuộc họp mới",
+    "recipientsPh": "Nhập để tìm hoặc điền email, Enter để thêm",
+    "subject": "Tiêu đề",
+    "subjectPh": "Nhập tiêu đề email",
+    "content": "Nội dung",
+    "contentPh": "Viết nội dung email...",
+    "signature": "Chữ ký",
+    "signaturePh": "Tên, chức danh, liên hệ...",
+    "sendNow": "Gửi ngay",
+    "sending": "Đang gửi...",
+    "send": "Gửi",
+    "compose": "Soạn Email",
+    "errorNoRecipient": "Vui lòng thêm ít nhất một người nhận",
+    "errorInvalidRecipient": "Một số địa chỉ email không hợp lệ",
+    "errorNoSubject": "Vui lòng nhập tiêu đề email",
+    "errorNoBody": "Vui lòng nhập nội dung email",
+    "sendSuccess": "Gửi email thành công!",
+    "sendError": "Gửi email thất bại. Vui lòng thử lại.",
+    "attachments": "Tệp đính kèm",
+    "dropHere": "Kéo thả tệp vào đây hoặc",
+    "chooseFiles": "Chọn tệp",
+    "clear": "Xóa trắng",
+    "fileTooLarge": "{count} tệp vượt quá giới hạn 200KB và không được thêm",
+    "contentTooLong": "Nội dung vượt quá giới hạn 200KB",
+    "history": "Lịch sử",
+    "emailHistory": "Lịch sử Email",
+    "noEmailHistory": "Không có lịch sử email",
+    "emailDetail": "Chi tiết Email",
+    "status": "Trạng thái",
+    "sentAt": "Gửi lúc",
+    "notSent": "Chưa gửi",
+    "errorMessage": "Thông báo lỗi",
+    "viewDetail": "Xem chi tiết",
+    "validation": {
+      "noRecipients": "Vui lòng thêm ít nhất một người nhận",
+      "noSubject": "Vui lòng nhập tiêu đề"
+    },
+    "note": "Lưu ý: Đây là trình gửi email giả lập. API thật được mô tả bên dưới.",
+    "statusOptions": {
+      "sent": "Đã gửi",
+      "failed": "Thất bại",
+      "pending": "Đang chờ"
+    },
+    "meetingInfo": {
+      "header": "--- THÔNG TIN CUỘC HỌP ---",
+      "titleLabel": "Tiêu đề",
+      "linkLabel": "Link",
+      "dateLabel": "Ngày",
+      "durationLabel": "Thời gian",
+      "durationUnit": "phút",
+      "statusLabel": "Trạng thái",
+      "groupLabel": "Nhóm",
+      "noGroup": "Không có",
+      "footer": "--- KẾT THÚC THÔNG TIN CUỘC HỌP ---"
+    }
+  },
+  "ProfileForm": {
+    "loading": "Đang tải...",
+    "loadError": "Không thể tải dữ liệu người dùng",
+    "updateSuccess": "Cập nhật hồ sơ thành công!",
+    "updateError": "Cập nhật hồ sơ thất bại. Vui lòng thử lại.",
+    "verified": "Đã xác minh",
+    "pendingVerification": "Chờ xác minh",
+    "basicInformation": "Thông tin cơ bản",
+    "firstName": "Tên",
+    "firstNamePlaceholder": "Nhập tên",
+    "lastName": "Họ",
+    "lastNamePlaceholder": "Nhập họ",
+    "username": "Tên đăng nhập",
+    "usernamePlaceholder": "Nhập tên đăng nhập",
+    "email": "Email",
+    "readOnly": "Chỉ đọc",
+    "emailCannotChange": "Email không thể thay đổi từ form này",
+    "accountDetails": "Chi tiết tài khoản",
+    "role": "Vai trò",
+    "roleCannotChange": "Vai trò không thể thay đổi",
+    "language": "Ngôn ngữ",
+    "english": "Tiếng Anh",
+    "vietnamese": "Tiếng Việt",
+    "memberSince": "Thành viên từ",
+    "cannotChange": "Không thể thay đổi",
+    "accountStatus": "Trạng thái tài khoản",
+    "saveChanges": "Lưu thay đổi",
+    "saving": "Đang lưu...",
+    "reset": "Đặt lại"
+  },
+  "SettingContent": {
+    "title": "Cài đặt hồ sơ",
+    "description": "Quản lý thông tin tài khoản và cài đặt",
+    "personalInformation": "Thông tin cá nhân",
+    "personalInformationDescription": "Chỉnh sửa thông tin cá nhân và thông tin liên hệ"
+  },
+  "MeetingDeleteConfirmModal": {
+    "title": "Xác nhận xóa cuộc họp",
+    "message": "Bạn có chắc chắn muốn xóa",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "deleting": "Đang xóa..."
+  },
+  "MeetingListPanel": {
+    "title": "Cuộc họp",
+    "searchPlaceholder": "Tìm kiếm cuộc họp...",
+    "datePlaceholder": "Chọn ngày",
+    "clearDate": "Xóa bộ lọc ngày",
+    "error": "Không thể tải danh sách cuộc họp.",
+    "empty": "Không có cuộc họp nào.",
+    "perPage": "Mỗi trang",
+    "newMeeting": "Cuộc họp mới"
+  },
+  "MeetingCard": {
+    "status": {
+      "scheduled": "Đã lên lịch",
+      "completed": "Hoàn thành",
+      "cancelled": "Đã hủy",
+      "failed": "Thất bại",
+      "reprocessing": "Đang xử lý lại",
+      "other": "Khác"
+    },
+    "statusTag": {
+      "customer": "Khách hàng",
+      "work": "Công việc",
+      "urgent": "Ưu tiên trả lời",
+      "later": "Trả lời sau"
+    },
+    "viewDetail": "Xem chi tiết",
+    "edit": "Chỉnh sửa",
+    "add_to_group": "Thêm vào nhóm",
+    "anonymous": "Ẩn danh",
+    "weekday": "{weekday}",
+    "monthShort": "thg {month}",
+    "delete": "Xóa",
+    "more": "Thêm",
+    "meetingDeleted": "Xóa cuộc họp thành công!"
+  },
+  "GroupEditModal": {
+    "title": "Chỉnh sửa nhóm",
+    "name": "Tên nhóm",
+    "namePlaceholder": "Nhập tên nhóm",
+    "nameRequired": "Tên nhóm không được để trống",
+    "description": "Mô tả",
+    "descriptionPlaceholder": "Nhập mô tả nhóm (không bắt buộc)",
+    "cancel": "Hủy",
+    "save": "Lưu",
+    "saving": "Đang lưu..."
+  },
+  "GroupInviteModal": {
+    "title": "Mời thành viên",
+    "email": "Email",
+    "emailPlaceholder": "Nhập để tìm email...",
+    "emailRequired": "Email là bắt buộc",
+    "searching": "Đang tìm...",
+    "noResults": "Không có kết quả",
+    "role": "Vai trò",
+    "roleMember": "Thành viên",
+    "roleLeader": "Trưởng nhóm",
+    "cancel": "Hủy",
+    "invite": "Mời",
+    "inviting": "Đang mời..."
+  },
+  "GroupDeleteConfirmModal": {
+    "title": "Xác nhận xóa nhóm",
+    "message": "Bạn có chắc chắn muốn xóa nhóm",
+    "cancel": "Hủy",
+    "delete": "Xóa"
+  },
+  "GroupDetailPanel": {
+    "emptyState": "Chọn một nhóm để xem chi tiết",
+    "error": "Không thể tải thông tin nhóm."
+  },
+  "GroupInfo": {
+    "loading": "Đang tải...",
+    "noName": "Nhóm chưa đặt tên",
+    "noDescription": "Không có mô tả",
+    "createdAt": "Tạo lúc",
+    "updatedAt": "Cập nhật lúc",
+    "back": "Trở lại",
+    "edit": "Chỉnh sửa",
+    "delete": "Xóa",
+    "editSuccess": "Cập nhật nhóm thành công!",
+    "editError": "Cập nhật nhóm thất bại",
+    "deleteSuccess": "Xóa nhóm thành công!",
+    "deleteError": "Xóa nhóm thất bại",
+    "namePrompt": "Nhập tên nhóm mới",
+    "descPrompt": "Nhập mô tả (không bắt buộc)",
+    "confirmDelete": "Bạn có chắc muốn xóa nhóm",
+    "invite": "Mời",
+    "inviteSuccess": "Gửi lời mời thành công!",
+    "inviteError": "Gửi lời mời thất bại"
+  },
+  "GroupMembers": {
+    "searchPlaceholder": "Tìm kiếm thành viên...",
+    "invite": "Thêm thành viên",
+    "inviteInfo": "Mở modal mời thành viên (sắp có)",
+    "loading": "Đang tải...",
+    "inviteSuccess": "Gửi lời mời thành công!",
+    "inviteError": "Gửi lời mời thất bại",
+    "error": "Không thể tải danh sách thành viên",
+    "username": "Tên người dùng",
+    "email": "Email",
+    "role": "Vai trò / Trạng thái",
+    "actions": "Thao tác",
+    "remove": "Xóa",
+    "confirmRemove": "Xóa thành viên này?",
+    "confirmRemoveTitle": "Xóa Thành Viên",
+    "confirmRemoveMessage": "Bạn có chắc chắn muốn xóa thành viên này khỏi nhóm?",
+    "removeSuccess": "Xóa thành viên thành công!",
+    "removeError": "Xóa thành viên thất bại",
+    "empty": "Không có thành viên nào"
+  },
+  "Common": {
+    "close": "Đóng",
+    "insufficientFishTitle": "Không đủ số dư",
+    "insufficientFishMessage": "Bạn không có đủ Fish để thực hiện thao tác này. Vui lòng nạp thêm Fish để tiếp tục.",
+    "topUpFish": "Nạp Fish"
+  },
+  "FishHistory": {
+    "title": "Lịch Sử Giao Dịch Cá",
+    "subtitle": "Xem lịch sử sử dụng và giao dịch token cá của bạn",
+    "table": {
+      "no": "STT",
+      "operationType": "Hoạt Động",
+      "amount": "Số Lượng",
+      "balanceBefore": "Số Dư Trước",
+      "balanceAfter": "Số Dư Sau",
+      "status": "Trạng Thái",
+      "description": "Mô Tả",
+      "date": "Ngày",
+      "actions": "Thao Tác"
+    },
+    "filters": {
+      "title": "Bộ Lọc",
+      "transactionType": "Loại Giao Dịch",
+      "operationType": "Loại Hoạt Động",
+      "status": "Trạng Thái",
+      "dateFrom": "Từ Ngày",
+      "dateTo": "Đến Ngày",
+      "search": "Tìm kiếm giao dịch...",
+      "clear": "Xóa Bộ Lọc",
+      "apply": "Áp Dụng Bộ Lọc"
+    },
+    "status": {
+      "pending": "Đang Chờ",
+      "success": "Thành Công",
+      "failed": "Thất Bại",
+      "cancelled": "Đã Hủy"
+    },
+    "transactionType": {
+      "credit": "Tăng",
+      "debit": "Giảm"
+    },
+    "operationType": {
+      "purchase": "Mua Hàng",
+      "transcription": "Transcription",
+      "summarization": "Tóm Tắt",
+      "translation": "Dịch Thuật",
+      "extraction": "Trích Xuất",
+      "meeting": "Cuộc Họp",
+      "bonus": "Thưởng",
+      "refund": "Hoàn Tiền",
+      "other": "Khác"
+    },
+    "noData": "Không tìm thấy giao dịch nào",
+    "loading": "Đang tải giao dịch...",
+    "error": "Không thể tải giao dịch",
+    "retry": "Thử Lại",
+    "viewDetails": "Xem Chi Tiết",
+    "refresh": "Làm Mới",
+    "transactionDetails": "Chi Tiết Giao Dịch",
+    "transactionDetailsSubtitle": "Thông tin chi tiết về giao dịch này",
+    "close": "Đóng",
+    "filtersApplied": "Áp dụng bộ lọc thành công!",
+    "dataRefreshed": "Làm mới dữ liệu thành công!",
+    "viewingDetails": "Đang xem chi tiết giao dịch {id}",
+    "errorLoadingData": "Không thể tải dữ liệu lịch sử cá. Vui lòng thử lại.",
+    "noTransactions": "Không tìm thấy giao dịch cá nào. Hãy thử điều chỉnh bộ lọc hoặc kiểm tra lại sau.",
+    "showingResults": "Hiển thị {start} đến {end} trong tổng số {total} giao dịch",
+    "perPage": "Mỗi trang:",
+    "paymentAmount": "Số Tiền Thanh Toán (VND)",
+    "packageInformation": "Thông Tin Gói",
+    "createdDate": "Ngày Tạo",
+    "updatedDate": "Ngày Cập Nhật"
+  },
+  "Store": {
+    "title": "Cửa Hàng Cá",
+    "subtitle": "Mua token cá bằng tiền thật",
+    "availablePackages": "Gói Có Sẵn",
+    "packages": "Gói",
+    "fishTokens": "Token Cá",
+    "bestValue": "Giá Tốt Nhất",
+    "popular": "Phổ Biến",
+    "featured": "Nổi Bật",
+    "premium": "Cao Cấp",
+    "available": "Có Sẵn",
+    "unavailable": "Không Có Sẵn",
+    "purchaseNow": "Mua Ngay",
+    "contactUs": "Liên Hệ",
+    "contactForPricing": "Liên hệ để báo giá",
+    "customPricing": "Giá tùy chỉnh có sẵn",
+    "perFish": "mỗi con cá",
+    "maxPurchase": "Tối đa: {count}/người dùng",
+    "loading": "Đang tải...",
+    "errorLoading": "Lỗi tải gói",
+    "retry": "Thử Lại",
+    "noPackages": "Không có gói nào",
+    "noPackagesDesc": "Gói cá sẽ có sẵn sớm. Vui lòng kiểm tra lại sau.",
+    "confirmPurchase": "Xác Nhận Mua Hàng",
+    "redirectMessage": "Bạn sẽ được chuyển hướng đến PayOS để hoàn tất thanh toán",
+    "package": "Gói",
+    "fishAmount": "Số Lượng Cá",
+    "price": "Giá",
+    "pricing": "Giá cả",
+    "description": "Mô Tả",
+    "features": "Tính Năng",
+    "recommendedFor": "Khuyên dùng cho",
+    "cancel": "Hủy",
+    "processing": "Đang Xử Lý...",
+    "paymentReady": "Liên Kết Thanh Toán Sẵn Sàng!",
+    "completePayment": "Hoàn Tất Thanh Toán",
+    "close": "Đóng",
+    "transactionId": "ID Giao Dịch",
+    "status": "Trạng Thái",
+    "paymentDesc": "Hoàn tất thanh toán để nhận token cá",
+    "authRequired": "Yêu Cầu Xác Thực",
+    "authDesc": "Vui lòng đăng nhập để truy cập cửa hàng cá và nạp tiền.",
+    "purchaseSuccess": "Tạo liên kết thanh toán thành công!",
+    "purchaseFailed": "Mua hàng thất bại",
+    "redirectingToPayOS": "Vui lòng đợi trong khi chúng tôi chuẩn bị liên kết thanh toán PayOS...",
+    "businessPackageDesc": "Đây là gói doanh nghiệp cao cấp với giá tùy chỉnh và tính năng nhóm.",
+    "chooseYourPlan": "Chọn Gói Phù Hợp",
+    "planDescription": "Chọn gói hoàn hảo phù hợp với nhu cầu của bạn và bắt đầu tối đa hóa token cá ngay hôm nay.",
+    "fishBalance": "Số Dư Cá",
+    "backToHome": "Về Trang Chủ"
+  }
+}

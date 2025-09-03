@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://next-starter-kit-neon.vercel.app/
+
+# Sitemaps
+Sitemap: https://next-starter-kit-neon.vercel.app/sitemap.xml

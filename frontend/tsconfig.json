@@ -1,0 +1,69 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/styles/*": [
+        "styles/*"
+      ],
+      "@/app/*": [
+        "app/*"
+      ],
+      "@/components/*": [
+        "components/*"
+      ],
+      "@/lib/*": [
+        "lib/*"
+      ],
+      "@/hooks/*": [
+        "hooks/*"
+      ],
+      "@/context/*": [
+        "context/*"
+      ],
+      "@/services/*": [
+        "services/*"
+      ],
+      "@/store/*": [
+        "store/*"
+      ],
+      "@/public/*": [
+        "public/*"
+      ],
+      "@/i18n/*": [
+        "i18n/*"
+      ]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
+, "next.config.js", "next-sitemap.config.js"  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
