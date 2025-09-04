@@ -4,8 +4,8 @@ Database cleanup script for test data
 Run this after test execution to clean up all test data
 """
 
-import sys
 import os
+import sys
 
 # Add the app directory to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "app"))
