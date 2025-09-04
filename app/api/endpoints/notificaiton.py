@@ -94,14 +94,16 @@ def send_notification_endpoint(
     )
 
     # Publish to Redis channels for real-time WebSocket delivery
-    from app.utils.redis import publish_to_user_channel
     import asyncio
+
     from tenacity import (
         retry,
+        retry_if_exception_type,
         stop_after_attempt,
         wait_exponential,
-        retry_if_exception_type,
     )
+
+    from app.utils.redis import publish_to_user_channel
 
     @retry(
         stop=stop_after_attempt(3),
@@ -163,14 +165,16 @@ def send_global_notification_endpoint(
     user_ids = [n.user_id for n in notifications]
 
     # Publish to Redis channels for real-time WebSocket delivery
-    from app.utils.redis import publish_to_user_channel
     import asyncio
+
     from tenacity import (
         retry,
+        retry_if_exception_type,
         stop_after_attempt,
         wait_exponential,
-        retry_if_exception_type,
     )
+
+    from app.utils.redis import publish_to_user_channel
 
     @retry(
         stop=stop_after_attempt(3),

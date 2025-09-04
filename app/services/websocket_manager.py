@@ -1,15 +1,15 @@
 import asyncio
 import json
 import logging
-from typing import Dict, Set, Optional
 from datetime import datetime
+from typing import Dict, Optional, Set
 
 from fastapi import WebSocket
 
 from app.utils.redis import (
     get_async_redis_client,
-    publish_to_user_channel,
     get_recent_messages_for_user,
+    publish_to_user_channel,
 )
 
 logger = logging.getLogger(__name__)
