@@ -95,8 +95,12 @@ def test_bulk_operations_empty_list(client):
     # Test empty bulk add
     bulk_data = {"users": []}
     resp = client.post(f"/api/v1/projects/{project_id}/members/bulk", json=bulk_data)
-    print(f"DEBUG test_bulk_operations_empty_list: Empty bulk add response status: {resp.status_code}")
-    print(f"DEBUG test_bulk_operations_empty_list: Empty bulk add response body: {resp.json()}")
+    print(
+        f"DEBUG test_bulk_operations_empty_list: Empty bulk add response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_bulk_operations_empty_list: Empty bulk add response body: {resp.json()}"
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
@@ -105,8 +109,12 @@ def test_bulk_operations_empty_list(client):
 
     # Test empty bulk remove
     resp = client.delete(f"/api/v1/projects/{project_id}/members/bulk?user_ids=")
-    print(f"DEBUG test_bulk_operations_empty_list: Empty bulk remove response status: {resp.status_code}")
-    print(f"DEBUG test_bulk_operations_empty_list: Empty bulk remove response body: {resp.json()}")
+    print(
+        f"DEBUG test_bulk_operations_empty_list: Empty bulk remove response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_bulk_operations_empty_list: Empty bulk remove response body: {resp.json()}"
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
@@ -134,13 +142,17 @@ def test_bulk_operations_duplicate_users(client):
     print(f"DEBUG test_bulk_operations_duplicate_users: Bulk data: {bulk_data}")
 
     resp = client.post(f"/api/v1/projects/{project_id}/members/bulk", json=bulk_data)
-    print(f"DEBUG test_bulk_operations_duplicate_users: Response status: {resp.status_code}")
+    print(
+        f"DEBUG test_bulk_operations_duplicate_users: Response status: {resp.status_code}"
+    )
     print(f"DEBUG test_bulk_operations_duplicate_users: Response body: {resp.json()}")
     assert resp.status_code == 200
     body = resp.json()
 
     # API handles duplicates gracefully - returns existing relationship
-    assert body["success"] is True  # Overall success - duplicates are handled gracefully
+    assert (
+        body["success"] is True
+    )  # Overall success - duplicates are handled gracefully
     assert body["total_processed"] == 2
     assert body["total_success"] == 2  # Both succeed (duplicate returns existing)
     assert body["total_failed"] == 0  # No failures
@@ -186,11 +198,15 @@ def test_bulk_remove_nonexistent_members(client):
 
     # Try to bulk remove users who are not members
     user_ids_str = ",".join(user_ids)
-    print(f"DEBUG test_bulk_remove_nonexistent_members: User IDs string: {user_ids_str}")
+    print(
+        f"DEBUG test_bulk_remove_nonexistent_members: User IDs string: {user_ids_str}"
+    )
     resp = client.delete(
         f"/api/v1/projects/{project_id}/members/bulk?user_ids={user_ids_str}"
     )
-    print(f"DEBUG test_bulk_remove_nonexistent_members: Response status: {resp.status_code}")
+    print(
+        f"DEBUG test_bulk_remove_nonexistent_members: Response status: {resp.status_code}"
+    )
     print(f"DEBUG test_bulk_remove_nonexistent_members: Response body: {resp.json()}")
     assert resp.status_code == 200
     body = resp.json()
@@ -207,7 +223,9 @@ def test_bulk_operations_rollback_on_error(client):
 
     # Create valid user
     valid_user_id = create_test_user(client)
-    print(f"DEBUG test_bulk_operations_rollback_on_error: Valid user ID: {valid_user_id}")
+    print(
+        f"DEBUG test_bulk_operations_rollback_on_error: Valid user ID: {valid_user_id}"
+    )
 
     # Try bulk operation with invalid data
     bulk_data = {
@@ -219,7 +237,9 @@ def test_bulk_operations_rollback_on_error(client):
     print(f"DEBUG test_bulk_operations_rollback_on_error: Bulk data: {bulk_data}")
 
     resp = client.post(f"/api/v1/projects/{project_id}/members/bulk", json=bulk_data)
-    print(f"DEBUG test_bulk_operations_rollback_on_error: Response status: {resp.status_code}")
+    print(
+        f"DEBUG test_bulk_operations_rollback_on_error: Response status: {resp.status_code}"
+    )
     print(f"DEBUG test_bulk_operations_rollback_on_error: Response body: {resp.json()}")
     assert resp.status_code == 422  # Should reject invalid UUIDs
     # The API correctly validates UUIDs and rejects invalid input

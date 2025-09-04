@@ -14,11 +14,11 @@ class ProjectBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Project name")
     description: Optional[str] = Field(None, description="Project description")
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
     def validate_name_not_whitespace(cls, v):
         if isinstance(v, str) and v.strip() == "":
-            raise ValueError('Project name cannot be only whitespace')
+            raise ValueError("Project name cannot be only whitespace")
         return v.strip() if isinstance(v, str) else v
 
 

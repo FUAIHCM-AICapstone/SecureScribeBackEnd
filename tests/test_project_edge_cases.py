@@ -31,21 +31,31 @@ def test_project_name_validation(client):
     """Test project name validation rules"""
     # Test empty name
     resp = client.post("/api/v1/projects", json={"name": ""})
-    print(f"DEBUG test_project_name_validation: Empty name response status: {resp.status_code}")
-    print(f"DEBUG test_project_name_validation: Empty name response body: {resp.json()}")
+    print(
+        f"DEBUG test_project_name_validation: Empty name response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_project_name_validation: Empty name response body: {resp.json()}"
+    )
     assert resp.status_code == 422
 
     # Test very long name
     long_name = "A" * 300
     resp = client.post("/api/v1/projects", json={"name": long_name})
-    print(f"DEBUG test_project_name_validation: Long name response status: {resp.status_code}")
+    print(
+        f"DEBUG test_project_name_validation: Long name response status: {resp.status_code}"
+    )
     print(f"DEBUG test_project_name_validation: Long name response body: {resp.json()}")
     assert resp.status_code == 422
 
     # Test name with only whitespace - should fail validation
     resp = client.post("/api/v1/projects", json={"name": "   "})
-    print(f"DEBUG test_project_name_validation: Whitespace name response status: {resp.status_code}")
-    print(f"DEBUG test_project_name_validation: Whitespace name response body: {resp.json()}")
+    print(
+        f"DEBUG test_project_name_validation: Whitespace name response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_project_name_validation: Whitespace name response body: {resp.json()}"
+    )
     assert resp.status_code == 422  # Validator rejects whitespace-only names
 
     # Test valid names
@@ -59,8 +69,12 @@ def test_project_name_validation(client):
 
     for name in valid_names:
         resp = client.post("/api/v1/projects", json={"name": name})
-        print(f"DEBUG test_project_name_validation: Valid name '{name}' response status: {resp.status_code}")
-        print(f"DEBUG test_project_name_validation: Valid name '{name}' response body: {resp.json()}")
+        print(
+            f"DEBUG test_project_name_validation: Valid name '{name}' response status: {resp.status_code}"
+        )
+        print(
+            f"DEBUG test_project_name_validation: Valid name '{name}' response body: {resp.json()}"
+        )
         assert resp.status_code == 200
         assert resp.json()["success"] is True
 
@@ -164,37 +178,55 @@ def test_project_membership_edge_cases(client):
         f"/api/v1/projects/{project_id}/members",
         json={"user_id": fake_user_id, "role": "member"},
     )
-    print(f"DEBUG test_project_membership_edge_cases: Invalid user ID response status: {resp.status_code}")
-    print(f"DEBUG test_project_membership_edge_cases: Invalid user ID response body: {resp.json()}")
+    print(
+        f"DEBUG test_project_membership_edge_cases: Invalid user ID response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_project_membership_edge_cases: Invalid user ID response body: {resp.json()}"
+    )
     assert resp.status_code == 400
 
     # Test adding member to non-existent project
     fake_project_id = str(uuid.uuid4())
     user_id = create_test_user(client)
-    print(f"DEBUG test_project_membership_edge_cases: Fake project ID: {fake_project_id}")
+    print(
+        f"DEBUG test_project_membership_edge_cases: Fake project ID: {fake_project_id}"
+    )
     print(f"DEBUG test_project_membership_edge_cases: Valid user ID: {user_id}")
 
     resp = client.post(
         f"/api/v1/projects/{fake_project_id}/members",
         json={"user_id": user_id, "role": "member"},
     )
-    print(f"DEBUG test_project_membership_edge_cases: Non-existent project response status: {resp.status_code}")
-    print(f"DEBUG test_project_membership_edge_cases: Non-existent project response body: {resp.json()}")
+    print(
+        f"DEBUG test_project_membership_edge_cases: Non-existent project response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_project_membership_edge_cases: Non-existent project response body: {resp.json()}"
+    )
     assert resp.status_code == 403  # Access denied for non-existent project
 
     # Test updating role of non-existent member
     resp = client.put(
         f"/api/v1/projects/{project_id}/members/{user_id}", json={"role": "admin"}
     )
-    print(f"DEBUG test_project_membership_edge_cases: Update non-existent member response status: {resp.status_code}")
-    print(f"DEBUG test_project_membership_edge_cases: Update non-existent member response body: {resp.json()}")
+    print(
+        f"DEBUG test_project_membership_edge_cases: Update non-existent member response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_project_membership_edge_cases: Update non-existent member response body: {resp.json()}"
+    )
     assert resp.status_code == 404
 
     # Test removing non-existent member
     fake_member_id = str(uuid.uuid4())
     resp = client.delete(f"/api/v1/projects/{project_id}/members/{fake_member_id}")
-    print(f"DEBUG test_project_membership_edge_cases: Remove non-existent member response status: {resp.status_code}")
-    print(f"DEBUG test_project_membership_edge_cases: Remove non-existent member response body: {resp.json()}")
+    print(
+        f"DEBUG test_project_membership_edge_cases: Remove non-existent member response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_project_membership_edge_cases: Remove non-existent member response body: {resp.json()}"
+    )
     assert resp.status_code == 404  # Should return 404 for non-existent member
 
 
@@ -224,36 +256,54 @@ def test_project_concurrent_operations(client):
     for i in range(3):  # Reduced to 3 to avoid overwhelming debug output
         project_id = create_project_with_member(client)
         project_ids.append(project_id)
-        print(f"DEBUG test_project_concurrent_operations: Created project {i+1}: {project_id}")
-    print(f"DEBUG test_project_concurrent_operations: Total projects: {len(project_ids)}")
+        print(
+            f"DEBUG test_project_concurrent_operations: Created project {i + 1}: {project_id}"
+        )
+    print(
+        f"DEBUG test_project_concurrent_operations: Total projects: {len(project_ids)}"
+    )
 
     # Test concurrent-like operations on multiple projects
     # Update multiple projects with different descriptions
     for i, project_id in enumerate(project_ids):
         resp = client.put(
             f"/api/v1/projects/{project_id}",
-            json={"description": f"Updated description for project {i+1}: {faker.text(max_nb_chars=50)}"},
+            json={
+                "description": f"Updated description for project {i + 1}: {faker.text(max_nb_chars=50)}"
+            },
         )
-        print(f"DEBUG test_project_concurrent_operations: Update project {i+1} response status: {resp.status_code}")
+        print(
+            f"DEBUG test_project_concurrent_operations: Update project {i + 1} response status: {resp.status_code}"
+        )
         if resp.status_code != 200:
-            print(f"DEBUG test_project_concurrent_operations: Update project {i+1} response body: {resp.json()}")
+            print(
+                f"DEBUG test_project_concurrent_operations: Update project {i + 1} response body: {resp.json()}"
+            )
         assert resp.status_code == 200
 
     # Archive multiple projects via update (this replaces the non-existent /join endpoint test)
     for i, project_id in enumerate(project_ids):
         resp = client.put(f"/api/v1/projects/{project_id}", json={"is_archived": True})
-        print(f"DEBUG test_project_concurrent_operations: Archive project {i+1} response status: {resp.status_code}")
+        print(
+            f"DEBUG test_project_concurrent_operations: Archive project {i + 1} response status: {resp.status_code}"
+        )
         if resp.status_code != 200:
-            print(f"DEBUG test_project_concurrent_operations: Archive project {i+1} response body: {resp.json()}")
+            print(
+                f"DEBUG test_project_concurrent_operations: Archive project {i + 1} response body: {resp.json()}"
+            )
         assert resp.status_code == 200
 
     # Test that archived projects are properly marked
     for i, project_id in enumerate(project_ids):
         resp = client.get(f"/api/v1/projects/{project_id}")
-        print(f"DEBUG test_project_concurrent_operations: Get archived project {i+1} response status: {resp.status_code}")
+        print(
+            f"DEBUG test_project_concurrent_operations: Get archived project {i + 1} response status: {resp.status_code}"
+        )
         if resp.status_code == 200:
             project_data = resp.json()["data"]
-            assert project_data["is_archived"] is True, f"Project {i+1} should be archived"
+            assert project_data["is_archived"] is True, (
+                f"Project {i + 1} should be archived"
+            )
 
 
 def test_project_data_integrity(client):
@@ -333,7 +383,9 @@ def test_project_bulk_error_recovery(client):
         }
         resp = client.post("/api/v1/users", json=user_data)
         valid_users.append(resp.json()["data"]["id"])
-        print(f"DEBUG test_project_bulk_error_recovery: Created valid user {i+1}: {valid_users[-1]}")
+        print(
+            f"DEBUG test_project_bulk_error_recovery: Created valid user {i + 1}: {valid_users[-1]}"
+        )
 
     # Mix valid and invalid operations
     bulk_data = {
@@ -347,8 +399,12 @@ def test_project_bulk_error_recovery(client):
     print(f"DEBUG test_project_bulk_error_recovery: Bulk data: {bulk_data}")
 
     resp = client.post(f"/api/v1/projects/{project_id}/members/bulk", json=bulk_data)
-    print(f"DEBUG test_project_bulk_error_recovery: Bulk add response status: {resp.status_code}")
-    print(f"DEBUG test_project_bulk_error_recovery: Bulk add response body: {resp.json()}")
+    print(
+        f"DEBUG test_project_bulk_error_recovery: Bulk add response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_project_bulk_error_recovery: Bulk add response body: {resp.json()}"
+    )
     assert resp.status_code == 200
     body = resp.json()
 
@@ -507,7 +563,10 @@ def test_project_concurrent_operations(client):
     # Test concurrent-like operations on multiple projects
     # Update multiple projects
     for project_id in project_ids:
-        update_data = {"name": faker.company(), "description": faker.text(max_nb_chars=100)}
+        update_data = {
+            "name": faker.company(),
+            "description": faker.text(max_nb_chars=100),
+        }
         resp = client.put(f"/api/v1/projects/{project_id}", json=update_data)
         assert resp.status_code == 200
 
@@ -605,8 +664,12 @@ def test_project_bulk_error_recovery(client):
     }
 
     resp = client.post(f"/api/v1/projects/{project_id}/members/bulk", json=bulk_data)
-    print(f"DEBUG test_project_bulk_error_recovery: Bulk add response status: {resp.status_code}")
-    print(f"DEBUG test_project_bulk_error_recovery: Bulk add response body: {resp.json()}")
+    print(
+        f"DEBUG test_project_bulk_error_recovery: Bulk add response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_project_bulk_error_recovery: Bulk add response body: {resp.json()}"
+    )
     assert resp.status_code == 422  # Should reject invalid UUIDs
 
     # Test with only valid data should succeed
@@ -617,8 +680,12 @@ def test_project_bulk_error_recovery(client):
         ]
     }
 
-    resp = client.post(f"/api/v1/projects/{project_id}/members/bulk", json=valid_bulk_data)
-    print(f"DEBUG test_project_bulk_error_recovery: Valid bulk add response status: {resp.status_code}")
+    resp = client.post(
+        f"/api/v1/projects/{project_id}/members/bulk", json=valid_bulk_data
+    )
+    print(
+        f"DEBUG test_project_bulk_error_recovery: Valid bulk add response status: {resp.status_code}"
+    )
     if resp.status_code == 200:
         body = resp.json()
         assert body["total_processed"] == 2

@@ -311,7 +311,9 @@ def bulk_add_members_endpoint(
 )
 def bulk_remove_members_endpoint(
     project_id: uuid.UUID,
-    user_ids: str = Query(..., description="Comma-separated list of user IDs to remove"),
+    user_ids: str = Query(
+        ..., description="Comma-separated list of user IDs to remove"
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -337,9 +339,13 @@ def bulk_remove_members_endpoint(
             )
 
         try:
-            user_id_list = [uuid.UUID(uid.strip()) for uid in user_ids.split(',') if uid.strip()]
+            user_id_list = [
+                uuid.UUID(uid.strip()) for uid in user_ids.split(",") if uid.strip()
+            ]
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=f"Invalid UUID format: {str(e)}")
+            raise HTTPException(
+                status_code=422, detail=f"Invalid UUID format: {str(e)}"
+            )
 
         # Prevent removing yourself if you're the only admin
         if current_user.id in user_id_list:

@@ -94,7 +94,9 @@ def prune_database(db: Session):
         db.commit()
 
         print("🎉 Database pruning completed successfully!")
-        print(f"📊 Summary: {deleted_users} users, {deleted_projects} projects, {deleted_user_projects} relationships cleaned up")
+        print(
+            f"📊 Summary: {deleted_users} users, {deleted_projects} projects, {deleted_user_projects} relationships cleaned up"
+        )
 
     except Exception as e:
         print(f"❌ Error during database pruning: {e}")
