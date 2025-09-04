@@ -8,6 +8,7 @@ from .meeting import (
     MeetingBot,
     MeetingBotLog,
     MeetingNote,
+    MeetingStatus,
     ProjectMeeting,
     Transcript,
 )
@@ -27,6 +28,7 @@ __all__ = [
     "Project",
     "UserProject",
     "Meeting",
+    "MeetingStatus",
     "ProjectMeeting",
     "AudioFile",
     "Transcript",

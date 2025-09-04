@@ -65,11 +65,40 @@ def prune_database(db: Session):
     """Prune all test data from database"""
     from app.models.user import User, UserIdentity, UserDevice
     from app.models.project import Project, UserProject
+    from app.models.meeting import (
+        Meeting, ProjectMeeting, AudioFile, Transcript,
+        MeetingNote, MeetingBot, MeetingBotLog
+    )
 
     print("🧹 Starting database pruning...")
 
     try:
         # Delete all test data in reverse dependency order
+
+        # Delete meeting-related data first
+        deleted_meeting_bot_logs = db.query(MeetingBotLog).delete()
+        print(f"✅ Deleted {deleted_meeting_bot_logs} meeting bot logs")
+
+        deleted_meeting_bots = db.query(MeetingBot).delete()
+        print(f"✅ Deleted {deleted_meeting_bots} meeting bots")
+
+        deleted_meeting_notes = db.query(MeetingNote).delete()
+        print(f"✅ Deleted {deleted_meeting_notes} meeting notes")
+
+        deleted_transcripts = db.query(Transcript).delete()
+        print(f"✅ Deleted {deleted_transcripts} transcripts")
+
+        deleted_audio_files = db.query(AudioFile).delete()
+        print(f"✅ Deleted {deleted_audio_files} audio files")
+
+        # Delete junction tables
+        deleted_project_meetings = db.query(ProjectMeeting).delete()
+        print(f"✅ Deleted {deleted_project_meetings} project-meeting relationships")
+
+        # Delete meetings
+        deleted_meetings = db.query(Meeting).delete()
+        print(f"✅ Deleted {deleted_meetings} meetings")
+
         # Delete user_projects first (junction table)
         deleted_user_projects = db.query(UserProject).delete()
         print(f"✅ Deleted {deleted_user_projects} user-project relationships")
@@ -95,7 +124,9 @@ def prune_database(db: Session):
 
         print("🎉 Database pruning completed successfully!")
         print(
-            f"📊 Summary: {deleted_users} users, {deleted_projects} projects, {deleted_user_projects} relationships cleaned up"
+            f"📊 Summary: {deleted_users} users, {deleted_projects} projects, "
+            f"{deleted_meetings} meetings, {deleted_user_projects} user-project relationships, "
+            f"{deleted_project_meetings} project-meeting relationships cleaned up"
         )
 
     except Exception as e:

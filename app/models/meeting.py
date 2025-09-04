@@ -1,10 +1,17 @@
 import uuid
 from datetime import datetime
+from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import Field, Relationship, SQLModel
+
+
+class MeetingStatus(str, Enum):
+    active = "active"
+    cancelled = "cancelled"
+    completed = "completed"
 
 if TYPE_CHECKING:
     from . import (
@@ -50,6 +57,8 @@ class Meeting(SQLModel, table=True):
     )
     created_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     is_personal: bool = Field(default=False, sa_column=Column(Boolean))
+    status: str = Field(default=MeetingStatus.active, sa_column=Column(String))
+    is_deleted: bool = Field(default=False, sa_column=Column(Boolean))
 
     # Relationships
     created_by_user: "User" = Relationship(
