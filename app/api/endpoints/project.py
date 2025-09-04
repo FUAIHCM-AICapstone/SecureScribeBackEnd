@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
 from app.db import get_db
+from app.models.project import UserProject
 from app.models.user import User
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.project import (
@@ -14,19 +15,15 @@ from app.schemas.project import (
     ProjectApiResponse,
     ProjectCreate,
     ProjectFilter,
-    ProjectResponse,
     ProjectsPaginatedResponse,
     ProjectUpdate,
-    ProjectWithMembers,
     ProjectWithMembersApiResponse,
     UserProjectApiResponse,
     UserProjectCreate,
-    UserProjectResponse,
     UserProjectUpdate,
 )
 from app.services.project import (
     add_user_to_project,
-    archive_project,
     bulk_add_users_to_project,
     bulk_remove_users_from_project,
     create_project,
@@ -36,13 +33,9 @@ from app.services.project import (
     format_user_project_response,
     get_project,
     get_project_members,
-    get_project_membership,
     get_projects,
-    get_user_projects,
     get_user_role_in_project,
     is_user_in_project,
-    join_project,
-    leave_project,
     remove_user_from_project,
     update_project,
     update_user_role_in_project,
@@ -506,12 +499,6 @@ def bulk_remove_members_endpoint(
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-# ===== USER'S PROJECTS =====
-
-
-# ===== CURRENT USER PROJECT ENDPOINTS =====
 
 
 @router.get("/users/me/project-stats", response_model=ApiResponse[dict])

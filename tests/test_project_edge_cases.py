@@ -4,6 +4,29 @@ from faker import Faker
 faker = Faker()
 
 
+def create_project_with_member(client, member_user_id=None, member_role="member"):
+    """Helper function to create a project and optionally add a member"""
+    project_data = {"name": faker.company()}
+    resp = client.post("/api/v1/projects", json=project_data)
+    project_id = resp.json()["data"]["id"]
+
+    if member_user_id:
+        member_data = {"user_id": member_user_id, "role": member_role}
+        client.post(f"/api/v1/projects/{project_id}/members", json=member_data)
+
+    return project_id
+
+
+def create_test_user(client):
+    """Helper function to create a test user"""
+    user_data = {
+        "email": faker.email(),
+        "name": faker.name(),
+    }
+    user_resp = client.post("/api/v1/users", json=user_data)
+    return user_resp.json()["data"]["id"]
+
+
 def test_project_name_validation(client):
     """Test project name validation rules"""
     # Test empty name
@@ -60,7 +83,7 @@ def test_project_creation_edge_cases(client):
     assert resp.status_code == 200
     assert resp.json()["success"] is True
 
-    # Verify long description is stored correctly
+    # Verify long description is stored correctly (test user is automatically owner)
     project_id = resp.json()["data"]["id"]
     resp = client.get(f"/api/v1/projects/{project_id}")
     assert resp.json()["data"]["description"] == long_description
@@ -68,7 +91,7 @@ def test_project_creation_edge_cases(client):
 
 def test_project_update_edge_cases(client):
     """Test project update edge cases"""
-    # Create a project
+    # Create a project (test user is automatically owner)
     project_data = {
         "name": faker.company(),
         "description": faker.text(max_nb_chars=200),
@@ -123,10 +146,8 @@ def test_project_access_denied_scenarios(client):
 
 def test_project_membership_edge_cases(client):
     """Test edge cases in project membership"""
-    # Create a project
-    project_data = {"name": faker.company()}
-    resp = client.post("/api/v1/projects", json=project_data)
-    project_id = resp.json()["data"]["id"]
+    # Create a project (test user is automatically owner)
+    project_id = create_project_with_member(client)
 
     # Test adding member with invalid user ID
     resp = client.post(
@@ -137,9 +158,7 @@ def test_project_membership_edge_cases(client):
 
     # Test adding member to non-existent project
     fake_project_id = str(uuid.uuid4())
-    user_data = {"email": faker.email(), "name": faker.name()}
-    user_resp = client.post("/api/v1/users", json=user_data)
-    user_id = user_resp.json()["data"]["id"]
+    user_id = create_test_user(client)
 
     resp = client.post(
         f"/api/v1/projects/{fake_project_id}/members",
@@ -158,14 +177,32 @@ def test_project_membership_edge_cases(client):
     assert resp.status_code == 200  # Should succeed as no-op
 
 
+def test_project_cascading_operations(client):
+    """Test cascading effects of project operations"""
+    # Create a project (test user is automatically owner)
+    project_id = create_project_with_member(client)
+
+    # Add a user to the project
+    user_id = create_test_user(client)
+    member_data = {"user_id": user_id, "role": "member"}
+    client.post(f"/api/v1/projects/{project_id}/members", json=member_data)
+
+    # Archive project via update
+    client.put(f"/api/v1/projects/{project_id}", json={"is_archived": True})
+
+    # Verify archived status is reflected in project data
+    resp = client.get(f"/api/v1/projects/{project_id}")
+    project_data = resp.json()["data"]
+    assert project_data["is_archived"] is True
+
+
 def test_project_concurrent_operations(client):
     """Test handling concurrent operations on projects"""
-    # Create multiple projects
+    # Create multiple projects (test user is automatically owner of all)
     project_ids = []
     for _ in range(5):
-        project_data = {"name": faker.company()}
-        resp = client.post("/api/v1/projects", json=project_data)
-        project_ids.append(resp.json()["data"]["id"])
+        project_id = create_project_with_member(client)
+        project_ids.append(project_id)
 
     # Try to perform operations on multiple projects simultaneously
     # Note: This is a basic test; in a real concurrent scenario,
@@ -179,7 +216,7 @@ def test_project_concurrent_operations(client):
         )
         assert resp.status_code == 200
 
-    # Archive multiple projects
+    # Archive multiple projects via update
     for project_id in project_ids:
         resp = client.put(f"/api/v1/projects/{project_id}", json={"is_archived": True})
         assert resp.status_code == 200
@@ -354,7 +391,7 @@ def test_project_relationship_consistency(client):
     member_data = {"user_id": user_id, "role": "member"}
     client.post(f"/api/v1/projects/{project_id}/members", json=member_data)
 
-    # Verify relationship from project perspective
+    # Verify relationship from project perspective (include_members parameter)
     resp = client.get(f"/api/v1/projects/{project_id}?include_members=true")
     project_data = resp.json()["data"]
     assert len(project_data["members"]) >= 1
@@ -417,29 +454,6 @@ def test_project_search_and_filter_performance(client):
     paginated = resp.json()
     assert len(paginated["data"]) <= 5
     assert paginated["pagination"]["total"] >= 20
-
-
-def test_project_membership_edge_cases(client):
-    """Test edge cases in project membership"""
-    # Create a project
-    project_data = {"name": faker.company()}
-    resp = client.post("/api/v1/projects", json=project_data)
-    project_id = resp.json()["data"]["id"]
-
-    # Try to join with invalid project ID
-    fake_id = str(uuid.uuid4())
-    resp = client.post(f"/api/v1/projects/{fake_id}/join")
-    assert resp.status_code == 404
-
-    # Try to leave without being a member
-    resp = client.post(f"/api/v1/projects/{project_id}/leave")
-    assert resp.status_code == 400
-
-    # Join, then leave, then try to leave again
-    client.post(f"/api/v1/projects/{project_id}/join")
-    client.post(f"/api/v1/projects/{project_id}/leave")
-    resp = client.post(f"/api/v1/projects/{project_id}/leave")
-    assert resp.status_code == 400  # Should fail second time
 
 
 def test_project_concurrent_operations(client):
@@ -620,39 +634,6 @@ def test_project_timestamp_handling(client):
     assert updated["updated_at"] != created["updated_at"]
 
 
-def test_project_relationship_consistency(client):
-    """Test consistency of project relationships"""
-    # Create a project
-    project_data = {"name": faker.company()}
-    resp = client.post("/api/v1/projects", json=project_data)
-    project_id = resp.json()["data"]["id"]
-
-    # Join the project
-    client.post(f"/api/v1/projects/{project_id}/join")
-
-    # Verify relationship from user perspective
-    resp = client.get("/api/v1/users/me/projects")
-    user_projects = resp.json()["data"]
-    project_ids = [p["id"] for p in user_projects]
-    assert project_id in project_ids
-
-    # Verify relationship from project perspective
-    resp = client.get(f"/api/v1/projects/{project_id}/members")
-    members = resp.json()["data"]["members"]
-    # Should include at least the creator and the user who joined
-    assert len(members) >= 1
-
-    # Leave project
-    client.post(f"/api/v1/projects/{project_id}/leave")
-
-    # Verify relationship is removed
-    resp = client.get("/api/v1/users/me/projects")
-    user_projects = resp.json()["data"]
-    project_ids = [p["id"] for p in user_projects]
-    # Should not include the left project (unless user is creator)
-    # This depends on whether creator auto-joins
-
-
 def test_project_cascading_operations(client):
     """Test cascading effects of project operations"""
     # Create a project
@@ -660,18 +641,15 @@ def test_project_cascading_operations(client):
     resp = client.post("/api/v1/projects", json=project_data)
     project_id = resp.json()["data"]["id"]
 
-    # Join project
-    client.post(f"/api/v1/projects/{project_id}/join")
+    # Add a user to project
+    user_data = {"email": faker.email(), "name": faker.name()}
+    user_resp = client.post("/api/v1/users", json=user_data)
+    user_id = user_resp.json()["data"]["id"]
+    member_data = {"user_id": user_id, "role": "member"}
+    client.post(f"/api/v1/projects/{project_id}/members", json=member_data)
 
-    # Archive project
-    client.patch(f"/api/v1/projects/{project_id}/archive")
-
-    # Verify archived status is reflected in user projects
-    resp = client.get("/api/v1/users/me/projects")
-    user_projects = resp.json()["data"]
-    archived_project = next((p for p in user_projects if p["id"] == project_id), None)
-    if archived_project:
-        assert archived_project["is_archived"] is True
+    # Archive project via update
+    client.put(f"/api/v1/projects/{project_id}", json={"is_archived": True})
 
     # Verify archived status in direct project query
     resp = client.get(f"/api/v1/projects/{project_id}")
