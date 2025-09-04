@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .common import ApiResponse, PaginatedResponse
 
@@ -13,6 +13,13 @@ class ProjectBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255, description="Project name")
     description: Optional[str] = Field(None, description="Project description")
+
+    @field_validator('name')
+    @classmethod
+    def validate_name_not_whitespace(cls, v):
+        if isinstance(v, str) and v.strip() == "":
+            raise ValueError('Project name cannot be only whitespace')
+        return v.strip() if isinstance(v, str) else v
 
 
 class ProjectCreate(ProjectBase):

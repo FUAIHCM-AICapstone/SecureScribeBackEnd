@@ -139,6 +139,9 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
     if not project:
         return False
 
+    # Clean up user-project relationships first
+    db.query(UserProject).filter(UserProject.project_id == project_id).delete()
+
     db.delete(project)
     db.commit()
     return True

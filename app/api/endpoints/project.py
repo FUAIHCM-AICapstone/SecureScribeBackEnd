@@ -265,6 +265,117 @@ def delete_project_endpoint(
 
 # ===== USER-PROJECT RELATIONSHIP ENDPOINTS =====
 
+# ===== BULK OPERATIONS (must come before individual operations to avoid routing conflicts) =====
+
+
+@router.post(
+    "/projects/{project_id}/members/bulk", response_model=BulkUserProjectResponse
+)
+def bulk_add_members_endpoint(
+    project_id: uuid.UUID,
+    bulk_data: BulkUserProjectCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Bulk add users to a project
+    """
+    try:
+        # Check if current user has admin access to this project
+        user_role = get_user_role_in_project(db, project_id, current_user.id)
+        if not user_role or user_role not in ["admin", "owner"]:
+            raise HTTPException(status_code=403, detail="Admin access required")
+
+        results = bulk_add_users_to_project(db, project_id, bulk_data.users)
+
+        total_processed = len(results)
+        total_success = sum(1 for r in results if r["success"])
+        total_failed = total_processed - total_success
+
+        return BulkUserProjectResponse(
+            success=total_failed == 0,
+            message=f"Bulk add members completed. {total_success} successful, {total_failed} failed.",
+            data=results,
+            total_processed=total_processed,
+            total_success=total_success,
+            total_failed=total_failed,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete(
+    "/projects/{project_id}/members/bulk", response_model=BulkUserProjectResponse
+)
+def bulk_remove_members_endpoint(
+    project_id: uuid.UUID,
+    user_ids: str = Query(..., description="Comma-separated list of user IDs to remove"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Bulk remove users from a project
+    """
+    try:
+        # Check if current user has admin access to this project
+        user_role = get_user_role_in_project(db, project_id, current_user.id)
+        if not user_role or user_role not in ["admin", "owner"]:
+            raise HTTPException(status_code=403, detail="Admin access required")
+
+        # Parse comma-separated UUIDs
+        if not user_ids.strip():
+            # Empty list - return success with no operations
+            return BulkUserProjectResponse(
+                success=True,
+                message="Bulk remove members completed. 0 successful, 0 failed.",
+                data=[],
+                total_processed=0,
+                total_success=0,
+                total_failed=0,
+            )
+
+        try:
+            user_id_list = [uuid.UUID(uid.strip()) for uid in user_ids.split(',') if uid.strip()]
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=f"Invalid UUID format: {str(e)}")
+
+        # Prevent removing yourself if you're the only admin
+        if current_user.id in user_id_list:
+            members = get_project_members(db, project_id)
+            admin_count = sum(
+                1
+                for m in members
+                if m.role in ["admin", "owner"] and m.user_id not in user_id_list
+            )
+            if admin_count == 0:
+                raise HTTPException(
+                    status_code=400, detail="Cannot remove all admins from project"
+                )
+
+        results = bulk_remove_users_from_project(db, project_id, user_id_list)
+
+        total_processed = len(results)
+        total_success = sum(1 for r in results if r["success"])
+        total_failed = total_processed - total_success
+
+        return BulkUserProjectResponse(
+            success=total_failed == 0,
+            message=f"Bulk remove members completed. {total_success} successful, {total_failed} failed.",
+            data=results,
+            total_processed=total_processed,
+            total_success=total_success,
+            total_failed=total_failed,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ===== INDIVIDUAL MEMBER OPERATIONS =====
+
 
 @router.post("/projects/{project_id}/members", response_model=UserProjectApiResponse)
 def add_member_to_project_endpoint(
@@ -402,98 +513,6 @@ def update_member_role_endpoint(
             success=True,
             message="User role updated successfully",
             data=response_data,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-# ===== BULK OPERATIONS =====
-
-
-@router.post(
-    "/projects/{project_id}/members/bulk", response_model=BulkUserProjectResponse
-)
-def bulk_add_members_endpoint(
-    project_id: uuid.UUID,
-    bulk_data: BulkUserProjectCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Bulk add users to a project
-    """
-    try:
-        # Check if current user has admin access to this project
-        user_role = get_user_role_in_project(db, project_id, current_user.id)
-        if not user_role or user_role not in ["admin", "owner"]:
-            raise HTTPException(status_code=403, detail="Admin access required")
-
-        results = bulk_add_users_to_project(db, project_id, bulk_data.users)
-
-        total_processed = len(results)
-        total_success = sum(1 for r in results if r["success"])
-        total_failed = total_processed - total_success
-
-        return BulkUserProjectResponse(
-            success=total_failed == 0,
-            message=f"Bulk add members completed. {total_success} successful, {total_failed} failed.",
-            data=results,
-            total_processed=total_processed,
-            total_success=total_success,
-            total_failed=total_failed,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.delete(
-    "/projects/{project_id}/members/bulk", response_model=BulkUserProjectResponse
-)
-def bulk_remove_members_endpoint(
-    project_id: uuid.UUID,
-    user_ids: List[uuid.UUID] = Query(..., description="List of user IDs to remove"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Bulk remove users from a project
-    """
-    try:
-        # Check if current user has admin access to this project
-        user_role = get_user_role_in_project(db, project_id, current_user.id)
-        if not user_role or user_role not in ["admin", "owner"]:
-            raise HTTPException(status_code=403, detail="Admin access required")
-
-        # Prevent removing yourself if you're the only admin
-        if current_user.id in user_ids:
-            members = get_project_members(db, project_id)
-            admin_count = sum(
-                1
-                for m in members
-                if m.role in ["admin", "owner"] and m.user_id not in user_ids
-            )
-            if admin_count == 0:
-                raise HTTPException(
-                    status_code=400, detail="Cannot remove all admins from project"
-                )
-
-        results = bulk_remove_users_from_project(db, project_id, user_ids)
-
-        total_processed = len(results)
-        total_success = sum(1 for r in results if r["success"])
-        total_failed = total_processed - total_success
-
-        return BulkUserProjectResponse(
-            success=total_failed == 0,
-            message=f"Bulk remove members completed. {total_success} successful, {total_failed} failed.",
-            data=results,
-            total_processed=total_processed,
-            total_success=total_success,
-            total_failed=total_failed,
         )
     except HTTPException:
         raise

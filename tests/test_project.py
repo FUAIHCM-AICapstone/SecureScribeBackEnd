@@ -153,16 +153,23 @@ def test_delete_project(client):
     # Create a project first
     project_data = {"name": faker.company()}
     create_resp = client.post("/api/v1/projects", json=project_data)
+    print(f"DEBUG test_delete_project: Create project response: {create_resp.status_code}")
+    print(f"DEBUG test_delete_project: Create project body: {create_resp.json()}")
     project_id = create_resp.json()["data"]["id"]
+    print(f"DEBUG test_delete_project: Project ID: {project_id}")
 
     # Delete the project
     resp = client.delete(f"/api/v1/projects/{project_id}")
+    print(f"DEBUG test_delete_project: Delete response status: {resp.status_code}")
+    print(f"DEBUG test_delete_project: Delete response body: {resp.json()}")
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
 
     # Verify project is deleted
     resp = client.get(f"/api/v1/projects/{project_id}")
+    print(f"DEBUG test_delete_project: Verify delete response status: {resp.status_code}")
+    print(f"DEBUG test_delete_project: Verify delete response body: {resp.json()}")
     assert resp.status_code == 404
 
 
@@ -308,9 +315,14 @@ def test_bulk_remove_members(client):
 
     # Bulk remove members
     user_ids_str = ",".join(user_ids)
+    print(f"DEBUG test_bulk_remove_members: Project ID: {project_id}")
+    print(f"DEBUG test_bulk_remove_members: User IDs to remove: {user_ids}")
+    print(f"DEBUG test_bulk_remove_members: User IDs string: {user_ids_str}")
     resp = client.delete(
         f"/api/v1/projects/{project_id}/members/bulk?user_ids={user_ids_str}"
     )
+    print(f"DEBUG test_bulk_remove_members: Bulk remove response status: {resp.status_code}")
+    print(f"DEBUG test_bulk_remove_members: Bulk remove response body: {resp.json()}")
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True

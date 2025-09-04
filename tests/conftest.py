@@ -59,3 +59,54 @@ def client(auth_token):
     client = TestClient(app)
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     return client
+
+
+def prune_database(db: Session):
+    """Prune all test data from database"""
+    from app.models.user import User, UserIdentity, UserDevice
+    from app.models.project import Project, UserProject
+
+    print("🧹 Starting database pruning...")
+
+    try:
+        # Delete all test data in reverse dependency order
+        # Delete user_projects first (junction table)
+        deleted_user_projects = db.query(UserProject).delete()
+        print(f"✅ Deleted {deleted_user_projects} user-project relationships")
+
+        # Delete projects
+        deleted_projects = db.query(Project).delete()
+        print(f"✅ Deleted {deleted_projects} projects")
+
+        # Delete user devices
+        deleted_devices = db.query(UserDevice).delete()
+        print(f"✅ Deleted {deleted_devices} user devices")
+
+        # Delete user identities
+        deleted_identities = db.query(UserIdentity).delete()
+        print(f"✅ Deleted {deleted_identities} user identities")
+
+        # Delete users (including test user)
+        deleted_users = db.query(User).delete()
+        print(f"✅ Deleted {deleted_users} users")
+
+        # Commit all changes
+        db.commit()
+
+        print("🎉 Database pruning completed successfully!")
+        print(f"📊 Summary: {deleted_users} users, {deleted_projects} projects, {deleted_user_projects} relationships cleaned up")
+
+    except Exception as e:
+        print(f"❌ Error during database pruning: {e}")
+        db.rollback()
+        raise
+
+
+if __name__ == "__main__":
+    """Allow running database pruning from command line"""
+    print("🧹 Running database pruning from command line...")
+    db = SessionLocal()
+    try:
+        prune_database(db)
+    finally:
+        db.close()
