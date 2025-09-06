@@ -15,7 +15,9 @@ from app.utils.meeting import (
 )
 
 
-def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UUID) -> Meeting:
+def create_meeting(
+    db: Session, meeting_data: MeetingCreate, created_by: uuid.UUID
+) -> Meeting:
     """Create new meeting"""
     meeting = Meeting(
         title=meeting_data.title,
@@ -25,7 +27,7 @@ def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UU
         is_personal=meeting_data.is_personal,
         created_by=created_by,
         status="active",  # Set default status explicitly
-        is_deleted=False  # Set default is_deleted explicitly
+        is_deleted=False,  # Set default is_deleted explicitly
     )
 
     db.add(meeting)
@@ -36,8 +38,7 @@ def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UU
     if not meeting_data.is_personal and meeting_data.project_ids:
         for project_id in meeting_data.project_ids:
             project_meeting = ProjectMeeting(
-                project_id=project_id,
-                meeting_id=meeting.id
+                project_id=project_id, meeting_id=meeting.id
             )
             db.add(project_meeting)
         db.commit()
@@ -48,15 +49,19 @@ def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UU
     return meeting
 
 
-def get_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Meeting]:
+def get_meeting(
+    db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID
+) -> Optional[Meeting]:
     """Get meeting by ID with access control"""
-    meeting = db.query(Meeting).options(
-        joinedload(Meeting.projects).joinedload(ProjectMeeting.project),
-        joinedload(Meeting.created_by_user)
-    ).filter(
-        Meeting.id == meeting_id,
-        Meeting.is_deleted == False
-    ).first()
+    meeting = (
+        db.query(Meeting)
+        .options(
+            joinedload(Meeting.projects).joinedload(ProjectMeeting.project),
+            joinedload(Meeting.created_by_user),
+        )
+        .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
+        .first()
+    )
 
     if not meeting:
         return None
@@ -72,40 +77,52 @@ def get_meetings(
     user_id: uuid.UUID,
     filters: Optional[MeetingFilter] = None,
     page: int = 1,
-    limit: int = 20
+    limit: int = 20,
 ) -> Tuple[List[Meeting], int]:
     """Get meetings with filtering and pagination"""
-    query = db.query(Meeting).options(
-        joinedload(Meeting.projects).joinedload(ProjectMeeting.project),
-        joinedload(Meeting.created_by_user)
-    ).filter(Meeting.is_deleted == False)
+    query = (
+        db.query(Meeting)
+        .options(
+            joinedload(Meeting.projects).joinedload(ProjectMeeting.project),
+            joinedload(Meeting.created_by_user),
+        )
+        .filter(Meeting.is_deleted == False)
+    )
 
     # Access control filter
-    personal_meetings = db.query(Meeting.id).filter(
-        Meeting.is_personal == True,
-        Meeting.created_by == user_id
-    ).subquery()
+    personal_meetings = (
+        db.query(Meeting.id)
+        .filter(Meeting.is_personal == True, Meeting.created_by == user_id)
+        .subquery()
+    )
 
-    accessible_projects = db.query(ProjectMeeting.meeting_id).join(
-        UserProject,
-        and_(
-            UserProject.project_id == ProjectMeeting.project_id,
-            UserProject.user_id == user_id
+    accessible_projects = (
+        db.query(ProjectMeeting.meeting_id)
+        .join(
+            UserProject,
+            and_(
+                UserProject.project_id == ProjectMeeting.project_id,
+                UserProject.user_id == user_id,
+            ),
         )
-    ).subquery()
+        .subquery()
+    )
 
     # Meetings with no linked projects (accessible to everyone)
-    meetings_no_projects = db.query(Meeting.id).filter(
-        Meeting.is_personal == False
-    ).outerjoin(ProjectMeeting).group_by(Meeting.id).having(
-        func.count(ProjectMeeting.project_id) == 0
-    ).subquery()
+    meetings_no_projects = (
+        db.query(Meeting.id)
+        .filter(Meeting.is_personal == False)
+        .outerjoin(ProjectMeeting)
+        .group_by(Meeting.id)
+        .having(func.count(ProjectMeeting.project_id) == 0)
+        .subquery()
+    )
 
     query = query.filter(
         or_(
             Meeting.id.in_(personal_meetings),
             Meeting.id.in_(accessible_projects),
-            Meeting.id.in_(meetings_no_projects)
+            Meeting.id.in_(meetings_no_projects),
         )
     )
 
@@ -135,6 +152,7 @@ def get_meetings(
         # Tag filter
         if filters.tag_ids:
             from app.models.meeting import MeetingTag
+
             query = query.join(MeetingTag).filter(
                 MeetingTag.tag_id.in_(filters.tag_ids)
             )
@@ -147,7 +165,9 @@ def get_meetings(
     return meetings, total
 
 
-def update_meeting(db: Session, meeting_id: uuid.UUID, updates: MeetingUpdate, user_id: uuid.UUID) -> Optional[Meeting]:
+def update_meeting(
+    db: Session, meeting_id: uuid.UUID, updates: MeetingUpdate, user_id: uuid.UUID
+) -> Optional[Meeting]:
     """Update meeting"""
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
@@ -174,10 +194,11 @@ def update_meeting(db: Session, meeting_id: uuid.UUID, updates: MeetingUpdate, u
 
 def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """Soft delete meeting"""
-    meeting = db.query(Meeting).filter(
-        Meeting.id == meeting_id,
-        Meeting.is_deleted == False
-    ).first()
+    meeting = (
+        db.query(Meeting)
+        .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
+        .first()
+    )
 
     if not meeting or not can_delete_meeting(db, meeting, user_id):
         return False
@@ -188,41 +209,50 @@ def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bo
     return True
 
 
-def add_meeting_to_project(db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def add_meeting_to_project(
+    db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
     """Add meeting to project"""
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
         return False
 
     # Check if already linked
-    existing = db.query(ProjectMeeting).filter(
-        ProjectMeeting.meeting_id == meeting_id,
-        ProjectMeeting.project_id == project_id
-    ).first()
+    existing = (
+        db.query(ProjectMeeting)
+        .filter(
+            ProjectMeeting.meeting_id == meeting_id,
+            ProjectMeeting.project_id == project_id,
+        )
+        .first()
+    )
 
     if existing:
         return True
 
-    project_meeting = ProjectMeeting(
-        project_id=project_id,
-        meeting_id=meeting_id
-    )
+    project_meeting = ProjectMeeting(project_id=project_id, meeting_id=meeting_id)
     db.add(project_meeting)
     db.commit()
 
     return True
 
 
-def remove_meeting_from_project(db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def remove_meeting_from_project(
+    db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
     """Remove meeting from project"""
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
         return False
 
-    project_meeting = db.query(ProjectMeeting).filter(
-        ProjectMeeting.meeting_id == meeting_id,
-        ProjectMeeting.project_id == project_id
-    ).first()
+    project_meeting = (
+        db.query(ProjectMeeting)
+        .filter(
+            ProjectMeeting.meeting_id == meeting_id,
+            ProjectMeeting.project_id == project_id,
+        )
+        .first()
+    )
 
     if not project_meeting:
         return False

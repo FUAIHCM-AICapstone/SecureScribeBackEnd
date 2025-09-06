@@ -13,6 +13,7 @@ class MeetingStatus(str, Enum):
     cancelled = "cancelled"
     completed = "completed"
 
+
 if TYPE_CHECKING:
     from . import (
         AudioFile,

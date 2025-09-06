@@ -16,11 +16,25 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
     depends_on:
       - redis
+      - minio
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
     restart: unless-stopped
 
   celery_worker:
@@ -46,3 +60,6 @@ services:
     command: pytest tests/ -v --tb=short
     profiles:
       - test
+
+volumes:
+  minio_data:

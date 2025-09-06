@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -6,6 +8,12 @@ from app.db import SessionLocal, create_tables
 from app.main import app
 from app.services.user import create_user
 from app.utils.auth import create_access_token
+
+# Configure logging to ignore warnings
+logging.getLogger().setLevel(logging.ERROR)
+logging.getLogger("sqlalchemy").setLevel(logging.ERROR)
+logging.getLogger("fastapi").setLevel(logging.ERROR)
+logging.getLogger("uvicorn").setLevel(logging.ERROR)
 
 
 @pytest.fixture(scope="session")
@@ -63,12 +71,17 @@ def client(auth_token):
 
 def prune_database(db: Session):
     """Prune all test data from database"""
-    from app.models.user import User, UserIdentity, UserDevice
-    from app.models.project import Project, UserProject
     from app.models.meeting import (
-        Meeting, ProjectMeeting, AudioFile, Transcript,
-        MeetingNote, MeetingBot, MeetingBotLog
+        AudioFile,
+        Meeting,
+        MeetingBot,
+        MeetingBotLog,
+        MeetingNote,
+        ProjectMeeting,
+        Transcript,
     )
+    from app.models.project import Project, UserProject
+    from app.models.user import User, UserDevice, UserIdentity
 
     print("🧹 Starting database pruning...")
 

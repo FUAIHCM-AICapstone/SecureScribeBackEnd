@@ -62,6 +62,19 @@ class Settings(BaseSettings):
     WEBSOCKET_CONNECTION_TIMEOUT: int = 300  # 5 minutes inactive timeout
     WEBSOCKET_CLEANUP_INTERVAL: int = 60  # 1 minute cleanup interval
 
+    # MinIO Configuration
+    MINIO_ENDPOINT: str = "minio:9000"
+    MINIO_ACCESS_KEY: str = "minioadmin"
+    MINIO_SECRET_KEY: str = "minioadmin"
+    MINIO_SECURE: bool = False
+    MINIO_BUCKET_NAME: str = "securescribe-files"
+    MINIO_PUBLIC_BUCKET_NAME: str = "securescribe-public"
+
+    # File Configuration
+    MAX_FILE_SIZE_MB: int = 100
+    ALLOWED_FILE_EXTENSIONS: str = ".pdf,.docx,.txt,.mp3,.wav,.m4a,.webm"
+    ALLOWED_MIME_TYPES: str = "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,audio/mpeg,audio/wav,audio/mp4,audio/webm"
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def CELERY_BROKER_URL(self) -> str:

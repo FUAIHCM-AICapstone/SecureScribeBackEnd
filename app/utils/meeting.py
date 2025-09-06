@@ -29,10 +29,14 @@ def check_meeting_access(db: Session, meeting: Meeting, user_id: uuid.UUID) -> b
         # If meeting has linked projects, user must be member of at least one
         if linked_projects:
             for project_id in linked_projects:
-                user_project = db.query(UserProject).filter(
-                    UserProject.user_id == user_id,
-                    UserProject.project_id == project_id
-                ).first()
+                user_project = (
+                    db.query(UserProject)
+                    .filter(
+                        UserProject.user_id == user_id,
+                        UserProject.project_id == project_id,
+                    )
+                    .first()
+                )
                 if user_project:
                     return True
             return False
@@ -44,9 +48,10 @@ def check_meeting_access(db: Session, meeting: Meeting, user_id: uuid.UUID) -> b
 def get_meeting_projects(db: Session, meeting_id: uuid.UUID) -> List[uuid.UUID]:
     """Get list of project IDs linked to meeting"""
     from app.models.meeting import ProjectMeeting
-    project_meetings = db.query(ProjectMeeting).filter(
-        ProjectMeeting.meeting_id == meeting_id
-    ).all()
+
+    project_meetings = (
+        db.query(ProjectMeeting).filter(ProjectMeeting.meeting_id == meeting_id).all()
+    )
     return [pm.project_id for pm in project_meetings]
 
 
@@ -59,18 +64,24 @@ def can_delete_meeting(db: Session, meeting: Meeting, user_id: uuid.UUID) -> boo
     # Owner/admin of linked projects can delete
     linked_projects = get_meeting_projects(db, meeting.id)
     for project_id in linked_projects:
-        user_project = db.query(UserProject).filter(
-            UserProject.user_id == user_id,
-            UserProject.project_id == project_id,
-            UserProject.role.in_(["admin", "owner"])
-        ).first()
+        user_project = (
+            db.query(UserProject)
+            .filter(
+                UserProject.user_id == user_id,
+                UserProject.project_id == project_id,
+                UserProject.role.in_(["admin", "owner"]),
+            )
+            .first()
+        )
         if user_project:
             return True
 
     return False
 
 
-def notify_meeting_members(db: Session, meeting: Meeting, action: str, user_id: uuid.UUID):
+def notify_meeting_members(
+    db: Session, meeting: Meeting, action: str, user_id: uuid.UUID
+):
     """Send notifications to meeting members"""
     try:
         linked_projects = get_meeting_projects(db, meeting.id)
@@ -78,9 +89,9 @@ def notify_meeting_members(db: Session, meeting: Meeting, action: str, user_id: 
         # Get all users from linked projects
         member_ids = []
         for project_id in linked_projects:
-            user_projects = db.query(UserProject).filter(
-                UserProject.project_id == project_id
-            ).all()
+            user_projects = (
+                db.query(UserProject).filter(UserProject.project_id == project_id).all()
+            )
             member_ids.extend([up.user_id for up in user_projects])
 
         # Remove duplicates and current user
@@ -94,16 +105,16 @@ def notify_meeting_members(db: Session, meeting: Meeting, action: str, user_id: 
                     "meeting_id": str(meeting.id),
                     "meeting_title": meeting.title or "Untitled Meeting",
                     "action": action,
-                    "actor_id": str(user_id)
+                    "actor_id": str(user_id),
                 },
-                channel="in_app"
+                channel="in_app",
             )
             create_notifications_bulk(
                 db,
                 notification_data.user_ids,
                 type=notification_data.type,
                 payload=notification_data.payload,
-                channel=notification_data.channel
+                channel=notification_data.channel,
             )
     except Exception:
         pass  # Silent fail for notifications

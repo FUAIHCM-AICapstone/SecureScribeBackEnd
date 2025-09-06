@@ -54,7 +54,7 @@ def create_meeting_endpoint(
             "created_at": new_meeting.created_at,
             "updated_at": new_meeting.updated_at,
             "projects": [],
-            "can_access": True
+            "can_access": True,
         }
 
         return ApiResponse(
@@ -86,13 +86,17 @@ def get_meetings_endpoint(
             try:
                 created_by_uuid = uuid.UUID(created_by)
             except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid created_by UUID format")
+                raise HTTPException(
+                    status_code=400, detail="Invalid created_by UUID format"
+                )
 
         # Parse tag IDs
         tag_id_list = []
         if tag_ids.strip():
             try:
-                tag_id_list = [uuid.UUID(tid.strip()) for tid in tag_ids.split(",") if tid.strip()]
+                tag_id_list = [
+                    uuid.UUID(tid.strip()) for tid in tag_ids.split(",") if tid.strip()
+                ]
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid tag_ids format")
 
@@ -102,36 +106,34 @@ def get_meetings_endpoint(
             status=status,
             is_personal=is_personal,
             created_by=created_by_uuid,
-            tag_ids=tag_id_list
+            tag_ids=tag_id_list,
         )
 
         meetings, total = get_meetings(
-            db=db,
-            user_id=current_user.id,
-            filters=filters,
-            page=page,
-            limit=limit
+            db=db, user_id=current_user.id, filters=filters, page=page, limit=limit
         )
 
         # Format response data
         meetings_data = []
         for meeting in meetings:
             projects = get_meeting_projects(db, meeting.id)
-            meetings_data.append({
-                "id": meeting.id,
-                "title": meeting.title,
-                "description": meeting.description,
-                "url": meeting.url,
-                "start_time": meeting.start_time,
-                "created_by": meeting.created_by,
-                "is_personal": meeting.is_personal,
-                "status": meeting.status,
-                "is_deleted": meeting.is_deleted,
-                "created_at": meeting.created_at,
-                "updated_at": meeting.updated_at,
-                "projects": [],
-                "can_access": True
-            })
+            meetings_data.append(
+                {
+                    "id": meeting.id,
+                    "title": meeting.title,
+                    "description": meeting.description,
+                    "url": meeting.url,
+                    "start_time": meeting.start_time,
+                    "created_by": meeting.created_by,
+                    "is_personal": meeting.is_personal,
+                    "status": meeting.status,
+                    "is_deleted": meeting.is_deleted,
+                    "created_at": meeting.created_at,
+                    "updated_at": meeting.updated_at,
+                    "projects": [],
+                    "can_access": True,
+                }
+            )
 
         pagination_meta = create_pagination_meta(page, limit, total)
 
@@ -170,7 +172,7 @@ def get_meeting_endpoint(
             "projects": [],
             "can_access": True,
             "project_count": len(projects),
-            "member_count": 0
+            "member_count": 0,
         }
 
         return ApiResponse(
@@ -208,7 +210,7 @@ def update_meeting_endpoint(
             "created_at": updated_meeting.created_at,
             "updated_at": updated_meeting.updated_at,
             "projects": [],
-            "can_access": True
+            "can_access": True,
         }
 
         return ApiResponse(
@@ -245,7 +247,9 @@ def delete_meeting_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict])
+@router.post(
+    "/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict]
+)
 def add_meeting_to_project_endpoint(
     project_id: uuid.UUID,
     meeting_id: uuid.UUID,
@@ -256,7 +260,9 @@ def add_meeting_to_project_endpoint(
     try:
         success = add_meeting_to_project(db, meeting_id, project_id, current_user.id)
         if not success:
-            raise HTTPException(status_code=400, detail="Failed to add meeting to project")
+            raise HTTPException(
+                status_code=400, detail="Failed to add meeting to project"
+            )
 
         return ApiResponse(
             success=True,
@@ -269,7 +275,9 @@ def add_meeting_to_project_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict])
+@router.delete(
+    "/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict]
+)
 def remove_meeting_from_project_endpoint(
     project_id: uuid.UUID,
     meeting_id: uuid.UUID,
@@ -278,9 +286,13 @@ def remove_meeting_from_project_endpoint(
 ):
     """Remove meeting from project"""
     try:
-        success = remove_meeting_from_project(db, meeting_id, project_id, current_user.id)
+        success = remove_meeting_from_project(
+            db, meeting_id, project_id, current_user.id
+        )
         if not success:
-            raise HTTPException(status_code=400, detail="Failed to remove meeting from project")
+            raise HTTPException(
+                status_code=400, detail="Failed to remove meeting from project"
+            )
 
         return ApiResponse(
             success=True,
