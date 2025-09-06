@@ -28,10 +28,46 @@ def get_minio_client() -> Minio:
                 secret_key=settings.MINIO_SECRET_KEY,
                 secure=settings.MINIO_SECURE,
             )
+
+            # Cấu hình bucket policy cho public access ngay khi khởi tạo
+            ensure_bucket_public_access(minio_client, settings.MINIO_BUCKET_NAME)
+            ensure_bucket_public_access(minio_client, settings.MINIO_PUBLIC_BUCKET_NAME)
+
         except Exception as e:
             logger.exception(f"MinIO client initialization error: {e}")
             raise
     return minio_client
+
+
+def ensure_bucket_public_access(client: Minio, bucket_name: str) -> None:
+    """Đảm bảo bucket có public read access"""
+    try:
+        # Tạo bucket nếu chưa tồn tại
+        if not client.bucket_exists(bucket_name):
+            client.make_bucket(bucket_name)
+
+        # Cấu hình bucket policy cho public read
+        policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": "*"},
+                    "Action": ["s3:GetObject", "s3:GetBucketLocation"],
+                    "Resource": [
+                        f"arn:aws:s3:::{bucket_name}/*",
+                        f"arn:aws:s3:::{bucket_name}",
+                    ],
+                }
+            ],
+        }
+
+        import json
+
+        client.set_bucket_policy(bucket_name, json.dumps(policy))
+
+    except Exception as e:
+        logger.exception(f"Bucket policy configuration error for {bucket_name}: {e}")
 
 
 @retry(
@@ -118,14 +154,28 @@ def delete_file_from_minio(bucket_name: str, object_name: str) -> bool:
     wait=wait_exponential(multiplier=0.5, min=0.5, max=5),
     retry=retry_if_exception_type(S3Error),
 )
-def generate_presigned_url(
-    bucket_name: str, object_name: str, expires: int = 3600
-) -> Optional[str]:
+def generate_presigned_url(bucket_name: str, object_name: str) -> Optional[str]:
     try:
-        client = get_minio_client()
-        return client.presigned_get_object(bucket_name, object_name, expires)
+        # Đảm bảo MinIO client đã được khởi tạo và bucket policy đã được cấu hình
+        get_minio_client()
+
+        # Tạo URL public trực tiếp (bucket đã có public policy)
+        if hasattr(settings, "MINIO_PUBLIC_URL") and settings.MINIO_PUBLIC_URL:
+            public_url = (
+                f"{settings.MINIO_PUBLIC_URL.rstrip('/')}/{bucket_name}/{object_name}"
+            )
+        else:
+            public_url = (
+                f"http://{settings.MINIO_PUBLIC_URL}/{bucket_name}/{object_name}"
+            )
+
+        return public_url
+
     except S3Error as e:
-        logger.exception(f"MinIO presigned URL error: {e}")
+        logger.exception(f"MinIO URL generation error: {e}")
+        return None
+    except Exception as e:
+        logger.exception(f"MinIO URL generation error: {e}")
         return None
 
 

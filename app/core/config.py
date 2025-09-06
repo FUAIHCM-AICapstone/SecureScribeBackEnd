@@ -69,11 +69,16 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = False
     MINIO_BUCKET_NAME: str = "securescribe-files"
     MINIO_PUBLIC_BUCKET_NAME: str = "securescribe-public"
+    MINIO_PUBLIC_URL: str = (
+        "http://localhost:9000"  # Public URL for permanent links (internal Docker network)
+    )
 
     # File Configuration
     MAX_FILE_SIZE_MB: int = 100
     ALLOWED_FILE_EXTENSIONS: str = ".pdf,.docx,.txt,.mp3,.wav,.m4a,.webm"
-    ALLOWED_MIME_TYPES: str = "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,audio/mpeg,audio/wav,audio/mp4,audio/webm"
+    ALLOWED_MIME_TYPES: str = (
+        "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,audio/mpeg,audio/wav,audio/mp4,audio/webm"
+    )
 
     @computed_field  # type: ignore[prop-decorator]
     @property

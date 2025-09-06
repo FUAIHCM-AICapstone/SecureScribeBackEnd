@@ -9,8 +9,8 @@ from app.models.project import Project
 from app.schemas.file import FileCreate, FileFilter, FileUpdate
 from app.utils.minio import (
     delete_file_from_minio,
-    upload_bytes_to_minio,
     generate_presigned_url,
+    upload_bytes_to_minio,
 )
 
 
@@ -33,7 +33,9 @@ def create_file(
             file.storage_url = storage_url
             db.commit()
             db.refresh(file)
-        return file
+            return file
+        else:
+            return file
     else:
         # Rollback database changes if MinIO upload fails
         db.delete(file)

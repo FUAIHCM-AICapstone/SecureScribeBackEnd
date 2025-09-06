@@ -67,7 +67,6 @@ def upload_file_endpoint(
         new_file = create_file(db, file_data, current_user.id, file_content)
         if not new_file:
             raise HTTPException(status_code=400, detail="Failed to upload file")
-
         return ApiResponse(
             success=True,
             message="File uploaded successfully",
