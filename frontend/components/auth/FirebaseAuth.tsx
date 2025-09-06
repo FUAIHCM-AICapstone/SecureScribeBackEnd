@@ -5,12 +5,8 @@ import Cookies from 'js-cookie';
 import { showToast } from '@/hooks/useShowToast';
 import { useTranslations } from 'next-intl';
 import authApi from '@/services/api/auth';
-import { initializeApp } from 'firebase/app';
-import {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup
-} from 'firebase/auth';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -34,12 +30,17 @@ const FirebaseAuth: React.FC<FirebaseAuthProps> = ({ onSuccess }) => {
     const handleGoogleLogin = async () => {
         setLoading(true);
         try {
-            const app = initializeApp(firebaseConfig);
-            const auth = getAuth(app);
-            const provider = new GoogleAuthProvider();
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            const auth = firebase.auth();
+            const provider = new firebase.auth.GoogleAuthProvider();
 
-            const result = await signInWithPopup(auth, provider);
+            const result = await auth.signInWithPopup(provider);
             const user = result.user;
+            if (!user) {
+                throw new Error(t('userNotFound'));
+            }
             const idToken = await user.getIdToken();
 
             const response = await authApi.firebaseLogin({ id_token: idToken });

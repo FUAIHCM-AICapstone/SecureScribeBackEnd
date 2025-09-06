@@ -27,13 +27,13 @@ from app.services.file import (
     bulk_delete_files,
     bulk_move_files,
     check_file_access,
+    check_meeting_access,
     create_file,
     delete_file,
     get_file,
     get_files,
     update_file,
-    validate_file_size,
-    validate_file_type,
+    validate_file,
 )
 from app.utils.auth import get_current_user
 
@@ -50,17 +50,15 @@ def upload_file_endpoint(
 ):
     try:
         file_content = file.file.read()
+        file_size = len(file_content)
 
-        if not validate_file_size(len(file_content)):
-            raise HTTPException(status_code=400, detail="File too large")
-
-        if not validate_file_type(file.filename, file.content_type):
-            raise HTTPException(status_code=400, detail="File type not allowed")
+        if not validate_file(file.filename, file.content_type, file_size):
+            raise HTTPException(status_code=400, detail="File validation failed")
 
         file_data = FileCreate(
             filename=file.filename,
             mime_type=file.content_type,
-            size_bytes=len(file_content),
+            size_bytes=file_size,
             file_type="project" if project_id else "meeting",
             project_id=project_id,
             meeting_id=meeting_id,
@@ -83,6 +81,7 @@ def upload_file_endpoint(
                 "meeting_id": new_file.meeting_id,
                 "uploaded_by": new_file.uploaded_by,
                 "created_at": new_file.created_at.isoformat(),
+                "storage_url": new_file.storage_url,
             },
         )
     except HTTPException:
@@ -128,6 +127,7 @@ def get_files_endpoint(
                     "meeting_id": file.meeting_id,
                     "uploaded_by": file.uploaded_by,
                     "created_at": file.created_at.isoformat(),
+                    "storage_url": file.storage_url,
                 }
                 for file in files
             ],
@@ -164,6 +164,7 @@ def get_file_endpoint(
                 "meeting_id": file.meeting_id,
                 "uploaded_by": file.uploaded_by,
                 "created_at": file.created_at.isoformat(),
+                "storage_url": file.storage_url,
             },
         )
     except HTTPException:
@@ -204,6 +205,7 @@ def update_file_endpoint(
                 "meeting_id": updated_file.meeting_id,
                 "uploaded_by": updated_file.uploaded_by,
                 "created_at": updated_file.created_at.isoformat(),
+                "storage_url": updated_file.storage_url,
             },
         )
     except HTTPException:
@@ -244,6 +246,7 @@ def bulk_files_endpoint(
     _current_user: User = Depends(get_current_user),
 ):
     try:
+        # Execute bulk operation
         if operation.operation == "delete":
             results = bulk_delete_files(db, operation.file_ids)
         elif operation.operation == "move":
@@ -256,6 +259,7 @@ def bulk_files_endpoint(
         else:
             raise HTTPException(status_code=400, detail="Invalid operation")
 
+        # Calculate statistics
         total_processed = len(results)
         total_success = sum(1 for r in results if r["success"])
         total_failed = total_processed - total_success
@@ -309,6 +313,7 @@ def get_project_files_endpoint(
                     **file.__dict__,
                     project_name=project_name,
                     can_access=True,
+                    storage_url=file.storage_url,
                 )
                 for file in files
             ],
@@ -338,7 +343,7 @@ def get_meeting_files_endpoint(
         if not meeting:
             raise HTTPException(status_code=404, detail="Meeting not found")
 
-        if not check_file_access(db, None, current_user.id):
+        if not check_meeting_access(db, meeting_id, current_user.id):
             raise HTTPException(status_code=403, detail="Access denied")
 
         filters = FileFilter(meeting_id=meeting_id)
@@ -354,6 +359,7 @@ def get_meeting_files_endpoint(
                     **file.__dict__,
                     meeting_title=meeting.title,
                     can_access=True,
+                    storage_url=file.storage_url,
                 )
                 for file in files
             ],
@@ -394,6 +400,7 @@ def get_file_with_project_endpoint(
                 **file.__dict__,
                 project_name=project_name,
                 can_access=True,
+                storage_url=file.storage_url,
             ),
         )
     except HTTPException:
@@ -431,6 +438,7 @@ def get_file_with_meeting_endpoint(
                 **file.__dict__,
                 meeting_title=meeting_title,
                 can_access=True,
+                storage_url=file.storage_url,
             ),
         )
     except HTTPException:

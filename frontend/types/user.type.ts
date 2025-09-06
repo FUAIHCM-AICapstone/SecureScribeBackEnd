@@ -17,3 +17,27 @@ export interface UserUpdate {
   position?: string;
   avatar_url?: string;
 }
+
+// User create request
+export interface UserCreate {
+  email: string;
+  name?: string;
+  avatar_url?: string;
+  bio?: string;
+  position?: string;
+}
+
+// Bulk user create request
+export interface BulkUserCreate {
+  users: UserCreate[];
+}
+
+// Bulk user update request
+export interface BulkUserUpdateItem {
+  id: string;
+  updates: UserUpdate;
+}
+
+export interface BulkUserUpdate {
+  users: BulkUserUpdateItem[];
+}

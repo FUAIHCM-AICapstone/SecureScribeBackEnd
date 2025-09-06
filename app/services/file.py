@@ -6,27 +6,39 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.file import File
 from app.models.project import Project
-from app.models.user import User
 from app.schemas.file import FileCreate, FileFilter, FileUpdate
-from app.utils.minio import delete_file_from_minio, upload_file_to_minio
+from app.utils.minio import (
+    delete_file_from_minio,
+    upload_bytes_to_minio,
+    generate_presigned_url,
+)
 
 
 def create_file(
-    db: Session, file_data: FileCreate, uploaded_by: uuid.UUID, file_content: bytes
+    db: Session, file_data: FileCreate, uploaded_by: uuid.UUID, file_bytes: bytes
 ) -> Optional[File]:
-    print(f"DEBUG create_file: file_content type: {type(file_content)}")
-    print(
-        f"DEBUG create_file: file_content length: {len(file_content) if isinstance(file_content, bytes) else 'N/A'}"
-    )
-
     file = File(**file_data.model_dump(), uploaded_by=uploaded_by)
     db.add(file)
     db.commit()
     db.refresh(file)
-    upload_file_to_minio(
-        file_content, settings.MINIO_BUCKET_NAME, str(file.id), file.mime_type
+
+    upload_result = upload_bytes_to_minio(
+        file_bytes, settings.MINIO_BUCKET_NAME, str(file.id), file_data.mime_type
     )
-    return file
+
+    if upload_result:
+        # Generate and store presigned URL
+        storage_url = generate_presigned_url(settings.MINIO_BUCKET_NAME, str(file.id))
+        if storage_url:
+            file.storage_url = storage_url
+            db.commit()
+            db.refresh(file)
+        return file
+    else:
+        # Rollback database changes if MinIO upload fails
+        db.delete(file)
+        db.commit()
+        return None
 
 
 def get_file(db: Session, file_id: uuid.UUID) -> Optional[File]:
@@ -140,9 +152,12 @@ def bulk_move_files(
 
 
 def check_file_access(db: Session, file: File, user_id: uuid.UUID) -> bool:
+    """Check if user has access to a file"""
+    # User owns the file
     if file.uploaded_by == user_id:
         return True
 
+    # File belongs to a project - check project membership
     if file.project_id:
         return (
             db.query(Project)
@@ -153,6 +168,26 @@ def check_file_access(db: Session, file: File, user_id: uuid.UUID) -> bool:
         )
 
     return False
+
+
+def check_meeting_access(
+    db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    """Check if user has access to a meeting's files"""
+    from app.models.meeting import Meeting
+
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        return False
+
+    # Check if user is in the meeting's project
+    return (
+        db.query(Project)
+        .join(Project.users)
+        .filter(Project.id == meeting.project_id, Project.users.any(user_id=user_id))
+        .first()
+        is not None
+    )
 
 
 def extract_text_from_file(file_content: bytes, mime_type: str) -> Optional[str]:
@@ -183,11 +218,13 @@ def extract_text_from_file(file_content: bytes, mime_type: str) -> Optional[str]
     return None
 
 
-def validate_file_size(file_size: int) -> bool:
-    return file_size <= settings.MAX_FILE_SIZE_MB * 1024 * 1024
+def validate_file(filename: str, mime_type: str, file_size: int) -> bool:
+    """Validate file size and type in single function"""
+    # Check file size
+    if file_size > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
+        return False
 
-
-def validate_file_type(filename: str, mime_type: str) -> bool:
+    # Check file type
     allowed_extensions = settings.ALLOWED_FILE_EXTENSIONS.split(",")
     allowed_mimes = settings.ALLOWED_MIME_TYPES.split(",")
 

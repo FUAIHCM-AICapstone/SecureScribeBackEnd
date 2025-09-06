@@ -1,7 +1,7 @@
+import io
 import logging
 from typing import Optional
 
-import minio
 from minio import Minio
 from minio.error import S3Error
 from tenacity import (
@@ -21,12 +21,16 @@ minio_client = None
 def get_minio_client() -> Minio:
     global minio_client
     if minio_client is None:
-        minio_client = Minio(
-            settings.MINIO_ENDPOINT,
-            access_key=settings.MINIO_ACCESS_KEY,
-            secret_key=settings.MINIO_SECRET_KEY,
-            secure=settings.MINIO_SECURE,
-        )
+        try:
+            minio_client = Minio(
+                settings.MINIO_ENDPOINT,
+                access_key=settings.MINIO_ACCESS_KEY,
+                secret_key=settings.MINIO_SECRET_KEY,
+                secure=settings.MINIO_SECURE,
+            )
+        except Exception as e:
+            logger.exception(f"MinIO client initialization error: {e}")
+            raise
     return minio_client
 
 
@@ -35,25 +39,46 @@ def get_minio_client() -> Minio:
     wait=wait_exponential(multiplier=0.5, min=0.5, max=5),
     retry=retry_if_exception_type(S3Error),
 )
-def upload_file_to_minio(
-    file_data: bytes,
+def upload_bytes_to_minio(
+    file_bytes: bytes,
     bucket_name: str,
     object_name: str,
     content_type: Optional[str] = None,
 ) -> bool:
+    """Upload file bytes directly to MinIO
+
+    Args:
+        file_bytes: File content as bytes
+        bucket_name: MinIO bucket name
+        object_name: Object name in MinIO
+        content_type: Content type (optional)
+
+    Returns:
+        bool: Success status
+    """
     try:
         client = get_minio_client()
+
+        # Ensure bucket exists
         if not client.bucket_exists(bucket_name):
             client.make_bucket(bucket_name)
+
+        # Upload bytes directly
+        file_size = len(file_bytes)
+        file_data = io.BytesIO(file_bytes)
         client.put_object(
-            bucket_name,
-            object_name,
-            file_data,
-            len(file_data),
+            bucket_name=bucket_name,
+            object_name=object_name,
+            data=file_data,
+            length=file_size,
             content_type=content_type,
         )
+
         return True
     except S3Error as e:
+        logger.exception(f"MinIO upload error: {e}")
+        return False
+    except Exception as e:
         logger.exception(f"MinIO upload error: {e}")
         return False
 
