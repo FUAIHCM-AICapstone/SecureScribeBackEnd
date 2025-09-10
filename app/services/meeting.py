@@ -193,7 +193,7 @@ def update_meeting(
 
 
 def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bool:
-    """Soft delete meeting"""
+    """Soft delete meeting and hard delete associated files"""
     meeting = (
         db.query(Meeting)
         .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
@@ -203,6 +203,22 @@ def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bo
     if not meeting or not can_delete_meeting(db, meeting, user_id):
         return False
 
+    # Get all files associated with this meeting
+    from app.core.config import settings
+    from app.models.file import File
+    from app.utils.minio import delete_file_from_minio
+
+    associated_files = db.query(File).filter(File.meeting_id == meeting_id).all()
+
+    # Delete files from MinIO storage and database
+    for file in associated_files:
+        # Delete from MinIO storage
+        delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
+
+        # Delete from database
+        db.delete(file)
+
+    # Soft delete the meeting
     meeting.is_deleted = True
     db.commit()
 

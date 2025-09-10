@@ -245,6 +245,49 @@ def test_delete_meeting(client):
     assert resp.status_code == 404
 
 
+def create_test_file_for_meeting(client, meeting_id):
+    """Helper function to create a test file associated with a meeting"""
+    import io
+
+    # Create a simple test file
+    file_content = b"Test file content for meeting deletion test"
+    files = {
+        "file": ("test.txt", io.BytesIO(file_content), "text/plain")
+    }
+    data = {"meeting_id": meeting_id}
+
+    resp = client.post("/api/v1/files/upload", files=files, data=data)
+    if resp.status_code == 200:
+        return resp.json()["data"]["id"]
+    return None
+
+
+def test_delete_meeting_with_files(client):
+    """Test that deleting a meeting also deletes associated files"""
+    # Create a meeting
+    meeting_id = create_test_meeting(client)
+
+    # Upload a file to the meeting
+    file_id = create_test_file_for_meeting(client, meeting_id)
+    assert file_id is not None, "Failed to create test file for meeting"
+
+    # Verify file exists
+    resp = client.get(f"/api/v1/files/{file_id}")
+    assert resp.status_code == 200, "File should exist before meeting deletion"
+
+    # Delete the meeting
+    resp = client.delete(f"/api/v1/meetings/{meeting_id}")
+    assert resp.status_code == 200, "Meeting deletion should succeed"
+
+    # Verify meeting is soft deleted
+    resp = client.get(f"/api/v1/meetings/{meeting_id}")
+    assert resp.status_code == 404, "Meeting should be soft deleted"
+
+    # Verify file is also deleted (hard delete)
+    resp = client.get(f"/api/v1/files/{file_id}")
+    assert resp.status_code == 404, "File should be hard deleted when meeting is deleted"
+
+
 def test_delete_meeting_not_found(client):
     """Test deleting a non-existent meeting"""
     fake_id = str(uuid.uuid4())

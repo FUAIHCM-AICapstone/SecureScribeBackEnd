@@ -140,8 +140,8 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
         from app.models.project import UserProject
         db.query(UserProject).filter(UserProject.user_id == user_id).delete()
 
-        # 2. Delete user's meetings (soft delete)
-        db.query(Meeting).filter(Meeting.created_by == user_id).update({"is_deleted": True})
+        # 2. Delete user's meetings (soft delete) - only update meetings that are not already deleted
+        db.query(Meeting).filter(Meeting.created_by == user_id, Meeting.is_deleted == False).update({"is_deleted": True})
 
         # 3. Delete user's files (hard delete from database, keep in MinIO)
         user_files = db.query(File).filter(File.uploaded_by == user_id).all()

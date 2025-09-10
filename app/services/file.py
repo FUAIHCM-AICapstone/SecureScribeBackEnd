@@ -179,7 +179,7 @@ def check_meeting_access(
     from app.models.meeting import Meeting, ProjectMeeting
     from app.models.project import UserProject
 
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.is_deleted == False).first()
     if not meeting:
         return False
 

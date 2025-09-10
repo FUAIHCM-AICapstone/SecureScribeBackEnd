@@ -396,7 +396,7 @@ def get_meeting_files_endpoint(
     try:
         from app.models.meeting import Meeting
 
-        meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+        meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.is_deleted == False).first()
         if not meeting:
             raise HTTPException(status_code=404, detail="Meeting not found")
 
@@ -483,7 +483,7 @@ def get_file_with_meeting_endpoint(
 
         meeting_title = None
         if file.meeting_id:
-            meeting = db.query(Meeting).filter(Meeting.id == file.meeting_id).first()
+            meeting = db.query(Meeting).filter(Meeting.id == file.meeting_id, Meeting.is_deleted == False).first()
             meeting_title = meeting.title if meeting else None
 
         return ApiResponse(

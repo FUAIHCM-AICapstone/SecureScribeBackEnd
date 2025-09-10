@@ -133,7 +133,7 @@ def update_project(
 
 def delete_project(db: Session, project_id: uuid.UUID) -> bool:
     """
-    Delete a project with proper cascade handling
+    Delete a project with proper cascade handling including meetings and files
     """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
@@ -142,26 +142,62 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
     try:
         # Delete in correct order to avoid foreign key conflicts
 
-        # 1. Delete UserProject relationships (users_projects table)
-        db.query(UserProject).filter(UserProject.project_id == project_id).delete()
+        # 1. Delete files directly associated with project (not through meetings)
+        from app.models.file import File
+        from app.utils.minio import delete_file_from_minio
+        from app.core.config import settings
 
-        # 2. Delete ProjectMeeting relationships (projects_meetings table)
-        from app.models.meeting import ProjectMeeting
+        project_files = db.query(File).filter(
+            File.project_id == project_id,
+            File.meeting_id.is_(None)  # Only files directly associated with project
+        ).all()
+
+        for file in project_files:
+            # Delete from MinIO storage
+            delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
+            # Delete from database
+            db.delete(file)
+
+        # 2. Delete meetings associated with project and their files
+        from app.models.meeting import ProjectMeeting, Meeting
+
+        # Get all meeting IDs associated with this project
+        project_meetings = db.query(ProjectMeeting).filter(
+            ProjectMeeting.project_id == project_id
+        ).all()
+
+        for project_meeting in project_meetings:
+            # Delete files associated with this meeting
+            meeting_files = db.query(File).filter(
+                File.meeting_id == project_meeting.meeting_id
+            ).all()
+
+            for file in meeting_files:
+                # Delete from MinIO storage
+                delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
+                # Delete from database
+                db.delete(file)
+
+            # Soft delete the meeting
+            meeting = db.query(Meeting).filter(Meeting.id == project_meeting.meeting_id).first()
+            if meeting:
+                meeting.is_deleted = True
+
+        # 3. Delete ProjectMeeting relationships (projects_meetings table)
         db.query(ProjectMeeting).filter(ProjectMeeting.project_id == project_id).delete()
 
-        # 3. Delete TaskProject relationships (tasks_projects table)
+        # 4. Delete UserProject relationships (users_projects table)
+        db.query(UserProject).filter(UserProject.project_id == project_id).delete()
+
+        # 5. Delete TaskProject relationships (tasks_projects table)
         from app.models.task import TaskProject
         db.query(TaskProject).filter(TaskProject.project_id == project_id).delete()
 
-        # 4. Delete Integrations
+        # 6. Delete Integrations
         from app.models.integration import Integration
         db.query(Integration).filter(Integration.project_id == project_id).delete()
 
-        # 5. Update Files - set project_id to NULL instead of deleting
-        from app.models.file import File
-        db.query(File).filter(File.project_id == project_id).update({"project_id": None})
-
-        # 6. Finally delete the project
+        # 7. Finally delete the project
         db.delete(project)
         db.commit()
         return True

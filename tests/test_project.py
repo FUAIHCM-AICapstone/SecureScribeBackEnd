@@ -419,3 +419,92 @@ def test_project_edge_cases(client):
     # Unicode characters
     resp = client.post("/api/v1/projects", json={"name": "项目名称🚀"})
     assert resp.status_code == 200  # Should work
+
+
+def create_test_meeting_for_project(client, project_id):
+    """Helper function to create a test meeting associated with a project"""
+    from datetime import datetime, timedelta
+    meeting_data = {
+        "title": faker.sentence(nb_words=4),
+        "description": faker.text(max_nb_chars=100),
+        "url": faker.url(),
+        "start_time": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+        "is_personal": False,
+        "project_ids": [project_id],
+    }
+    resp = client.post("/api/v1/meetings", json=meeting_data)
+    return resp.json()["data"]["id"]
+
+
+def create_test_file_for_project(client, project_id):
+    """Helper function to create a test file associated with a project"""
+    import io
+
+    file_content = b"Test file content for project deletion test"
+    files = {
+        "file": ("test.txt", io.BytesIO(file_content), "text/plain")
+    }
+    data = {"project_id": project_id}
+
+    resp = client.post("/api/v1/files/upload", files=files, data=data)
+    if resp.status_code == 200:
+        return resp.json()["data"]["id"]
+    return None
+
+
+def test_delete_project_with_meetings_and_files(client):
+    """Test that deleting a project also deletes associated meetings and files"""
+    # Create a project
+    project_id = create_project_with_member(client)
+
+    # Create a meeting associated with the project
+    meeting_id = create_test_meeting_for_project(client, project_id)
+    assert meeting_id is not None, "Failed to create test meeting for project"
+
+    # Create a file directly associated with the project
+    project_file_id = create_test_file_for_project(client, project_id)
+    assert project_file_id is not None, "Failed to create test file for project"
+
+    # Create a file associated with the meeting
+    import io
+    meeting_file_content = b"Test file content for meeting in project"
+    files = {
+        "file": ("meeting_test.txt", io.BytesIO(meeting_file_content), "text/plain")
+    }
+    data = {"meeting_id": meeting_id}
+
+    resp = client.post("/api/v1/files/upload", files=files, data=data)
+    meeting_file_id = resp.json()["data"]["id"] if resp.status_code == 200 else None
+    assert meeting_file_id is not None, "Failed to create test file for meeting"
+
+    # Verify all entities exist before deletion
+    resp = client.get(f"/api/v1/projects/{project_id}")
+    assert resp.status_code == 200, "Project should exist before deletion"
+
+    resp = client.get(f"/api/v1/meetings/{meeting_id}")
+    assert resp.status_code == 200, "Meeting should exist before deletion"
+
+    resp = client.get(f"/api/v1/files/{project_file_id}")
+    assert resp.status_code == 200, "Project file should exist before deletion"
+
+    resp = client.get(f"/api/v1/files/{meeting_file_id}")
+    assert resp.status_code == 200, "Meeting file should exist before deletion"
+
+    # Delete the project
+    resp = client.delete(f"/api/v1/projects/{project_id}")
+    assert resp.status_code == 200, "Project deletion should succeed"
+
+    # Verify project is deleted
+    resp = client.get(f"/api/v1/projects/{project_id}")
+    assert resp.status_code == 404, "Project should be deleted"
+
+    # Verify meeting is soft deleted
+    resp = client.get(f"/api/v1/meetings/{meeting_id}")
+    assert resp.status_code == 404, "Meeting should be soft deleted"
+
+    # Verify files are hard deleted
+    resp = client.get(f"/api/v1/files/{project_file_id}")
+    assert resp.status_code == 404, "Project file should be hard deleted"
+
+    resp = client.get(f"/api/v1/files/{meeting_file_id}")
+    assert resp.status_code == 404, "Meeting file should be hard deleted"
