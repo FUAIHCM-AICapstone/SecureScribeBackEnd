@@ -1,155 +1,104 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { getMyProjects, getMyProjectStats } from '../../services/api/project';
-import { getMeetings } from '../../services/api/meeting';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { getMyProjects } from '../../services/api/project';
+import { getPersonalMeetings } from '../../services/api/meeting';
 import { getFiles } from '../../services/api/file';
-import type { ProjectResponse, ProjectStats } from '../../types/project.type';
-import type { MeetingResponse } from '../../types/meeting.type';
-import type { FileResponse } from '../../types/file.type';
-import ProjectManager from './ProjectManager';
-import DashboardStats from './DashboardStats';
-import MeetingManager from './MeetingManager';
-import FileManager from './FileManager';
+import { queryKeys } from '../../lib/queryClient';
+import { showToast } from '../../hooks/useShowToast';
+// Types are inferred from React Query data
+import ProjectDetail from './ProjectDetail';
+import MeetingDetail from './MeetingDetail';
+import ProjectCard from './ProjectCard';
+import MeetingCard from './MeetingCard';
+import FileCard from './FileCard';
+import CreateProjectModal from './CreateProjectModal';
+import CreateMeetingModal from './CreateMeetingModal';
+import FileUploadModal from './FileUploadModal';
 
 
-type TabType = 'overview' | 'projects' | 'meetings' | 'files';
+type ViewType = 'dashboard' | 'project' | 'meeting';
 
 const Dashboard: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<TabType>('overview');
-    const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState<ProjectStats | null>(null);
-    const [projects, setProjects] = useState<ProjectResponse[]>([]);
-    const [meetings, setMeetings] = useState<MeetingResponse[]>([]);
-    const [files, setFiles] = useState<FileResponse[]>([]);
+    const [currentView, setCurrentView] = useState<ViewType>('dashboard');
+    const [selectedId, setSelectedId] = useState<string>('');
 
-    useEffect(() => {
-        loadDashboardData();
-    }, []);
+    // Modal states
+    const [showCreateProject, setShowCreateProject] = useState(false);
+    const [showCreateMeeting, setShowCreateMeeting] = useState(false);
+    const [showFileUpload, setShowFileUpload] = useState(false);
 
-    const loadDashboardData = async () => {
-        try {
-            setLoading(true);
-            const [statsData, projectsData, meetingsData, filesData] = await Promise.all([
-                getMyProjectStats(),
-                getMyProjects({ limit: 5 }),
-                getMeetings({ limit: 5 }),
-                getFiles({ limit: 5 })
-            ]);
+    // React Query hooks for data fetching
+    const { data: projectsData, isLoading: projectsLoading, error: projectsError } = useQuery({
+        queryKey: queryKeys.projects,
+        queryFn: () => getMyProjects({ limit: 10 }),
+        enabled: currentView === 'dashboard',
+    });
 
-            setStats(statsData);
-            setProjects(projectsData.data);
-            setMeetings(meetingsData.data);
-            setFiles(filesData.data);
-        } catch (error) {
-            console.error('Failed to load dashboard data:', error);
-        } finally {
-            setLoading(false);
-        }
+    const { data: meetingsData, isLoading: meetingsLoading, error: meetingsError } = useQuery({
+        queryKey: queryKeys.personalMeetings,
+        queryFn: () => getPersonalMeetings({ limit: 10 }),
+        enabled: currentView === 'dashboard',
+    });
+
+    const { data: filesData, isLoading: filesLoading, error: filesError } = useQuery({
+        queryKey: queryKeys.files,
+        queryFn: () => getFiles({ limit: 10 }),
+        enabled: currentView === 'dashboard',
+    });
+
+    // Show error messages for failed queries
+    if (projectsError) {
+        console.error('Failed to load projects:', projectsError);
+        showToast('error', 'Không thể tải danh sách dự án. Vui lòng thử lại.');
+    }
+    if (meetingsError) {
+        console.error('Failed to load meetings:', meetingsError);
+        showToast('error', 'Không thể tải danh sách cuộc họp. Vui lòng thử lại.');
+    }
+    if (filesError) {
+        console.error('Failed to load files:', filesError);
+        showToast('error', 'Không thể tải danh sách tệp tin. Vui lòng thử lại.');
+    }
+
+    // Extract data from queries
+    const projects = projectsData?.data || [];
+    const meetings = meetingsData?.data || [];
+    const files = filesData?.data || [];
+
+    // Combined loading state
+    const loading = projectsLoading || meetingsLoading || filesLoading;
+
+    const handleProjectClick = (projectId: string) => {
+        setSelectedId(projectId);
+        setCurrentView('project');
     };
 
-    const tabs = [
-        { id: 'overview' as TabType, label: 'Tổng quan', icon: '📊' },
-        { id: 'projects' as TabType, label: 'Dự án', icon: '📁' },
-        { id: 'meetings' as TabType, label: 'Cuộc họp', icon: '📅' },
-        { id: 'files' as TabType, label: 'Tệp tin', icon: '📄' },
-    ];
-
-    const renderContent = () => {
-        switch (activeTab) {
-            case 'overview':
-                return (
-                    <div className="space-y-6">
-                        <DashboardStats stats={stats} />
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                                <h3 className="text-lg font-semibold mb-4">Dự án gần đây</h3>
-                                <div className="space-y-3">
-                                    {projects.slice(0, 3).map((project) => (
-                                        <div key={project.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded">
-                                            <div>
-                                                <p className="font-medium">{project.name}</p>
-                                                <p className="text-sm text-gray-500">{project.description}</p>
-                                            </div>
-                                            <span className={`px-2 py-1 text-xs rounded ${project.is_archived
-                                                ? 'bg-gray-200 text-gray-600'
-                                                : 'bg-green-200 text-green-600'
-                                                }`}>
-                                                {project.is_archived ? 'Đã lưu trữ' : 'Hoạt động'}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                                <h3 className="text-lg font-semibold mb-4">Cuộc họp sắp tới</h3>
-                                <div className="space-y-3">
-                                    {meetings.slice(0, 3).map((meeting) => (
-                                        <div key={meeting.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded">
-                                            <div>
-                                                <p className="font-medium">{meeting.title || 'Chưa có tiêu đề'}</p>
-                                                <p className="text-sm text-gray-500">
-                                                    {meeting.start_time ? new Date(meeting.start_time).toLocaleDateString('vi-VN') : 'Chưa có thời gian'}
-                                                </p>
-                                            </div>
-                                            <span className={`px-2 py-1 text-xs rounded ${meeting.status === 'active'
-                                                ? 'bg-green-200 text-green-600'
-                                                : meeting.status === 'completed'
-                                                    ? 'bg-blue-200 text-blue-600'
-                                                    : 'bg-gray-200 text-gray-600'
-                                                }`}>
-                                                {meeting.status === 'active' ? 'Hoạt động' :
-                                                    meeting.status === 'completed' ? 'Hoàn thành' : 'Đã hủy'}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                                <h3 className="text-lg font-semibold mb-4">Tệp tin gần đây</h3>
-                                <div className="space-y-3">
-                                    {files.slice(0, 3).map((file) => (
-                                        <div key={file.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded">
-                                            <div>
-                                                <p className="font-medium">{file.filename || 'Tệp không tên'}</p>
-                                                <p className="text-sm text-gray-500">{file.mime_type}</p>
-                                            </div>
-                                            <span className="text-sm text-gray-500">
-                                                {(file.size_bytes || 0) / 1024 / 1024 < 1
-                                                    ? `${Math.round((file.size_bytes || 0) / 1024)} KB`
-                                                    : `${((file.size_bytes || 0) / 1024 / 1024).toFixed(1)} MB`
-                                                }
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-
-            case 'projects':
-                return <ProjectManager />;
-
-            case 'meetings':
-                return <MeetingManager />;
-
-            case 'files':
-                return <FileManager />;
-
-            default:
-                return null;
-        }
+    const handleMeetingClick = (meetingId: string) => {
+        setSelectedId(meetingId);
+        setCurrentView('meeting');
     };
 
-    if (loading) {
+    const handleBackToDashboard = () => {
+        setCurrentView('dashboard');
+        setSelectedId('');
+    };
+
+    if (loading && currentView === 'dashboard') {
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
             </div>
         );
+    }
+
+    if (currentView === 'project' && selectedId) {
+        return <ProjectDetail projectId={selectedId} onBack={handleBackToDashboard} />;
+    }
+
+    if (currentView === 'meeting' && selectedId) {
+        return <MeetingDetail meetingId={selectedId} onBack={handleBackToDashboard} />;
     }
 
     return (
@@ -164,30 +113,87 @@ const Dashboard: React.FC = () => {
                     </p>
                 </div>
 
-                {/* Navigation Tabs */}
-                <div className="mb-6">
-                    <nav className="flex space-x-1 bg-white dark:bg-gray-800 p-1 rounded-lg shadow-sm">
-                        {tabs.map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === tab.id
-                                    ? 'bg-blue-600 text-white'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                            >
-                                <span className="mr-2">{tab.icon}</span>
-                                {tab.label}
-                            </button>
+                {/* Projects Section */}
+                <div className="mb-8">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-2xl font-semibold">Dự án</h2>
+                        <button
+                            onClick={() => setShowCreateProject(true)}
+                            className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium"
+                        >
+                            <span className="mr-2">+</span>
+                            Tạo dự án
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {projects.map((project) => (
+                            <ProjectCard
+                                key={project.id}
+                                project={project}
+                                onClick={() => handleProjectClick(project.id)}
+                            />
                         ))}
-                    </nav>
+                    </div>
                 </div>
 
-                {/* Content */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                    {renderContent()}
+                {/* Meetings Section */}
+                <div className="mb-8">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-2xl font-semibold">Cuộc họp cá nhân</h2>
+                        <button
+                            onClick={() => setShowCreateMeeting(true)}
+                            className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium"
+                        >
+                            <span className="mr-2">+</span>
+                            Tạo cuộc họp
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {meetings.map((meeting) => (
+                            <MeetingCard
+                                key={meeting.id}
+                                meeting={meeting}
+                                onClick={() => handleMeetingClick(meeting.id)}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                {/* Files Section */}
+                <div className="mb-8">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-2xl font-semibold">Tệp tin</h2>
+                        <button
+                            onClick={() => setShowFileUpload(true)}
+                            className="flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-medium"
+                        >
+                            <span className="mr-2">⬆</span>
+                            Tải lên tệp tin
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {files.map((file) => (
+                            <FileCard key={file.id} file={file} />
+                        ))}
+                    </div>
                 </div>
             </div>
+
+            {/* Modals */}
+            <CreateProjectModal
+                isOpen={showCreateProject}
+                onClose={() => setShowCreateProject(false)}
+            />
+
+            <CreateMeetingModal
+                isOpen={showCreateMeeting}
+                onClose={() => setShowCreateMeeting(false)}
+            />
+
+            <FileUploadModal
+                isOpen={showFileUpload}
+                onClose={() => setShowFileUpload(false)}
+            />
         </div>
     );
 };

@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.schemas.common import ApiResponse, PaginatedResponse
 
@@ -34,6 +35,16 @@ class FileResponse(FileBase):
 
     class Config:
         from_attributes = True
+
+    @field_validator('created_at', 'updated_at', mode='before')
+    @classmethod
+    def convert_datetime_to_str(cls, v):
+        """Convert datetime objects to ISO format strings"""
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            return v.isoformat()
+        return v
 
 
 class FileWithProject(FileResponse):
@@ -69,6 +80,11 @@ class BulkFileResponse(BaseModel):
     total_processed: int
     total_success: int
     total_failed: int
+
+
+class FileMoveRequest(BaseModel):
+    project_id: Optional[uuid.UUID] = None
+    meeting_id: Optional[uuid.UUID] = None
 
 
 class FileApiResponse(ApiResponse[FileResponse]):

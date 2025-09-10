@@ -133,18 +133,43 @@ def update_project(
 
 def delete_project(db: Session, project_id: uuid.UUID) -> bool:
     """
-    Delete a project
+    Delete a project with proper cascade handling
     """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         return False
 
-    # Clean up user-project relationships first
-    db.query(UserProject).filter(UserProject.project_id == project_id).delete()
+    try:
+        # Delete in correct order to avoid foreign key conflicts
 
-    db.delete(project)
-    db.commit()
-    return True
+        # 1. Delete UserProject relationships (users_projects table)
+        db.query(UserProject).filter(UserProject.project_id == project_id).delete()
+
+        # 2. Delete ProjectMeeting relationships (projects_meetings table)
+        from app.models.meeting import ProjectMeeting
+        db.query(ProjectMeeting).filter(ProjectMeeting.project_id == project_id).delete()
+
+        # 3. Delete TaskProject relationships (tasks_projects table)
+        from app.models.task import TaskProject
+        db.query(TaskProject).filter(TaskProject.project_id == project_id).delete()
+
+        # 4. Delete Integrations
+        from app.models.integration import Integration
+        db.query(Integration).filter(Integration.project_id == project_id).delete()
+
+        # 5. Update Files - set project_id to NULL instead of deleting
+        from app.models.file import File
+        db.query(File).filter(File.project_id == project_id).update({"project_id": None})
+
+        # 6. Finally delete the project
+        db.delete(project)
+        db.commit()
+        return True
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting project {project_id}: {e}")
+        return False
 
 
 # User-Project relationship management

@@ -1,50 +1,3 @@
-/* Modern audio player style */
-.modern-audio-player {
-  width: 100%;
-  max-width: 320px;
-  border-radius: 16px;
-  border: 1.5px solid var(--border-color);
-  background: var(--surface-color);
-  box-shadow: 0 4px 16px 0 rgba(60, 72, 88, 0.1);
-  padding: 8px 0 8px 0;
-  accent-color: var(--primary-color);
-  outline: none;
-  transition:
-    box-shadow 0.2s,
-    border-color 0.2s;
-}
-.modern-audio-player:focus {
-  box-shadow: 0 0 0 2px var(--primary-color);
-  border-color: var(--primary-color);
-}
-/* Modern transcript table custom style */
-.modern-transcript-table {
-  border-radius: 16px;
-  box-shadow: 0 4px 24px 0 rgba(60, 72, 88, 0.1);
-  overflow: hidden;
-  background: var(--card-bg);
-  font-size: 1.08rem;
-}
-
-.modern-transcript-table th,
-.modern-transcript-table td {
-  padding-top: 1.1rem;
-  padding-bottom: 1.1rem;
-  padding-left: 1.5rem;
-  padding-right: 1.5rem;
-}
-
-.modern-transcript-table th {
-  background: var(--surface-color);
-  color: var(--text-color);
-  font-weight: 600;
-  font-size: 1.13rem;
-}
-
-.modern-transcript-table tr:last-child td {
-  border: none;
-  border-radius: none;
-}
 /* styles/globals.css */
 @import url('https://fonts.googleapis.com/css2?family=Sofia&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Afacad:ital,wght@0,400..700;1,400..700&family=Sofia&display=swap');
@@ -78,25 +31,25 @@ body {
 }
 
 :root {
-  /* FPT Theme - Light mode */
-  --primary-color: #ff6f20; /* Cam FPT */
-  --secondary-color: #007bc2; /* Xanh dương FPT */
-  --tertiary-color: #00a651; /* Xanh lá FPT */
-  --accent-color: #ff8a50; /* Cam nhạt hơn */
-  --background-color: #ffffff; /* Off-white/cream */
-  --surface-color: #f3f3f3;
-  --card-bg: #fafafa;
-  --text-color: #333333;
-  --text-secondary: #666666;
-  --muted-text-color: #666666;
+  /* Pastel Theme - Light mode */
+  --primary-color: #ffb347; /* Cam pastel */
+  --secondary-color: #6ca0dc; /* Xanh pastel */
+  --tertiary-color: #77dd77; /* Xanh lá pastel */
+  --accent-color: #ff6961; /* Đỏ hồng pastel */
+  --background-color: #fefcfb; /* Nền trắng ngà */
+  --surface-color: #f6f5f3;
+  --card-bg: #ffffff;
+  --text-color: #2e2e2e;
+  --text-secondary: #5f6368;
+  --muted-text-color: #7a7a7a;
   --border-color: var(--primary-color);
   --link-color: var(--secondary-color);
   --link-hover-color: var(--primary-color);
-  --auth-card-bg: #ffe0b2;
-  --auth-card-bg-opacity: 0.8;
-  --modal-overlay: rgba(0, 0, 0, 0.5);
+  --auth-card-bg: #ffe5d9;
+  --auth-card-bg-opacity: 0.85;
+  --modal-overlay: rgba(0, 0, 0, 0.45);
 
-  /* Auth Gradient - FPT colors */
+  /* Auth Gradient - Pastel colors */
   --auth-gradient: linear-gradient(
     135deg,
     var(--secondary-color) 0%,
@@ -106,8 +59,8 @@ body {
 
   /* Feedback */
   --success-color: var(--tertiary-color);
-  --warning-color: #ffc107;
-  --error-color: #f44336;
+  --warning-color: #ffd580;
+  --error-color: #ff6961;
   --info-color: var(--secondary-color);
 
   /* Typography */
@@ -119,31 +72,31 @@ body {
 
   /* Layout & UI */
   --spacing-unit: 8px;
-  --border-radius: 4px;
-  --box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  --transition-speed: 0.2s ease-in-out;
+  --border-radius: 6px;
+  --box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  --transition-speed: 0.25s ease-in-out;
 }
 
-/* Dark mode */
 .dark {
-  --primary-color: #ff8a50; /* Cam sáng */
-  --secondary-color: #4dabf5; /* Xanh dương sáng */
-  --tertiary-color: #66bb6a; /* Xanh lá sáng */
-  --accent-color: #ffab91;
-  --background-color: #121212;
-  --surface-color: #1e1e1e;
-  --card-bg: #222222;
-  --text-color: #e0e0e0;
-  --text-secondary: #b0b0b0;
-  --muted-text-color: #b0b0b0;
+  /* Pastel Dark */
+  --primary-color: #ff9f68;
+  --secondary-color: #90caf9;
+  --tertiary-color: #a5d6a7;
+  --accent-color: #ff8a80;
+  --background-color: #1a1a1a;
+  --surface-color: #242424;
+  --card-bg: #2c2c2c;
+  --text-color: #e6e6e6;
+  --text-secondary: #b8b8b8;
+  --muted-text-color: #a0a0a0;
   --border-color: var(--primary-color);
   --link-color: var(--secondary-color);
   --link-hover-color: var(--primary-color);
-  --auth-card-bg: #302a24;
-  --auth-card-bg-opacity: 0.6;
-  --modal-overlay: rgba(0, 0, 0, 0.7);
+  --auth-card-bg: #3b2f2f;
+  --auth-card-bg-opacity: 0.65;
+  --modal-overlay: rgba(0, 0, 0, 0.75);
 
-  /* Auth Gradient - Dark */
+  /* Auth Gradient */
   --auth-gradient: linear-gradient(
     135deg,
     var(--secondary-color) 0%,
@@ -153,7 +106,7 @@ body {
 
   /* Feedback */
   --success-color: var(--tertiary-color);
-  --warning-color: #ffa726;
+  --warning-color: #ffb74d;
   --error-color: #ef5350;
   --info-color: var(--secondary-color);
 
@@ -166,16 +119,12 @@ body {
 
   /* Layout & UI */
   --spacing-unit: 8px;
-  --border-radius: 4px;
-  --box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
-  --transition-speed: 0.2s ease-in-out;
+  --border-radius: 6px;
+  --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  --transition-speed: 0.25s ease-in-out;
 }
 
-.react-resizable {
-  overflow: hidden !important;
-  max-height: 100vh !important;
-  height: 100vh !important;
-}
+
 .scroll {
   &::-webkit-scrollbar {
     width: 5px;
@@ -193,117 +142,4 @@ body {
   &::-webkit-scrollbar-button {
     display: none;
   }
-}
-
-/* Email page custom styles */
-.recipient-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--surface-color);
-  border: none;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  padding: 10px 12px;
-}
-.recipient-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--secondary-color);
-  color: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 12px;
-}
-.recipient-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.recipient-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-color);
-  line-height: 1.1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.recipient-email {
-  font-size: 11px;
-  color: var(--muted-text-color);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.recipient-remove {
-  margin-left: auto;
-  background: transparent;
-  color: var(--error-color);
-  font-weight: 700;
-  border: none;
-  cursor: pointer;
-  line-height: 1;
-}
-.email-section {
-  background: var(--surface-color);
-  border: none;
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-}
-.email-label {
-  font-size: 12px;
-  color: var(--muted-text-color);
-}
-.email-actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* Custom inputs for Email page */
-.email-input,
-.email-textarea {
-  width: 100%;
-  border: none;
-  background: var(--surface-color);
-  color: var(--text-color);
-  border-radius: 10px;
-  padding: 10px 12px;
-  outline: none;
-  box-shadow: inset 0 0 0 1px transparent;
-  transition:
-    box-shadow 0.15s,
-    background-color 0.15s;
-}
-.email-input:focus,
-.email-textarea:focus {
-  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.25);
-  background: var(--card-bg);
-}
-.email-textarea {
-  min-height: 140px;
-  resize: vertical;
-}
-
-.recipient-suggest {
-  margin-top: 8px;
-  background: var(--surface-color);
-  border: none;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
-}
-.recipient-suggest-item {
-  padding: 8px 10px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.recipient-suggest-item:hover {
-  background: var(--surface-color);
 }

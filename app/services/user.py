@@ -134,9 +134,77 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     try:
+        # Delete in correct order to avoid foreign key conflicts
+
+        # 1. Delete user's project memberships (users_projects table)
+        from app.models.project import UserProject
+        db.query(UserProject).filter(UserProject.user_id == user_id).delete()
+
+        # 2. Delete user's meetings (soft delete)
+        db.query(Meeting).filter(Meeting.created_by == user_id).update({"is_deleted": True})
+
+        # 3. Delete user's files (hard delete from database, keep in MinIO)
+        user_files = db.query(File).filter(File.uploaded_by == user_id).all()
+        for file in user_files:
+            # Delete from MinIO if needed
+            try:
+                from app.utils.minio import delete_file_from_minio
+                from app.core.config import settings
+                delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
+            except Exception as e:
+                print(f"Failed to delete file {file.id} from MinIO: {e}")
+            # Delete from database
+            db.delete(file)
+
+        # 4. Delete user's created projects (this will cascade delete related records)
+        from app.models.project import Project, UserProject, ProjectMeeting, TaskProject
+        from app.models.task import Task
+        from app.models.meeting import Meeting
+        from app.models.file import File
+        from app.models.integration import Integration
+
+        user_projects = db.query(Project).filter(Project.created_by == user_id).all()
+        for project in user_projects:
+            # Delete project with proper cascade handling (inline to avoid circular import)
+            project_id = project.id
+
+            # Delete UserProject relationships
+            db.query(UserProject).filter(UserProject.project_id == project_id).delete()
+
+            # Delete ProjectMeeting relationships
+            db.query(ProjectMeeting).filter(ProjectMeeting.project_id == project_id).delete()
+
+            # Delete TaskProject relationships
+            db.query(TaskProject).filter(TaskProject.project_id == project_id).delete()
+
+            # Delete Integrations
+            db.query(Integration).filter(Integration.project_id == project_id).delete()
+
+            # Update Files - set project_id to NULL
+            db.query(File).filter(File.project_id == project_id).update({"project_id": None})
+
+            # Finally delete the project
+            db.delete(project)
+
+        # 5. Delete user's tasks
+        db.query(Task).filter(Task.creator_id == user_id).delete()
+        db.query(Task).filter(Task.assignee_id == user_id).delete()
+
+        # 6. Delete user's notifications
+        from app.models.notification import Notification
+        db.query(Notification).filter(Notification.user_id == user_id).delete()
+
+        # 7. Delete user's integrations
+        from app.models.integration import Integration
+        db.query(Integration).filter(Integration.project_id.in_(
+            db.query(Project.id).filter(Project.created_by == user_id)
+        )).delete()
+
+        # 8. Finally delete the user
         db.delete(user)
         db.commit()
         return True
+
     except Exception as e:
         db.rollback()
         raise HTTPException(

@@ -176,20 +176,33 @@ def check_meeting_access(
     db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID
 ) -> bool:
     """Check if user has access to a meeting's files"""
-    from app.models.meeting import Meeting
+    from app.models.meeting import Meeting, ProjectMeeting
+    from app.models.project import UserProject
 
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     if not meeting:
         return False
 
-    # Check if user is in the meeting's project
-    return (
-        db.query(Project)
-        .join(Project.users)
-        .filter(Project.id == meeting.project_id, Project.users.any(user_id=user_id))
+    # Personal meeting created by the user
+    if meeting.is_personal and meeting.created_by == user_id:
+        return True
+
+    # Check if user is a member of any project linked to this meeting
+    linked_project_membership = (
+        db.query(ProjectMeeting)
+        .join(
+            UserProject,
+            UserProject.project_id == ProjectMeeting.project_id,
+        )
+        .filter(
+            ProjectMeeting.meeting_id == meeting_id,
+            UserProject.user_id == user_id,
+        )
         .first()
         is not None
     )
+
+    return linked_project_membership
 
 
 def extract_text_from_file(file_content: bytes, mime_type: str) -> Optional[str]:

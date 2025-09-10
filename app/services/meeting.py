@@ -230,6 +230,10 @@ def add_meeting_to_project(
     if existing:
         return True
 
+    # When adding to a project, meeting is no longer personal
+    meeting.is_personal = False
+    meeting.updated_at = None  # Will be set by database trigger
+
     project_meeting = ProjectMeeting(project_id=project_id, meeting_id=meeting_id)
     db.add(project_meeting)
     db.commit()

@@ -17,6 +17,7 @@ import type {
     BulkFileOperation,
     BulkFileResponse,
     FileUploadData,
+    FileMoveRequest,
     FileQueryParams,
 } from '../../types/file.type';
 
@@ -27,15 +28,17 @@ export const uploadFile = async (
     fileData: FileUploadData
 ): Promise<FileResponse> => {
     const formData = FormDataBuilder.buildWithFile(
-        fileData.file,
-        {
-            project_id: fileData.project_id,
-            meeting_id: fileData.meeting_id,
-        }
+        fileData.file
     );
 
+    // Backend expects project_id/meeting_id as query params (not form fields)
+    const queryString = QueryBuilder.build({
+        project_id: fileData.project_id,
+        meeting_id: fileData.meeting_id,
+    });
+
     return ApiWrapper.execute(() =>
-        axiosInstance.post('/files/upload', formData, {
+        axiosInstance.post(`/files/upload${queryString}`, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
@@ -187,6 +190,20 @@ export const getFileWithMeeting = async (
 
     return ApiWrapper.execute(() =>
         axiosInstance.get(`/files/${fileId}/with-meeting`)
+    );
+};
+
+/**
+ * Move a file to a project or meeting
+ */
+export const moveFile = async (
+    fileId: string,
+    moveRequest: FileMoveRequest
+): Promise<FileResponse> => {
+    UuidValidator.validate(fileId, 'File ID');
+
+    return ApiWrapper.execute(() =>
+        axiosInstance.post(`/files/${fileId}/move`, moveRequest)
     );
 };
 

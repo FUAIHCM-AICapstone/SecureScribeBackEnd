@@ -14,6 +14,7 @@ from app.schemas.file import (
     FileApiResponse,
     FileCreate,
     FileFilter,
+    FileMoveRequest,
     FilesPaginatedResponse,
     FilesWithMeetingPaginatedResponse,
     FilesWithProjectPaginatedResponse,
@@ -213,6 +214,64 @@ def update_file_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/files/{file_id}/move", response_model=FileApiResponse)
+def move_file_endpoint(
+    file_id: uuid.UUID,
+    move_request: FileMoveRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Move a file to a project or meeting"""
+    try:
+        file = get_file(db, file_id)
+        if not file:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        if file.uploaded_by != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Check if user has access to target project/meeting
+        if move_request.project_id:
+            from app.services.project import is_user_in_project
+            if not is_user_in_project(db, move_request.project_id, current_user.id):
+                raise HTTPException(status_code=403, detail="Access denied to project")
+
+        if move_request.meeting_id:
+            from app.services.file import check_meeting_access
+            if not check_meeting_access(db, move_request.meeting_id, current_user.id):
+                raise HTTPException(status_code=403, detail="Access denied to meeting")
+
+        # Update file associations
+        if move_request.project_id is not None:
+            file.project_id = move_request.project_id
+        if move_request.meeting_id is not None:
+            file.meeting_id = move_request.meeting_id
+
+        db.commit()
+        db.refresh(file)
+
+        return ApiResponse(
+            success=True,
+            message="File moved successfully",
+            data={
+                "id": file.id,
+                "filename": file.filename,
+                "mime_type": file.mime_type,
+                "size_bytes": file.size_bytes,
+                "file_type": file.file_type,
+                "project_id": file.project_id,
+                "meeting_id": file.meeting_id,
+                "uploaded_by": file.uploaded_by,
+                "created_at": file.created_at.isoformat(),
+                "storage_url": file.storage_url,
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.delete("/files/{file_id}", response_model=ApiResponse[dict])
 def delete_file_endpoint(
     file_id: uuid.UUID,
@@ -312,7 +371,6 @@ def get_project_files_endpoint(
                     **file.__dict__,
                     project_name=project_name,
                     can_access=True,
-                    storage_url=file.storage_url,
                 )
                 for file in files
             ],
@@ -358,7 +416,6 @@ def get_meeting_files_endpoint(
                     **file.__dict__,
                     meeting_title=meeting.title,
                     can_access=True,
-                    storage_url=file.storage_url,
                 )
                 for file in files
             ],
@@ -399,7 +456,6 @@ def get_file_with_project_endpoint(
                 **file.__dict__,
                 project_name=project_name,
                 can_access=True,
-                storage_url=file.storage_url,
             ),
         )
     except HTTPException:
@@ -437,7 +493,6 @@ def get_file_with_meeting_endpoint(
                 **file.__dict__,
                 meeting_title=meeting_title,
                 can_access=True,
-                storage_url=file.storage_url,
             ),
         )
     except HTTPException:

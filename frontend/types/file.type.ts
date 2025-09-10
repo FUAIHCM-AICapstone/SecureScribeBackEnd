@@ -78,6 +78,12 @@ export interface FileUploadData {
     meeting_id?: string;
 }
 
+// File move request
+export interface FileMoveRequest {
+    project_id?: string;
+    meeting_id?: string;
+}
+
 // Query parameters for file endpoints
 export interface FileQueryParams {
     page?: number;
