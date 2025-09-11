@@ -1,13 +1,9 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
     searchDocuments,
-    ragChat,
-    searchCorpus,
-    getConversationHistory,
-    clearConversationHistory,
     validateSearchQuery
 } from '../../services/api';
 import { getMyProjects } from '../../services/api/project';
@@ -16,14 +12,10 @@ import { queryKeys } from '../../lib/queryClient';
 import { showToast } from '../../hooks/useShowToast';
 import type {
     SearchResult,
-    SearchRequest,
-    RAGChatRequest,
-    CorpusSearchRequest,
-    ConversationHistory,
-    CorpusResult
+    SearchRequest
 } from '../../types/search.type';
 
-type TabType = 'search' | 'chat' | 'corpus';
+type TabType = 'search' | 'chat';
 
 const SearchComponent: React.FC = () => {
     // Basic search states
@@ -37,21 +29,14 @@ const SearchComponent: React.FC = () => {
     // RAG Chat states
     const [chatQuery, setChatQuery] = useState('');
     const [chatResponse, setChatResponse] = useState('');
-    const [sessionId, setSessionId] = useState('');
-    const [conversationHistory, setConversationHistory] = useState<ConversationHistory | null>(null);
     const [isChatting, setIsChatting] = useState(false);
 
-    // Corpus search states
-    const [corpusQuery, setCorpusQuery] = useState('');
-    const [corpusResults, setCorpusResults] = useState<CorpusResult[]>([]);
-    const [isCorpusSearching, setIsCorpusSearching] = useState(false);
 
     // UI states
     const [activeTab, setActiveTab] = useState<TabType>('search');
 
     // Refs for auto-scroll
     const chatResponseRef = useRef<HTMLDivElement>(null);
-    const corpusResultsRef = useRef<HTMLDivElement>(null);
 
     // Fetch projects and meetings for filters
     const { data: projectsData } = useQuery({
@@ -67,25 +52,6 @@ const SearchComponent: React.FC = () => {
     const projects = projectsData?.data || [];
     const meetings = meetingsData?.data || [];
 
-    // Load conversation history when session changes
-    const loadConversationHistory = useCallback(async () => {
-        if (!sessionId) return;
-        try {
-            const response = await getConversationHistory(sessionId);
-            if (response.success && response.data) {
-                setConversationHistory(response.data);
-            }
-        } catch (error) {
-            console.error('Failed to load conversation history:', error);
-            setConversationHistory(null);
-        }
-    }, [sessionId]);
-
-    useEffect(() => {
-        if (sessionId) {
-            loadConversationHistory();
-        }
-    }, [sessionId, loadConversationHistory]);
 
     // Auto-scroll to bottom when new content is added
     useEffect(() => {
@@ -94,11 +60,6 @@ const SearchComponent: React.FC = () => {
         }
     }, [chatResponse]);
 
-    useEffect(() => {
-        if (corpusResultsRef.current) {
-            corpusResultsRef.current.scrollTop = corpusResultsRef.current.scrollHeight;
-        }
-    }, [corpusResults]);
 
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -164,60 +125,12 @@ const SearchComponent: React.FC = () => {
         const currentQuery = chatQuery;
         setChatQuery(''); // Clear input immediately
 
-        try {
-            const params: RAGChatRequest = {
-                query: currentQuery.trim(),
-                top_k: 5,
-                session_id: sessionId || undefined
-            };
-
-            const response = await ragChat(params);
-            if (response.success && response.data) {
-                setChatResponse(response.data.response);
-                setSessionId(response.data.session_id || '');
-                await loadConversationHistory(); // Refresh conversation history
-            } else {
-                showToast('error', response.message || 'Có lỗi khi chat với AI');
-            }
-        } catch (error) {
-            console.error('❌ Chat error:', error);
-            showToast('error', 'Có lỗi xảy ra khi chat với AI. Vui lòng thử lại.');
-        } finally {
-            setIsChatting(false);
-        }
+        // RAG chat functionality has been removed
+        setChatResponse(`RAG chat functionality has been removed. Your query: "${currentQuery}"`);
+        setIsChatting(false);
+        showToast('info', 'RAG chat functionality has been removed');
     };
 
-    const handleCorpusSearch = async () => {
-        if (!corpusQuery.trim()) {
-            showToast('warning', 'Vui lòng nhập từ khóa tìm kiếm corpus');
-            return;
-        }
-
-        setIsCorpusSearching(true);
-
-        try {
-            const params: CorpusSearchRequest = {
-                query: corpusQuery.trim(),
-                collection_name: 'vietnam_history',
-                top_k: 10
-            };
-
-            const response = await searchCorpus(params);
-            if (response.success && response.data) {
-                setCorpusResults(response.data.results);
-                showToast('success', `Tìm thấy ${response.data.results.length} kết quả trong corpus`);
-            } else {
-                showToast('error', response.message || 'Có lỗi khi tìm kiếm corpus');
-                setCorpusResults([]);
-            }
-        } catch (error) {
-            console.error('❌ Corpus search error:', error);
-            showToast('error', 'Có lỗi xảy ra khi tìm kiếm corpus. Vui lòng thử lại.');
-            setCorpusResults([]);
-        } finally {
-            setIsCorpusSearching(false);
-        }
-    };
 
     const clearSearch = () => {
         setSearchQuery('');
@@ -227,25 +140,12 @@ const SearchComponent: React.FC = () => {
         setHasSearched(false);
     };
 
-    const clearChat = async () => {
-        if (sessionId) {
-            try {
-                await clearConversationHistory(sessionId);
-                setConversationHistory(null);
-                setChatResponse('');
-                showToast('success', 'Đã xóa lịch sử cuộc trò chuyện');
-            } catch (error) {
-                console.error('❌ Clear chat error:', error);
-                showToast('error', 'Có lỗi khi xóa lịch sử cuộc trò chuyện');
-            }
-        }
+    const clearChat = () => {
+        setChatResponse('');
         setChatQuery('');
+        showToast('success', 'Đã xóa cuộc trò chuyện');
     };
 
-    const clearCorpusSearch = () => {
-        setCorpusQuery('');
-        setCorpusResults([]);
-    };
 
     const formatFileSize = (bytes: number): string => {
         if (bytes === 0) return '0 B';
@@ -290,7 +190,6 @@ const SearchComponent: React.FC = () => {
     const tabs = [
         { id: 'search' as TabType, label: '🔍 Tìm kiếm', icon: '🔍' },
         { id: 'chat' as TabType, label: '🤖 Chat AI', icon: '🤖' },
-        { id: 'corpus' as TabType, label: '📚 Corpus', icon: '📚' },
     ];
 
     return (
@@ -301,7 +200,7 @@ const SearchComponent: React.FC = () => {
                     🔍 Hệ thống Tìm kiếm & AI
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
-                    Tìm kiếm ngữ nghĩa, chat với AI, và khám phá corpus tri thức
+                    Tìm kiếm ngữ nghĩa và chat với AI
                 </p>
             </div>
 
@@ -312,8 +211,8 @@ const SearchComponent: React.FC = () => {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === tab.id
-                                ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                            ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                             }`}
                     >
                         {tab.icon} {tab.label.split(' ').slice(1).join(' ')}
@@ -490,33 +389,14 @@ const SearchComponent: React.FC = () => {
                             ref={chatResponseRef}
                             className="flex-1 overflow-y-auto mb-4 max-h-[300px] space-y-3"
                         >
-                            {conversationHistory?.turns.map((turn, index) => (
-                                <div key={index} className="space-y-2">
-                                    <div className="flex items-start space-x-2">
-                                        <span className="text-blue-600 font-medium">Bạn:</span>
-                                        <p className="text-gray-800 dark:text-gray-200 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2 flex-1">
-                                            {turn.user}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-start space-x-2">
-                                        <span className="text-green-600 font-medium">AI:</span>
-                                        <p className="text-gray-800 dark:text-gray-200 bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2 flex-1">
-                                            {turn.ai}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {chatResponse && !conversationHistory?.turns.some(t => t.ai === chatResponse) && (
+                            {chatResponse ? (
                                 <div className="flex items-start space-x-2">
                                     <span className="text-green-600 font-medium">AI:</span>
                                     <p className="text-gray-800 dark:text-gray-200 bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2 flex-1">
                                         {chatResponse}
                                     </p>
                                 </div>
-                            )}
-
-                            {!conversationHistory?.turns.length && !chatResponse && (
+                            ) : (
                                 <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                                     <div className="text-4xl mb-4">🤖</div>
                                     <p>Bắt đầu cuộc trò chuyện với AI bằng cách đặt câu hỏi!</p>
@@ -560,108 +440,6 @@ const SearchComponent: React.FC = () => {
                 </div>
             )}
 
-            {/* Corpus Tab */}
-            {activeTab === 'corpus' && (
-                <div className="space-y-4">
-                    {/* Corpus Search Form */}
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <input
-                                type="text"
-                                value={corpusQuery}
-                                onChange={(e) => setCorpusQuery(e.target.value)}
-                                onKeyPress={(e) => e.key === 'Enter' && !isCorpusSearching && handleCorpusSearch()}
-                                placeholder="Tìm kiếm trong corpus tri thức... (ví dụ: lịch sử Đảng Cộng sản Việt Nam)"
-                                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                disabled={isCorpusSearching}
-                            />
-                        </div>
-                        <button
-                            onClick={handleCorpusSearch}
-                            disabled={isCorpusSearching || !corpusQuery.trim()}
-                            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-                        >
-                            {isCorpusSearching ? (
-                                <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                    Đang tìm...
-                                </>
-                            ) : (
-                                <>📚 Tìm kiếm</>
-                            )}
-                        </button>
-                        {corpusQuery && (
-                            <button
-                                onClick={clearCorpusSearch}
-                                className="px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
-                            >
-                                🗑️ Xóa
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Corpus Results */}
-                    <div
-                        ref={corpusResultsRef}
-                        className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 min-h-[300px] overflow-y-auto"
-                    >
-                        {corpusResults.length > 0 ? (
-                            <div className="space-y-4">
-                                {corpusResults.map((result) => (
-                                    <div
-                                        key={result.rank}
-                                        className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-gray-800"
-                                    >
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
-                                                Rank #{result.rank} • Độ tương tự: {(result.score * 100).toFixed(1)}%
-                                            </span>
-                                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                {result.source_file} • Chunk {result.chunk_index}
-                                            </span>
-                                        </div>
-
-                                        {result.section && (
-                                            <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-                                                📑 {result.section}
-                                            </h4>
-                                        )}
-
-                                        <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                                            {highlightText(result.text, corpusQuery)}
-                                        </p>
-
-                                        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                            {result.word_count} từ • {result.document_type}
-                                            {result.topic && ` • ${result.topic}`}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : corpusQuery && !isCorpusSearching ? (
-                            <div className="text-center py-12">
-                                <div className="text-4xl mb-4">📚</div>
-                                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                                    Không tìm thấy kết quả trong corpus
-                                </h3>
-                                <p className="text-gray-600 dark:text-gray-400">
-                                    Thử tìm kiếm với từ khóa khác hoặc kiểm tra chính tả
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="text-center py-12">
-                                <div className="text-4xl mb-4">📚</div>
-                                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                                    Corpus Tri thức
-                                </h3>
-                                <p className="text-gray-600 dark:text-gray-400">
-                                    Tìm kiếm trong bộ sưu tập tài liệu lịch sử và chính trị Việt Nam
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
 
             {/* Search Tips */}
             {!hasSearched && activeTab === 'search' && (

@@ -1,6 +1,7 @@
 import asyncio
 import time
 import uuid
+from datetime import datetime
 from typing import Any, Dict
 
 from sqlalchemy import create_engine
@@ -37,11 +38,11 @@ async def _perform_async_indexing(file_id: str, filename: str) -> bool:
             temp_file_path = temp_file.name
 
         try:
-            # Use qdrant_service to process the file with file_id
-            success = await qdrant_service.process_file(
+            # Use qdrant_service to reindex the file (cleans up old vectors first)
+            success = await qdrant_service.reindex_file(
                 file_path=temp_file_path,
-                collection_name="documents",
-                file_id=str(file_id)  # Include file_id for proper search filtering
+                file_id=str(file_id),
+                collection_name="documents"
             )
             return success
         finally:
@@ -101,6 +102,10 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         publish_task_progress_sync(user_id, 80, "storing_vectors", "15s", "file_indexing", task_id)
         print("\033[93m💾 Storing vectors in Qdrant\033[0m")
 
+        # Step 7: Update database
+        update_task_progress(task_id, user_id, 95, "updating_database", task_type="file_indexing")
+        publish_task_progress_sync(user_id, 95, "updating_database", "5s", "file_indexing", task_id)
+
         # Perform the actual indexing using new ai_service
         print(f"\033[94m🚀 Starting actual indexing process for file {file_id}\033[0m")
 
@@ -115,7 +120,14 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         if not success:
             raise Exception("Indexing failed")
 
-        # Step 7: Completed
+        # Update database with indexing completion
+        print(f"\033[93m💾 Updating database for file {file_id}\033[0m")
+        file.qdrant_vector_id = str(file_id)  # Mark as indexed
+        file.updated_at = datetime.utcnow()
+        db.commit()
+        print(f"\033[92m✅ Database updated: file {file_id} marked as indexed\033[0m")
+
+        # Step 8: Completed
         update_task_progress(task_id, user_id, 100, "completed", task_type="file_indexing")
         publish_task_progress_sync(user_id, 100, "completed", "0s", "file_indexing", task_id)
 
@@ -148,89 +160,3 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         raise
 
 
-@celery_app.task(bind=True, soft_time_limit=900, time_limit=1800)  # 15min soft, 30min hard
-def reindex_all_files_task(self, user_id: str) -> Dict[str, Any]:
-    """Background task to reindex all files for a user"""
-    task_id = self.request.id or f"reindex_all_{user_id}_{int(time.time())}"
-
-    print(f"\033[94m🔄 Starting bulk reindexing task for user {user_id}\033[0m")
-
-    try:
-        # Step 1: Started
-        update_task_progress(task_id, user_id, 0, "started", task_type="bulk_indexing")
-        publish_task_progress_sync(user_id, 0, "started", "300s", "bulk_indexing", task_id)
-        print(f"\033[93m📋 Task {task_id}: Bulk reindexing started\033[0m")
-
-        db = SessionLocal()
-
-        # Get all files for the user
-        files = db.query(File).filter(File.uploaded_by == uuid.UUID(user_id)).all()
-
-        if not files:
-            print(f"\033[93m⚠️ No files found for user {user_id}\033[0m")
-            db.close()
-            return {"status": "success", "files_processed": 0, "message": "No files to index"}
-
-        total_files = len(files)
-        processed = 0
-        successful = 0
-
-        print(f"\033[96m📁 Found {total_files} files to reindex\033[0m")
-
-        for i, file in enumerate(files):
-            try:
-                progress = int(10 + (i / total_files) * 85)  # 10-95%
-                update_task_progress(
-                    task_id, user_id, progress, f"indexing_{file.filename[:20]}...",
-                    task_type="bulk_indexing"
-                )
-                publish_task_progress_sync(
-                    user_id, progress, f"indexing_{file.filename[:20]}...",
-                    f"{total_files - i - 1} files remaining", "bulk_indexing", task_id
-                )
-
-                print(f"\033[95m🔄 Reindexing file {i+1}/{total_files}: {file.filename}\033[0m")
-
-                # Index the file using new async approach
-                success = asyncio.run(_perform_async_indexing(str(file.id), file.filename))
-                if success:
-                    successful += 1
-                    print(f"\033[92m✅ Successfully reindexed {file.filename}\033[0m")
-                else:
-                    print(f"\033[91m❌ Failed to reindex {file.filename}\033[0m")
-
-                processed += 1
-
-            except Exception as e:
-                print(f"\033[91m❌ Error reindexing {file.filename}: {e}\033[0m")
-                processed += 1
-
-        # Step 7: Completed
-        update_task_progress(task_id, user_id, 100, "completed", task_type="bulk_indexing")
-        publish_task_progress_sync(user_id, 100, "completed", "0s", "bulk_indexing", task_id)
-
-        print(f"\033[92m🎉 Bulk reindexing completed: {successful}/{total_files} files successful\033[0m")
-
-        db.close()
-
-        return {
-            "status": "success",
-            "files_processed": processed,
-            "files_successful": successful,
-            "files_failed": processed - successful,
-            "message": f"Bulk reindexing completed: {successful}/{total_files} files successful"
-        }
-
-    except Exception as exc:
-        print(f"\033[91m💥 Bulk reindexing failed: {exc}\033[0m")
-
-        # Publish failure state
-        update_task_progress(task_id, user_id, 0, "failed", task_type="bulk_indexing")
-        publish_task_progress_sync(user_id, 0, "failed", "0s", "bulk_indexing", task_id)
-
-        try:
-            db.close()
-        except Exception:
-            pass
-
-        raise

@@ -47,7 +47,6 @@ def create_tables() -> None:
         Notification,  # noqa: F401
         Project,
         ProjectMeeting,
-        SearchDocument,  # noqa: F401
         Tag,
         Task,
         TaskProject,  # noqa: F401

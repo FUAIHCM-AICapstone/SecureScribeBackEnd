@@ -6,7 +6,7 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { getMyProjects } from '../../services/api/project';
 import { getPersonalMeetings } from '../../services/api/meeting';
 import { moveFile, deleteFile } from '../../services/api/file';
-import { getIndexingStatus, reindexFile } from '../../services/api';
+import { getIndexingStatus } from '../../services/api';
 import { queryKeys } from '../../lib/queryClient';
 import { showToast } from '../../hooks/useShowToast';
 import { useWebSocket, useTaskProgress } from '../../context/WebSocketContext';
@@ -184,19 +184,9 @@ const FileCard: React.FC<FileCardProps> = ({ file }) => {
         },
     });
 
-    const reindexFileMutation = useMutation({
-        mutationFn: (fileId: string) => reindexFile(fileId),
-        onSuccess: () => {
-            // Invalidate indexing status and refetch
-            queryClient.invalidateQueries({ queryKey: ['indexing-status', file.id] });
-            refetchIndexingStatus();
-            showToast('success', 'Đã bắt đầu quá trình lập chỉ mục lại!');
-        },
-        onError: (error) => {
-            console.error('Failed to reindex file:', error);
-            showToast('error', 'Có lỗi xảy ra khi lập chỉ mục lại. Vui lòng thử lại.');
-        },
-    });
+    const handleReindexFile = () => {
+        showToast('info', 'Chức năng lập chỉ mục lại đã bị xóa');
+    };
 
     const handleAddToProject = () => {
         if (!selectedProjectId) return;
@@ -232,13 +222,6 @@ const FileCard: React.FC<FileCardProps> = ({ file }) => {
         deleteFileMutation.mutate(file.id);
     };
 
-    const handleReindexFile = () => {
-        if (!confirm(`Bạn có muốn lập chỉ mục lại file "${file.filename}" không?\n\nQuá trình này có thể mất một chút thời gian.`)) {
-            return;
-        }
-
-        reindexFileMutation.mutate(file.id);
-    };
 
     const getIndexingStatusDisplay = () => {
         switch (indexingStatusText) {
@@ -362,37 +345,37 @@ const FileCard: React.FC<FileCardProps> = ({ file }) => {
                     </button>
                 )}
 
-                {/* Indexing-related buttons */}
+                {/* Indexing-related buttons - Disabled */}
                 {indexingStatusText === 'failed' && (
                     <button
                         onClick={handleReindexFile}
-                        disabled={reindexFileMutation.isPending}
-                        className="text-xs bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded disabled:bg-gray-400"
-                        title="Lập chỉ mục lại file"
+                        className="text-xs bg-gray-400 text-white px-2 py-1 rounded cursor-not-allowed"
+                        title="Chức năng lập chỉ mục đã bị xóa"
+                        disabled
                     >
-                        {reindexFileMutation.isPending ? '🔄...' : '🔄 Lập chỉ mục'}
+                        🔄 Lập chỉ mục
                     </button>
                 )}
 
                 {indexingStatusText === 'completed' && (
                     <button
                         onClick={handleReindexFile}
-                        disabled={reindexFileMutation.isPending}
-                        className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded disabled:bg-gray-400"
-                        title="Lập chỉ mục lại file"
+                        className="text-xs bg-gray-400 text-white px-2 py-1 rounded cursor-not-allowed"
+                        title="Chức năng lập chỉ mục đã bị xóa"
+                        disabled
                     >
-                        {reindexFileMutation.isPending ? '🔄...' : '🔄 Cập nhật'}
+                        🔄 Cập nhật
                     </button>
                 )}
 
                 {indexingStatusText === 'not_started' && (
                     <button
                         onClick={handleReindexFile}
-                        disabled={reindexFileMutation.isPending}
-                        className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded disabled:bg-gray-400"
-                        title="Bắt đầu lập chỉ mục"
+                        className="text-xs bg-gray-400 text-white px-2 py-1 rounded cursor-not-allowed"
+                        title="Chức năng lập chỉ mục đã bị xóa"
+                        disabled
                     >
-                        {reindexFileMutation.isPending ? '🚀...' : '🚀 Lập chỉ mục'}
+                        🚀 Lập chỉ mục
                     </button>
                 )}
 

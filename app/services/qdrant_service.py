@@ -310,4 +310,47 @@ class QdrantService:
             print(f"🔴 \033[91mSearch failed: {e}\033[0m")
             return []
 
+    async def delete_file_vectors(self, file_id: str, collection_name: str = "documents") -> bool:
+        """Delete all vectors for a specific file_id from the collection"""
+        if not self.client:
+            print("🔴 \033[91mQdrant client not initialized\033[0m")
+            return False
+
+        try:
+            # Create a filter to find vectors with the specific file_id
+            from qdrant_client.http import models as qmodels
+
+            filter_condition = qmodels.Filter(
+                must=[
+                    qmodels.FieldCondition(
+                        key="file_id",
+                        match=qmodels.MatchValue(value=file_id)
+                    )
+                ]
+            )
+
+            # Delete points matching the filter
+            self.client.delete(
+                collection_name=collection_name,
+                points_selector=qmodels.FilterSelector(filter=filter_condition)
+            )
+
+            print(f"🟢 \033[92mDeleted existing vectors for file_id {file_id}\033[0m")
+            return True
+
+        except Exception as e:
+            print(f"🔴 \033[91mFailed to delete vectors for file_id {file_id}: {e}\033[0m")
+            return False
+
+    async def reindex_file(self, file_path: str, file_id: str, collection_name: str = "documents") -> bool:
+        """Reindex a file by first deleting existing vectors, then indexing anew"""
+        print(f"🔄 \033[94mReindexing file {file_id}\033[0m")
+
+        # First, delete existing vectors for this file
+        await self.delete_file_vectors(file_id, collection_name)
+
+        # Then, process the file with the file_id
+        return await self.process_file(file_path, collection_name, file_id)
+
+
 qdrant_service = QdrantService()
