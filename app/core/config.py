@@ -80,6 +80,20 @@ class Settings(BaseSettings):
         "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,audio/mpeg,audio/wav,audio/mp4,audio/webm"
     )
 
+    # Qdrant Configuration
+    QDRANT_HOST: str = "qdrant"
+    QDRANT_PORT: int = 6333
+    QDRANT_COLLECTION_NAME: str = "documents"
+
+    # Google AI Configuration
+    GOOGLE_API_KEY: str = "AIzaSyDKJL5HLh3syVxysfjFkBdqrJaY9dLXc_A"
+    GOOGLE_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
+
+    # Indexing Configuration
+    CHUNK_SIZE: int = 1000
+    CHUNK_OVERLAP: int = 200
+    MAX_CHUNKS_PER_FILE: int = 50
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def CELERY_BROKER_URL(self) -> str:

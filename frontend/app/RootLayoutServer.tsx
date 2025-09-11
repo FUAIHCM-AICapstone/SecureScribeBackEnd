@@ -12,10 +12,10 @@ type Props = {
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: 'Meobeo.ai',
+    title: 'SecureScribe',
     description: seoConfig.description,
     openGraph: {
-      title: 'Meobeo.ai',
+      title: 'SecureScribe',
       description: seoConfig.openGraph.description,
       url: seoConfig.openGraph.url,
       type: seoConfig.openGraph.type as 'website',
@@ -34,7 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
         {} as Record<string, string>,
       ),
     },
-    authors: [{ name: 'Meobeo.ai Meeting', url: seoConfig.url }],
+    authors: [{ name: 'SecureScribe Meeting', url: seoConfig.url }],
     keywords: seoConfig.keywords,
     icons: {
       icon: '/images/logos/logo.png',

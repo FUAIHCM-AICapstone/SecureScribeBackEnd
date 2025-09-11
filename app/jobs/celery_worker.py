@@ -6,71 +6,46 @@ from celery import Celery
 from app.core.config import settings
 from app.core.firebase import initialize_firebase
 from app.utils.redis import publish_to_user_channel
-from app.utils.task_progress import update_task_progress
+from app.utils.task_progress import update_task_progress, publish_task_progress_sync
 
 initialize_firebase()
 
 celery_app = Celery(
-    "worker", broker=settings.CELERY_BROKER_URL, backend=settings.CELERY_RESULT_BACKEND
+    "worker",
+    broker=settings.CELERY_BROKER_URL,
+    backend=settings.CELERY_RESULT_BACKEND,
+    include=["app.jobs.tasks"]  # Explicitly include tasks module
 )
 
+# Configure Celery settings for better timeout handling
+celery_app.conf.update(
+    # Task timeout settings
+    task_soft_time_limit=300,  # 5 minutes soft limit
+    task_time_limit=600,       # 10 minutes hard limit
 
-def publish_task_progress_sync(
-    user_id: str,
-    progress: int,
-    status: str,
-    estimated_time: str = None,
-    task_type: str = "test_notification",
-) -> bool:
-    """
-    Synchronous wrapper to publish task progress to Redis pub/sub.
-    Since Celery tasks are synchronous, we need to create an event loop.
-    Returns True if successful, False otherwise.
-    """
-    max_retries = 3
-    base_delay = 0.2
+    # Worker settings
+    worker_prefetch_multiplier=1,
+    task_acks_late=True,
+    worker_max_tasks_per_child=50,
 
-    for attempt in range(max_retries):
-        try:
-            # Create event loop if one doesn't exist
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+    # Retry settings
+    task_default_retry_delay=60,
+    task_max_retries=3,
+)
 
-            # Prepare message
-            message = {
-                "type": "task_progress",
-                "data": {
-                    "progress": progress,
-                    "status": status,
-                    "estimated_time": estimated_time or "",
-                    "task_type": task_type,
-                    "timestamp": time.time(),
-                },
-            }
+# Import tasks to register them with Celery
+from app.jobs import tasks
 
-            # Publish to Redis channel
-            success = loop.run_until_complete(publish_to_user_channel(user_id, message))
+# Initialize service integration for Celery worker
+try:
+    from app.services.qdrant_service import qdrant_service
+    from app.services.search import ai_service
 
-            if success:
-                return True
-            else:
-                print(
-                    f"Failed to publish task progress for user {user_id} (attempt {attempt + 1}/{max_retries})"
-                )
-                if attempt < max_retries - 1:
-                    time.sleep(base_delay * (2**attempt))  # Exponential backoff
-
-        except Exception as e:
-            print(
-                f"Error publishing task progress for user {user_id} (attempt {attempt + 1}/{max_retries}): {e}"
-            )
-            if attempt < max_retries - 1:
-                time.sleep(base_delay * (2**attempt))  # Exponential backoff
-
-    return False
+    # Inject AI service into Qdrant service for Celery context
+    qdrant_service.set_ai_service(ai_service)
+    print("🔗 Celery: Services integration completed")
+except Exception as e:
+    print(f"⚠️ Celery: Service integration failed: {e}")
 
 
 @celery_app.task(bind=True)
@@ -83,7 +58,7 @@ def send_test_notification_task(self, user_id: str):
         # Step 1: Started
         update_task_progress(task_id, user_id, 0, "started")
         if publish_task_progress_sync(
-            user_id, 0, "started", "30s", "test_notification"
+            user_id, 0, "started", "30s", "test_notification", task_id
         ):
             publish_success_count += 1
         print("started")
@@ -92,7 +67,7 @@ def send_test_notification_task(self, user_id: str):
         # Step 2: Processing
         update_task_progress(task_id, user_id, 25, "processing", "25s")
         if publish_task_progress_sync(
-            user_id, 25, "processing", "25s", "test_notification"
+            user_id, 25, "processing", "25s", "test_notification", task_id
         ):
             publish_success_count += 1
         print("processing")
@@ -101,7 +76,7 @@ def send_test_notification_task(self, user_id: str):
         # Step 3: Database work
         update_task_progress(task_id, user_id, 50, "database", "15s")
         if publish_task_progress_sync(
-            user_id, 50, "database", "15s", "test_notification"
+            user_id, 50, "database", "15s", "test_notification", task_id
         ):
             publish_success_count += 1
         print("database")
@@ -110,7 +85,7 @@ def send_test_notification_task(self, user_id: str):
         # Step 4: Creating notification
         update_task_progress(task_id, user_id, 75, "creating_notification", "10s")
         if publish_task_progress_sync(
-            user_id, 75, "creating_notification", "10s", "test_notification"
+            user_id, 75, "creating_notification", "10s", "test_notification", task_id
         ):
             publish_success_count += 1
         print("creating_notification")
@@ -119,7 +94,7 @@ def send_test_notification_task(self, user_id: str):
         # Step 5: Sending FCM
         update_task_progress(task_id, user_id, 90, "sending_fcm", "5s")
         if publish_task_progress_sync(
-            user_id, 90, "sending_fcm", "5s", "test_notification"
+            user_id, 90, "sending_fcm", "5s", "test_notification", task_id
         ):
             publish_success_count += 1
         print("sending_fcm")
@@ -128,7 +103,7 @@ def send_test_notification_task(self, user_id: str):
         # Step 6: Completed
         update_task_progress(task_id, user_id, 100, "completed")
         if publish_task_progress_sync(
-            user_id, 100, "completed", "", "test_notification"
+            user_id, 100, "completed", "", "test_notification", task_id
         ):
             publish_success_count += 1
         print(
@@ -142,6 +117,6 @@ def send_test_notification_task(self, user_id: str):
     except Exception as exc:
         # Publish failure state
         update_task_progress(task_id, user_id, 0, "failed")
-        publish_task_progress_sync(user_id, 0, "failed", "", "test_notification")
+        publish_task_progress_sync(user_id, 0, "failed", "", "test_notification", task_id)
         print(f"Task failed: {exc}")
         raise

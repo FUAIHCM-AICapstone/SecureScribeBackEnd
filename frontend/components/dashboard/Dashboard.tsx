@@ -16,6 +16,7 @@ import FileCard from './FileCard';
 import CreateProjectModal from './CreateProjectModal';
 import CreateMeetingModal from './CreateMeetingModal';
 import FileUploadModal from './FileUploadModal';
+import SearchComponent from './SearchComponent';
 
 
 type ViewType = 'dashboard' | 'project' | 'meeting';
@@ -176,6 +177,11 @@ const Dashboard: React.FC = () => {
                             <FileCard key={file.id} file={file} />
                         ))}
                     </div>
+                </div>
+
+                {/* Search Section */}
+                <div className="mb-8">
+                    <SearchComponent />
                 </div>
             </div>
 

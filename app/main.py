@@ -94,6 +94,17 @@ async def startup_event():
     """Application startup event"""
     print("🚀 Application started successfully")
 
+    # Initialize service integration
+    try:
+        from app.services.qdrant_service import qdrant_service
+        from app.services.search import ai_service
+
+        # Inject AI service into Qdrant service
+        qdrant_service.set_ai_service(ai_service)
+        print("🔗 Services integration completed")
+    except Exception as e:
+        print(f"⚠️ Service integration failed: {e}")
+
     # Start WebSocket manager Redis listener
     from app.services.websocket_manager import websocket_manager
 
@@ -218,30 +229,312 @@ def get_celery_test_page():
     return FileResponse("app/static/celery-test.html", media_type="text/html")
 
 
+@app.get("/search-test")
+def get_search_test_page():
+    """Serve the Search service test page"""
+    return FileResponse("app/static/search-test.html", media_type="text/html")
+
+
 @app.get("/health")
 def health(db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
-    Health check endpoint that tests database connection
+    Comprehensive health check endpoint that tests all services
+    """
+    health_data = {
+        "timestamp": "2025-09-10T12:00:00Z",
+        "status": "healthy",
+        "services": {}
+    }
+
+    # Test database connection
+    try:
+        db.query(text("SELECT 1"))
+        db.commit()
+        health_data["services"]["database"] = {
+            "status": "connected",
+            "server": settings.POSTGRES_SERVER,
+            "database": settings.POSTGRES_DB
+        }
+    except Exception as e:
+        health_data["services"]["database"] = {
+            "status": "disconnected",
+            "error": str(e)
+        }
+        health_data["status"] = "degraded"
+
+    # Test Redis connection
+    try:
+        from app.utils.redis import get_redis_client
+        redis_client = get_redis_client()
+        redis_client.ping()
+        redis_info = redis_client.info()
+        health_data["services"]["redis"] = {
+            "status": "connected",
+            "host": settings.REDIS_HOST,
+            "port": settings.REDIS_PORT,
+            "db": settings.REDIS_DB,
+            "version": redis_info.get("redis_version", "unknown")
+        }
+    except Exception as e:
+        health_data["services"]["redis"] = {
+            "status": "disconnected",
+            "error": str(e)
+        }
+        health_data["status"] = "degraded"
+
+    # Test Qdrant connection
+    try:
+        from app.utils.qdrant import health_check, get_collection_info
+        qdrant_healthy = health_check()
+        if qdrant_healthy:
+            collection_info = get_collection_info()
+            health_data["services"]["qdrant"] = {
+                "status": "connected",
+                "host": settings.QDRANT_HOST,
+                "port": settings.QDRANT_PORT,
+                "collection": settings.QDRANT_COLLECTION_NAME,
+                "vectors_count": collection_info.get("points_count", 0) if collection_info else 0
+            }
+        else:
+            health_data["services"]["qdrant"] = {
+                "status": "disconnected"
+            }
+            health_data["status"] = "degraded"
+    except Exception as e:
+        health_data["services"]["qdrant"] = {
+            "status": "error",
+            "error": str(e)
+        }
+        health_data["status"] = "degraded"
+
+    # Test MinIO connection
+    try:
+        from app.utils.minio import get_minio_client, health_check as minio_health_check
+        minio_client = get_minio_client()
+        minio_healthy = minio_health_check()
+        if minio_healthy:
+            health_data["services"]["minio"] = {
+                "status": "connected",
+                "endpoint": settings.MINIO_ENDPOINT,
+                "bucket": settings.MINIO_BUCKET_NAME,
+                "public_bucket": settings.MINIO_PUBLIC_BUCKET_NAME,
+                "secure": settings.MINIO_SECURE
+            }
+        else:
+            health_data["services"]["minio"] = {
+                "status": "disconnected"
+            }
+            health_data["status"] = "degraded"
+    except Exception as e:
+        health_data["services"]["minio"] = {
+            "status": "error",
+            "error": str(e)
+        }
+        health_data["status"] = "degraded"
+
+    # Raise error if any critical service is down
+    critical_services = ["database", "redis"]
+    for service in critical_services:
+        if health_data["services"].get(service, {}).get("status") != "connected":
+            raise HTTPException(status_code=503, detail=health_data)
+
+    return health_data
+
+
+@app.get("/health/database")
+def health_database(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """
+    Database health check endpoint
     """
     try:
         # Test database connection with a simple query
         db.query(text("SELECT 1"))
         db.commit()
 
+        # Get database info
+        result = db.execute(text("SELECT version(), current_database(), current_user"))
+        version, database, user = result.fetchone()
+
         return {
-            "status": "healthy",
-            "database": "connected",
+            "status": "connected",
+            "database": database,
+            "user": user,
+            "version": version,
             "server": settings.POSTGRES_SERVER,
-            "database_name": settings.POSTGRES_DB,
+            "port": settings.POSTGRES_PORT
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "status": "unhealthy",
-                "database": "disconnected",
-                "error": str(e),
-                "server": settings.POSTGRES_SERVER,
-                "database_name": settings.POSTGRES_DB,
-            },
-        )
+        raise HTTPException(status_code=503, detail={
+            "status": "disconnected",
+            "error": str(e),
+            "database": settings.POSTGRES_DB,
+            "server": settings.POSTGRES_SERVER
+        })
+
+
+@app.get("/health/redis")
+def health_redis() -> Dict[str, Any]:
+    """
+    Redis health check endpoint
+    """
+    try:
+        from app.utils.redis import get_redis_client
+        redis_client = get_redis_client()
+
+        # Test connection
+        redis_client.ping()
+
+        # Get Redis info
+        info = redis_client.info()
+        memory_info = redis_client.info("memory")
+
+        return {
+            "status": "connected",
+            "host": settings.REDIS_HOST,
+            "port": settings.REDIS_PORT,
+            "db": settings.REDIS_DB,
+            "version": info.get("redis_version", "unknown"),
+            "uptime_seconds": info.get("uptime_in_seconds", 0),
+            "connected_clients": info.get("connected_clients", 0),
+            "memory_used": memory_info.get("used_memory_human", "unknown"),
+            "memory_peak": memory_info.get("used_memory_peak_human", "unknown")
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail={
+            "status": "disconnected",
+            "error": str(e),
+            "host": settings.REDIS_HOST,
+            "port": settings.REDIS_PORT
+        })
+
+
+@app.get("/health/qdrant")
+def health_qdrant() -> Dict[str, Any]:
+    """
+    Qdrant health check endpoint
+    """
+    try:
+        from app.utils.qdrant import health_check, get_collection_info
+
+        # Test connection
+        qdrant_healthy = health_check()
+        if not qdrant_healthy:
+            raise Exception("Qdrant health check failed")
+
+        # Get collection info
+        collection_info = get_collection_info()
+
+        return {
+            "status": "connected",
+            "host": settings.QDRANT_HOST,
+            "port": settings.QDRANT_PORT,
+            "collection": settings.QDRANT_COLLECTION_NAME,
+            "vectors_count": collection_info.get("points_count", 0) if collection_info else 0,
+            "collection_status": collection_info.get("status", "unknown") if collection_info else "not_found",
+            "collection_size": collection_info.get("disk_size", 0) if collection_info else 0
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail={
+            "status": "disconnected",
+            "error": str(e),
+            "host": settings.QDRANT_HOST,
+            "port": settings.QDRANT_PORT,
+            "collection": settings.QDRANT_COLLECTION_NAME
+        })
+
+
+@app.get("/health/minio")
+def health_minio() -> Dict[str, Any]:
+    """
+    MinIO health check endpoint
+    """
+    try:
+        from app.utils.minio import get_minio_client
+
+        # Test connection by listing buckets
+        minio_client = get_minio_client()
+        try:
+            buckets = minio_client.list_buckets()
+            bucket_names = [bucket.name for bucket in buckets]
+
+            # Check if our buckets exist
+            main_bucket_exists = settings.MINIO_BUCKET_NAME in bucket_names
+            public_bucket_exists = settings.MINIO_PUBLIC_BUCKET_NAME in bucket_names
+
+            return {
+                "status": "connected",
+                "endpoint": settings.MINIO_ENDPOINT,
+                "secure": settings.MINIO_SECURE,
+                "main_bucket": {
+                    "name": settings.MINIO_BUCKET_NAME,
+                    "exists": main_bucket_exists
+                },
+                "public_bucket": {
+                    "name": settings.MINIO_PUBLIC_BUCKET_NAME,
+                    "exists": public_bucket_exists
+                },
+                "total_buckets": len(bucket_names),
+                "bucket_names": bucket_names[:10]  # Limit to first 10 for brevity
+            }
+        except Exception as bucket_error:
+            return {
+                "status": "connected",
+                "endpoint": settings.MINIO_ENDPOINT,
+                "secure": settings.MINIO_SECURE,
+                "bucket_check_error": str(bucket_error)
+            }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail={
+            "status": "disconnected",
+            "error": str(e),
+            "endpoint": settings.MINIO_ENDPOINT,
+            "secure": settings.MINIO_SECURE
+        })
+
+@app.get("/health/services")
+def health_services(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """
+    Quick overview of all services status
+    """
+    services_status = {}
+
+    # Database
+    try:
+        db.query(text("SELECT 1"))
+        services_status["database"] = "✅ connected"
+    except:
+        services_status["database"] = "❌ disconnected"
+
+    # Redis
+    try:
+        from app.utils.redis import get_redis_client
+        get_redis_client().ping()
+        services_status["redis"] = "✅ connected"
+    except:
+        services_status["redis"] = "❌ disconnected"
+
+    # Qdrant
+    try:
+        from app.utils.qdrant import health_check
+        if health_check():
+            services_status["qdrant"] = "✅ connected"
+        else:
+            services_status["qdrant"] = "❌ disconnected"
+    except:
+        services_status["qdrant"] = "❌ error"
+
+    # MinIO
+    try:
+        from app.utils.minio import get_minio_client
+
+        client = get_minio_client()
+        client.list_buckets()  # thử kết nối
+        services_status["minio"] = "✅ connected"
+    except Exception as e:
+        services_status["minio"] = f"❌ disconnected ({e})"
+
+    return {
+        "timestamp": "2025-09-10T12:00:00Z",
+        "services": services_status,
+        "overall_status": "healthy" if all("✅" in status for status in services_status.values()) else "degraded"
+    }

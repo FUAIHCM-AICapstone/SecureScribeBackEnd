@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import get_db
+from app.jobs.tasks import index_file_task
 from app.models.user import User
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.file import (
@@ -68,6 +69,19 @@ def upload_file_endpoint(
         new_file = create_file(db, file_data, current_user.id, file_content)
         if not new_file:
             raise HTTPException(status_code=400, detail="Failed to upload file")
+
+        # Trigger background indexing for supported file types
+        supported_mimes = ["text/plain", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+        if file.content_type in supported_mimes:
+            print(f"\033[94m🚀 Queuing indexing task for file {new_file.id} ({new_file.filename})\033[0m")
+            try:
+                index_file_task.delay(str(new_file.id), str(current_user.id))
+                print("\033[92m✅ Indexing task queued successfully\033[0m")
+            except Exception as e:
+                print(f"\033[91m❌ Failed to queue indexing task: {e}\033[0m")
+        else:
+            print(f"\033[93m⚠️ Skipping indexing for unsupported file type: {file.content_type}\033[0m")
+
         return ApiResponse(
             success=True,
             message="File uploaded successfully",
@@ -82,6 +96,7 @@ def upload_file_endpoint(
                 "uploaded_by": new_file.uploaded_by,
                 "created_at": new_file.created_at.isoformat(),
                 "storage_url": new_file.storage_url,
+                "indexing_queued": file.content_type in supported_mimes,
             },
         )
     except HTTPException:
@@ -306,13 +321,14 @@ def bulk_files_endpoint(
     try:
         # Execute bulk operation
         if operation.operation == "delete":
-            results = bulk_delete_files(db, operation.file_ids)
+            results = bulk_delete_files(db, operation.file_ids, _current_user.id)
         elif operation.operation == "move":
             results = bulk_move_files(
                 db,
                 operation.file_ids,
                 operation.target_project_id,
                 operation.target_meeting_id,
+                _current_user.id,
             )
         else:
             raise HTTPException(status_code=400, detail="Invalid operation")

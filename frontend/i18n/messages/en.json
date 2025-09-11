@@ -1,23 +1,23 @@
 {
   "AuthLayout": {
     "logoAlt": "FPT Telecom logo",
-    "title": "Welcome to Meobeo.ai",
+    "title": "Welcome to SecureScribe",
     "aiAgent": "AI Agent",
     "community": "community",
     "aiFirst": "AI-first",
     "pioneer": "pioneer",
     "fptTelecom": "FPT Telecom",
     "taskForce": "Task Force",
-    "description": "A modern login experience powered by FPT Telecom and Meobeo.ai.",
-    "welcomeTitle": "Welcome to Meobeo.ai",
+    "description": "A modern login experience powered by FPT Telecom and SecureScribe.",
+    "welcomeTitle": "Welcome to SecureScribe",
     "subtitle": "Smart AI meeting assistant",
     "tagline": "Improve meeting efficiency | AI solution optimized for Vietnamese",
-    "mascotAlt": "Meobeo.ai mascot",
-    "mascotLabel": "Meobeo.ai Cat",
+    "mascotAlt": "SecureScribe mascot",
+    "mascotLabel": "SecureScribe Cat",
     "or": "or",
     "loginGoogle": "Sign in with Google",
     "loginAzure": "Sign in with Azure AD",
-    "copyright": "© {year} Meobeo.ai. All rights reserved."
+    "copyright": "© {year} SecureScribe. All rights reserved."
   },
   "HomePage": {
     "title": "Hello, world!",
@@ -31,7 +31,7 @@
       },
       "users": "+50",
       "userLabel": "users have trusted us",
-      "brand": "Meobeo.ai",
+      "brand": "SecureScribe",
       "summaryCard": {
         "title": "Meeting Summary",
         "description": "Summarize meetings using real-time or post-meeting AI",
@@ -103,7 +103,7 @@
     },
     "stack": {
       "catAlt": "Cat icon",
-      "laptopAlt": "Laptop with Meobeo.ai",
+      "laptopAlt": "Laptop with SecureScribe",
       "miniCatAlt": "Small cat icon",
       "chromeStoreAlt": "Chrome Web Store",
       "bottom": {
@@ -111,7 +111,7 @@
         "strong": "Why not try it now!",
         "desc": "Click to install"
       },
-      "title": "Work smarter with Meobeo.ai",
+      "title": "Work smarter with SecureScribe",
       "overview": "Overview",
       "description": "Speed up your development with a powerful, feature-rich Next.js starter built for performance, scalability, and developer productivity. Highlights include:",
       "timeline": [
@@ -140,9 +140,9 @@
     },
     "installation": "Easy project installation and setup guide.",
     "testimonials": {
-      "title": "What users say about Meobeo.ai",
+      "title": "What users say about SecureScribe",
       "description": "Hear from developers who've accelerated their projects using the Next.js Starter Kit.",
-      "ctaTitle": "Why choose Meobeo.ai?",
+      "ctaTitle": "Why choose SecureScribe?",
       "ctaButton": "Explore now",
       "benefits": [
         "Save time with automatic note-taking",
@@ -154,7 +154,7 @@
         {
           "name": "Nguyễn Văn A",
           "title": "Frontend Developer",
-          "review": "Meobeo.ai helped me launch projects much faster. The starter is easy to use and extend."
+          "review": "SecureScribe helped me launch projects much faster. The starter is easy to use and extend."
         },
         {
           "name": "Trần Thị B",
@@ -169,7 +169,7 @@
         {
           "name": "Phạm Thị D",
           "title": "Product Manager",
-          "review": "I love how Meobeo.ai helps manage meetings and analyze data. Very useful!"
+          "review": "I love how SecureScribe helps manage meetings and analyze data. Very useful!"
         }
       ]
     }
@@ -190,8 +190,8 @@
     "getStarted": "Get Started"
   },
   "Footer": {
-    "copyright": "© {year} Meobeo.ai. All rights reserved.",
-    "title": "Meobeo.ai",
+    "copyright": "© {year} SecureScribe. All rights reserved.",
+    "title": "SecureScribe",
     "rights": "All rights reserved.",
     "github": "GitHub",
     "privacy": "Privacy Policy",

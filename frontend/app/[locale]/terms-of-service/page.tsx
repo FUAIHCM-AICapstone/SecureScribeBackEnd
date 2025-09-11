@@ -26,7 +26,7 @@ const App = () => {
         {/* Render the terms of service content */}
         <div className="container mx-auto px-4 py-8">
           <h1 className="text-4xl font-bold text-[var(--primary-color)] mb-8 text-center">
-            Điều khoản Dịch vụ của Meobeo.ai Meeting
+            Điều khoản Dịch vụ của SecureScribe Meeting
           </h1>
           <p className="mb-6 text-[var(--text-color)] text-center">
             Cập nhật lần cuối: 25 tháng 7 năm 2025
@@ -37,9 +37,9 @@ const App = () => {
               1. Giới thiệu và Chấp thuận Điều khoản
             </h2>
             <p className="mb-4 text-[var(--text-color)]">
-              Chào mừng bạn đến với Meobeo.ai Meeting! Các Điều khoản Dịch vụ này
+              Chào mừng bạn đến với SecureScribe Meeting! Các Điều khoản Dịch vụ này
               ("Điều khoản") cấu thành một thỏa thuận ràng buộc về mặt pháp lý
-              giữa bạn và Meobeo.ai Meeting ("Meobeo.ai Meeting", "chúng tôi")
+              giữa bạn và SecureScribe Meeting ("SecureScribe Meeting", "chúng tôi")
               quản lý việc bạn sử dụng các sản phẩm, dịch vụ, ứng dụng di động
               (nếu có) và trang web của chúng tôi (gọi chung là "Dịch vụ").
             </p>
@@ -81,11 +81,11 @@ const App = () => {
             </p>
             <p className="mb-4 text-[var(--text-color)]">
               Xin lưu ý: Thỏa thuận này quy định cách thức giải quyết tranh chấp
-              giữa bạn và Meobeo.ai Meeting. Vui lòng đọc kỹ vì nó ảnh hưởng đến
+              giữa bạn và SecureScribe Meeting. Vui lòng đọc kỹ vì nó ảnh hưởng đến
               các quyền pháp lý của bạn.
             </p>
             <p className="mb-4 text-[var(--text-color)]">
-              Để sử dụng Dịch vụ của Meobeo.ai Meeting, bạn phải đủ 18 tuổi trở
+              Để sử dụng Dịch vụ của SecureScribe Meeting, bạn phải đủ 18 tuổi trở
               lên.
             </p>
           </section>
@@ -100,13 +100,13 @@ const App = () => {
             </p>
             <ul className="list-disc list-inside ml-4 text-[var(--text-color)]">
               <li className="mb-2">
-                <strong>Meobeo.ai Meeting:</strong> Đề cập đến công ty cung cấp
+                <strong>SecureScribe Meeting:</strong> Đề cập đến công ty cung cấp
                 Dịch vụ, bao gồm các công ty con, chi nhánh, nhân viên và đại
                 diện của nó.
               </li>
               <li className="mb-2">
                 <strong>Dịch vụ:</strong> Định nghĩa toàn bộ phạm vi những gì
-                Meobeo.ai Meeting cung cấp, bao gồm trang web https://Meobeo.ai
+                SecureScribe Meeting cung cấp, bao gồm trang web https://SecureScribe
                 Meeting/, phần mềm, các mô hình AI, tính năng, nội dung và bất
                 kỳ sản phẩm hoặc ứng dụng liên quan nào.
               </li>
@@ -116,25 +116,25 @@ const App = () => {
               </li>
               <li className="mb-2">
                 <strong>Tài khoản:</strong> Tài khoản đã đăng ký của người dùng
-                với Meobeo.ai Meeting để truy cập và sử dụng các tính năng cụ thể
+                với SecureScribe Meeting để truy cập và sử dụng các tính năng cụ thể
                 của Dịch vụ.
               </li>
               <li className="mb-2">
                 <strong>Nội dung:</strong> Bất kỳ văn bản, hình ảnh, âm thanh,
-                video, dữ liệu hoặc tài liệu nào khác được Meobeo.ai Meeting cung
+                video, dữ liệu hoặc tài liệu nào khác được SecureScribe Meeting cung
                 cấp thông qua Dịch vụ.
               </li>
               <li className="mb-2">
                 <strong>Dữ liệu Người dùng/Đầu vào:</strong> Bất kỳ dữ liệu,
                 thông tin hoặc nội dung nào mà người dùng cung cấp, tải lên, gửi
                 hoặc tạo ra thông qua Dịch vụ, đặc biệt là những dữ liệu tương
-                tác với AI của Meobeo.ai Meeting, bao gồm ghi âm cuộc họp, bản
+                tác với AI của SecureScribe Meeting, bao gồm ghi âm cuộc họp, bản
                 ghi văn bản, và các tài liệu liên quan.
               </li>
               <li className="mb-2">
                 <strong>Kết quả AI:</strong> Bất kỳ văn bản, hình ảnh, mã, phân
                 tích hoặc tài liệu nào khác được tạo ra hoặc cung cấp bởi các mô
-                hình AI của Meobeo.ai Meeting để phản hồi Dữ liệu Người dùng/Đầu
+                hình AI của SecureScribe Meeting để phản hồi Dữ liệu Người dùng/Đầu
                 vào, bao gồm ghi chú cuộc họp, bản ghi tự động và danh sách công
                 việc được giao.
               </li>
@@ -148,20 +148,20 @@ const App = () => {
 
           <section className="mb-10">
             <h2 className="text-3xl font-semibold text-[var(--primary-color)] mb-4">
-              3. Mô tả Dịch vụ Meobeo.ai Meeting
+              3. Mô tả Dịch vụ SecureScribe Meeting
             </h2>
             <p className="mb-4 text-[var(--text-color)]">
-              Meobeo.ai Meeting là một sản phẩm website được hỗ trợ bởi AI, được
+              SecureScribe Meeting là một sản phẩm website được hỗ trợ bởi AI, được
               thiết kế để tự động ghi âm cuộc họp, ghi chú cuộc họp, ghi lại bản
               ghi, ghi lại các công việc được giao, là một công cụ quản lý cuộc
               họp, có tích hợp website để người dùng thao tác và xem lại lịch sử
               các cuộc họp đã được ghi chú. Phạm vi Dịch vụ bao gồm quyền truy
-              cập vào trang web Meobeo.ai Meeting, các mô hình AI cơ bản, các
+              cập vào trang web SecureScribe Meeting, các mô hình AI cơ bản, các
               tính năng liên quan, công cụ và bất kỳ tài liệu hoặc hỗ trợ liên
               quan nào.
             </p>
             <p className="mb-4 text-[var(--text-color)]">
-              Meobeo.ai Meeting tích hợp với Google Meet, Zoom và Webex để cung
+              SecureScribe Meeting tích hợp với Google Meet, Zoom và Webex để cung
               cấp trải nghiệm ghi chú cuộc họp liền mạch.
             </p>
           </section>
@@ -171,7 +171,7 @@ const App = () => {
               4. Tài khoản Người dùng
             </h2>
             <p className="mb-4 text-[var(--text-color)]">
-              Để sử dụng Dịch vụ, bạn cần đăng ký với Meobeo.ai Meeting và tạo
+              Để sử dụng Dịch vụ, bạn cần đăng ký với SecureScribe Meeting và tạo
               một tài khoản ("Tài khoản"). Trong quá trình đó, bạn sẽ được yêu
               cầu cung cấp một số thông tin nhất định, bao gồm tên và địa chỉ
               email của bạn. Bằng cách sử dụng Dịch vụ, bạn đồng ý cung cấp
@@ -183,14 +183,14 @@ const App = () => {
               Bạn là người dùng được ủy quyền duy nhất của Tài khoản của mình.
               Bạn chịu trách nhiệm duy nhất trong việc duy trì tính bảo mật của
               bất kỳ thông tin đăng nhập, mật khẩu và số Tài khoản nào do bạn
-              cung cấp hoặc do Meobeo.ai Meeting cấp cho bạn để truy cập Dịch vụ.
+              cung cấp hoặc do SecureScribe Meeting cấp cho bạn để truy cập Dịch vụ.
               Bạn hoàn toàn chịu trách nhiệm về tất cả các hoạt động xảy ra dưới
-              mật khẩu hoặc Tài khoản của bạn. Meobeo.ai Meeting không kiểm soát
+              mật khẩu hoặc Tài khoản của bạn. SecureScribe Meeting không kiểm soát
               việc sử dụng Tài khoản của bất kỳ người dùng nào và từ chối rõ
               ràng mọi trách nhiệm pháp lý phát sinh từ đó. Nếu bạn nghi ngờ
               rằng bất kỳ bên nào không được ủy quyền có thể đang sử dụng mật
               khẩu hoặc Tài khoản của bạn hoặc bạn nghi ngờ bất kỳ vi phạm bảo
-              mật nào khác, bạn đồng ý liên hệ với Meobeo.ai Meeting ngay lập
+              mật nào khác, bạn đồng ý liên hệ với SecureScribe Meeting ngay lập
               tức.
             </p>
             <p className="mb-4 text-[var(--text-color)]">
@@ -220,7 +220,7 @@ const App = () => {
               5. Quyền và Nghĩa vụ của Người dùng
             </h2>
             <p className="mb-4 text-[var(--text-color)]">
-              Meobeo.ai Meeting cấp cho bạn quyền giới hạn, không độc quyền,
+              SecureScribe Meeting cấp cho bạn quyền giới hạn, không độc quyền,
               không thể chuyển nhượng, có thể thu hồi tự do để truy cập và sử
               dụng Dịch vụ. Chúng tôi có thể chấm dứt quyền này bất cứ lúc nào
               vì bất kỳ lý do nào hoặc không có lý do.
@@ -276,7 +276,7 @@ const App = () => {
                 Quấy rối, lăng mạ, gây hại, lạm dụng, phỉ báng, quấy rối, rình
                 rập, đe dọa, đe dọa hoặc vi phạm các quyền hợp pháp khác (như
                 quyền riêng tư và công khai) của bất kỳ người dùng hoặc khách
-                truy cập nào khác của Dịch vụ hoặc nhân viên của Meobeo.ai
+                truy cập nào khác của Dịch vụ hoặc nhân viên của SecureScribe
                 Meeting.
               </li>
               <li className="mb-2">
@@ -314,10 +314,10 @@ const App = () => {
             </ul>
             <p className="mb-4 text-[var(--text-color)]">
               Bạn chịu trách nhiệm tuân thủ tất cả các luật ghi âm. Bằng cách sử
-              dụng Dịch vụ, bạn đồng ý cho Meobeo.ai Meeting lưu trữ các bản ghi
+              dụng Dịch vụ, bạn đồng ý cho SecureScribe Meeting lưu trữ các bản ghi
               cho bất kỳ hoặc tất cả các cuộc họp hoặc hội thảo trực tuyến của
-              Meobeo.ai Meeting mà bạn tham gia, nếu các bản ghi đó được lưu trữ
-              trong hệ thống của Meobeo.ai Meeting. Bạn sẽ nhận được thông báo
+              SecureScribe Meeting mà bạn tham gia, nếu các bản ghi đó được lưu trữ
+              trong hệ thống của SecureScribe Meeting. Bạn sẽ nhận được thông báo
               (bằng hình ảnh hoặc cách khác) khi tính năng ghi âm được bật. Nếu
               bạn không đồng ý ghi âm, bạn có thể chọn rời khỏi cuộc họp.
             </p>
@@ -332,14 +332,14 @@ const App = () => {
               biểu đồ, thiết kế, HTML, giao diện, hình ảnh, âm nhạc, âm thanh,
               hình ảnh, phần mềm, video, thiết kế, nhãn hiệu, logo, kiểu chữ và
               nội dung khác (gọi chung là "Tài liệu Độc quyền") mà người dùng
-              nhìn thấy hoặc đọc thông qua Dịch vụ thuộc sở hữu của Meobeo.ai
+              nhìn thấy hoặc đọc thông qua Dịch vụ thuộc sở hữu của SecureScribe
               Meeting, không bao gồm Dữ liệu Người dùng/Đầu vào, mà người dùng
-              cấp cho Meobeo.ai Meeting giấy phép sử dụng như được nêu trong đây.
+              cấp cho SecureScribe Meeting giấy phép sử dụng như được nêu trong đây.
             </p>
             <p className="mb-4 text-[var(--text-color)]">
-              Meobeo.ai Meeting giữ tất cả các quyền, quyền sở hữu và lợi ích đối
+              SecureScribe Meeting giữ tất cả các quyền, quyền sở hữu và lợi ích đối
               với Dịch vụ (bao gồm trang web, phần mềm, mô hình AI, thuật toán,
-              công nghệ cơ bản và tất cả nội dung do Meobeo.ai Meeting cung cấp),
+              công nghệ cơ bản và tất cả nội dung do SecureScribe Meeting cung cấp),
               tất cả các bản sao, chỉnh sửa, sửa đổi, cải tiến và tất cả các
               quyền sở hữu trí tuệ liên quan (bằng sáng chế, bản quyền, bí mật
               thương mại, nhãn hiệu, nhãn hiệu dịch vụ, lợi thế thương mại) và
@@ -347,27 +347,27 @@ const App = () => {
             </p>
             <p className="mb-4 text-[var(--text-color)]">
               Bạn giữ quyền sở hữu đối với Dữ liệu Người dùng/Đầu vào gốc của
-              bạn được cung cấp cho Dịch vụ. Tuy nhiên, bạn cấp cho Meobeo.ai
+              bạn được cung cấp cho Dịch vụ. Tuy nhiên, bạn cấp cho SecureScribe
               Meeting một giấy phép không độc quyền, toàn cầu, miễn phí bản
               quyền, có thể cấp phép lại và có thể chuyển nhượng để sử dụng, sao
               chép, sửa đổi, điều chỉnh, xuất bản, dịch, tạo các tác phẩm phái
               sinh từ, phân phối và hiển thị Dữ liệu Người dùng/Đầu vào cho mục
               đích vận hành, cải thiện và phát triển Dịch vụ, bao gồm việc đào
-              tạo và tinh chỉnh các mô hình AI của Meobeo.ai Meeting.
+              tạo và tinh chỉnh các mô hình AI của SecureScribe Meeting.
             </p>
             <p className="mb-4 text-[var(--text-color)]">
               Trong phạm vi pháp luật cho phép, bạn sở hữu Kết quả AI được tạo
               ra dựa trên Dữ liệu Người dùng/Đầu vào của bạn. Tuy nhiên, bạn cấp
-              cho Meobeo.ai Meeting một giấy phép không độc quyền, toàn cầu, miễn
+              cho SecureScribe Meeting một giấy phép không độc quyền, toàn cầu, miễn
               phí bản quyền, có thể cấp phép lại và có thể chuyển nhượng để sử
               dụng, sao chép, sửa đổi, điều chỉnh, xuất bản, dịch, tạo các tác
               phẩm phái sinh từ, phân phối và hiển thị Kết quả AI cho mục đích
               cải thiện dịch vụ, đào tạo mô hình và các mục đích nội bộ.
             </p>
             <p className="mb-4 text-[var(--text-color)]">
-              Các nhãn hiệu dịch vụ và nhãn hiệu của Meobeo.ai Meeting, bao gồm
-              nhưng không giới hạn ở logo Meobeo.ai Meeting, là nhãn hiệu dịch vụ
-              thuộc sở hữu của Meobeo.ai Meeting. Bất kỳ nhãn hiệu, nhãn hiệu
+              Các nhãn hiệu dịch vụ và nhãn hiệu của SecureScribe Meeting, bao gồm
+              nhưng không giới hạn ở logo SecureScribe Meeting, là nhãn hiệu dịch vụ
+              thuộc sở hữu của SecureScribe Meeting. Bất kỳ nhãn hiệu, nhãn hiệu
               dịch vụ, logo và/hoặc tên thương mại nào khác xuất hiện thông qua
               Dịch vụ là tài sản của chủ sở hữu tương ứng. Bạn không được sao
               chép hoặc sử dụng bất kỳ nhãn hiệu, logo hoặc tên thương mại nào
@@ -380,13 +380,13 @@ const App = () => {
               thiện dịch vụ hoặc sản phẩm của chúng tôi ("Phản hồi"). Bằng cách
               gửi bất kỳ Phản hồi nào, bạn đồng ý rằng việc tiết lộ của bạn là
               miễn phí, không được yêu cầu và không bị hạn chế và sẽ không đặt
-              Meobeo.ai Meeting dưới bất kỳ nghĩa vụ ủy thác hoặc nghĩa vụ nào
+              SecureScribe Meeting dưới bất kỳ nghĩa vụ ủy thác hoặc nghĩa vụ nào
               khác, và chúng tôi được tự do sử dụng Phản hồi mà không phải bồi
               thường thêm cho bạn, và/hoặc tiết lộ Phản hồi trên cơ sở không bảo
               mật hoặc cách khác cho bất kỳ ai. Bạn cũng thừa nhận rằng, bằng
-              cách chấp nhận việc gửi của bạn, Meobeo.ai Meeting không từ bỏ bất
+              cách chấp nhận việc gửi của bạn, SecureScribe Meeting không từ bỏ bất
               kỳ quyền nào để sử dụng Phản hồi tương tự hoặc liên quan đã được
-              Meobeo.ai Meeting biết trước đó, được phát triển bởi nhân viên của
+              SecureScribe Meeting biết trước đó, được phát triển bởi nhân viên của
               mình hoặc thu được từ các nguồn khác ngoài bạn. Bạn thừa nhận rằng
               tất cả email và thư từ khác mà bạn gửi cho chúng tôi sẽ trở thành
               tài sản duy nhất và độc quyền của chúng tôi.
@@ -398,7 +398,7 @@ const App = () => {
               7. Quyền riêng tư và Bảo vệ Dữ liệu
             </h2>
             <p className="mb-4 text-[var(--text-color)]">
-              Meobeo.ai Meeting cam kết bảo vệ quyền riêng tư của bạn và xử lý Dữ
+              SecureScribe Meeting cam kết bảo vệ quyền riêng tư của bạn và xử lý Dữ
               liệu Cá nhân theo luật pháp hiện hành của Việt Nam và Chính sách
               Bảo mật của chúng tôi. Chính sách Bảo mật là một phần không thể
               thiếu của các Điều khoản này và điều chỉnh việc thu thập, sử dụng
@@ -434,10 +434,10 @@ const App = () => {
               luật. Thông tin có thể được chia sẻ với bên thứ ba, bao gồm nhà
               cung cấp dịch vụ, cơ quan pháp lý và trong các sự kiện doanh
               nghiệp, theo các điều kiện nghiêm ngặt, với đầy đủ chi tiết trong
-              Chính sách Bảo mật. Meobeo.ai Meeting cam kết bảo mật dữ liệu, sử
+              Chính sách Bảo mật. SecureScribe Meeting cam kết bảo mật dữ liệu, sử
               dụng các công nghệ và quy trình bảo mật theo tiêu chuẩn ngành, bao
               gồm mã hóa dữ liệu khi lưu trữ và truyền tải, kiểm soát truy cập
-              và kiểm toán bảo mật thường xuyên. Meobeo.ai Meeting cũng thực hiện
+              và kiểm toán bảo mật thường xuyên. SecureScribe Meeting cũng thực hiện
               các biện pháp cụ thể cho dữ liệu AI, bao gồm ẩn danh hóa/giả danh
               hóa dữ liệu để đào tạo mô hình và xử lý an toàn các đầu vào nhạy
               cảm.
@@ -450,22 +450,22 @@ const App = () => {
             </h2>
             <p className="mb-4 text-[var(--text-color)]">
               Các Dịch vụ được cung cấp trên cơ sở "nguyên trạng" và "có sẵn",
-              không có bất kỳ bảo đảm nào, dù rõ ràng hay ngụ ý. Meobeo.ai
+              không có bất kỳ bảo đảm nào, dù rõ ràng hay ngụ ý. SecureScribe
               Meeting từ chối tất cả các bảo đảm, bao gồm nhưng không giới hạn
               ở, các bảo đảm ngụ ý về khả năng bán được, sự phù hợp cho một mục
               đích cụ thể, không vi phạm và tính chính xác hoặc đầy đủ của Dịch
               vụ hoặc Kết quả AI.
             </p>
             <p className="mb-4 text-[var(--text-color)]">
-              Meobeo.ai Meeting không đảm bảo tính chính xác, đầy đủ, độ tin cậy
+              SecureScribe Meeting không đảm bảo tính chính xác, đầy đủ, độ tin cậy
               hoặc tính hữu ích của bất kỳ Kết quả AI nào được tạo ra bởi Dịch
               vụ. Bạn thừa nhận rằng Kết quả AI có thể chứa lỗi, sai lệch hoặc
               có thể không phù hợp cho tất cả các mục đích. Bạn chấp nhận mọi
               rủi ro liên quan đến việc sử dụng Kết quả AI.
             </p>
             <p className="mb-4 text-[var(--text-color)]">
-              Meobeo.ai Meeting không đảm bảo quyền truy cập không bị gián đoạn,
-              không có lỗi hoặc an toàn vào Dịch vụ. Meobeo.ai Meeting giới hạn
+              SecureScribe Meeting không đảm bảo quyền truy cập không bị gián đoạn,
+              không có lỗi hoặc an toàn vào Dịch vụ. SecureScribe Meeting giới hạn
               trách nhiệm của mình đối với bất kỳ thiệt hại trực tiếp, gián
               tiếp, ngẫu nhiên, đặc biệt, do hậu quả hoặc trừng phạt nào, bao
               gồm nhưng không giới hạn ở mất lợi nhuận, dữ liệu, uy tín hoặc các
@@ -492,10 +492,10 @@ const App = () => {
               </li>
             </ul>
             <p className="mb-4 text-[var(--text-color)]">
-              Trong mọi trường hợp, tổng trách nhiệm pháp lý tối đa của Meobeo.ai
+              Trong mọi trường hợp, tổng trách nhiệm pháp lý tối đa của SecureScribe
               Meeting đối với tất cả các khiếu nại phát sinh từ hoặc liên quan
               đến các Điều khoản này hoặc việc sử dụng Dịch vụ sẽ không vượt quá
-              số tiền bạn đã trả cho Meobeo.ai Meeting trong mười hai (12) tháng
+              số tiền bạn đã trả cho SecureScribe Meeting trong mười hai (12) tháng
               trước khi xảy ra sự kiện gây ra trách nhiệm pháp lý.
             </p>
           </section>
@@ -505,7 +505,7 @@ const App = () => {
               9. Bồi thường
             </h2>
             <p className="mb-4 text-[var(--text-color)]">
-              Bạn đồng ý bồi thường, bảo vệ và giữ cho Meobeo.ai Meeting, các chi
+              Bạn đồng ý bồi thường, bảo vệ và giữ cho SecureScribe Meeting, các chi
               nhánh, cán bộ, giám đốc, nhân viên và đại lý của họ không bị tổn
               hại từ bất kỳ và tất cả các khiếu nại, trách nhiệm pháp lý, thiệt
               hại, tổn thất, chi phí, chi phí hoặc phí (bao gồm phí luật sư hợp
@@ -537,10 +537,10 @@ const App = () => {
               10. Thay đổi Điều khoản
             </h2>
             <p className="mb-4 text-[var(--text-color)]">
-              Meobeo.ai Meeting bảo lưu quyền, theo quyết định riêng của mình,
+              SecureScribe Meeting bảo lưu quyền, theo quyết định riêng của mình,
               sửa đổi hoặc thay thế các Điều khoản này bất cứ lúc nào. Các thay
               đổi sẽ có hiệu lực sau 10 ngày kể từ khi đăng các Điều khoản sửa
-              đổi lên trang web hoặc thông báo cho bạn. Meobeo.ai Meeting sẽ cố
+              đổi lên trang web hoặc thông báo cho bạn. SecureScribe Meeting sẽ cố
               gắng cung cấp thông báo hợp lý về bất kỳ thay đổi quan trọng nào
               thông qua email hoặc thông báo nổi bật trên trang web. Việc tiếp
               tục sử dụng Dịch vụ sau ngày có hiệu lực của các Điều khoản sửa
@@ -555,7 +555,7 @@ const App = () => {
             <p className="mb-4 text-[var(--text-color)]">
               Bạn có thể chấm dứt tài khoản của mình bất cứ lúc nào bằng cách
               làm theo hướng dẫn được cung cấp trên Dịch vụ hoặc bằng cách liên
-              hệ với Meobeo.ai Meeting. Meobeo.ai Meeting có thể tạm ngừng hoặc
+              hệ với SecureScribe Meeting. SecureScribe Meeting có thể tạm ngừng hoặc
               chấm dứt quyền truy cập của bạn vào tất cả hoặc bất kỳ phần nào
               của Dịch vụ bất cứ lúc nào, có hoặc không có lý do, có hoặc không
               có thông báo, có hiệu lực ngay lập tức, vì các lý do bao gồm nhưng
@@ -565,7 +565,7 @@ const App = () => {
               <li className="mb-2">Vi phạm các Điều khoản này.</li>
               <li className="mb-2">Vi phạm luật pháp hiện hành.</li>
               <li className="mb-2">
-                Hành vi gây hại cho người dùng khác, Meobeo.ai Meeting hoặc bên
+                Hành vi gây hại cho người dùng khác, SecureScribe Meeting hoặc bên
                 thứ ba.
               </li>
               <li className="mb-2">Không hoạt động.</li>
@@ -575,7 +575,7 @@ const App = () => {
               ngay lập tức chấm dứt. Các điều khoản mà theo bản chất của chúng
               nên tồn tại sau khi chấm dứt (ví dụ: sở hữu trí tuệ, tuyên bố từ
               chối trách nhiệm, bồi thường, luật điều chỉnh) sẽ vẫn có hiệu lực.
-              Meobeo.ai Meeting sẽ xóa tất cả dữ liệu của bạn, bao gồm mọi Dữ
+              SecureScribe Meeting sẽ xóa tất cả dữ liệu của bạn, bao gồm mọi Dữ
               liệu Người dùng/Đầu vào, theo chính sách lưu giữ dữ liệu được nêu
               chi tiết trong Chính sách Bảo mật của chúng tôi.
             </p>
@@ -596,7 +596,7 @@ const App = () => {
             <ul className="list-disc list-inside ml-4 text-[var(--text-color)]">
               <li className="mb-2">
                 <strong>Giải quyết không chính thức:</strong> Chúng tôi khuyến
-                khích bạn liên hệ trực tiếp với Meobeo.ai Meeting qua email
+                khích bạn liên hệ trực tiếp với SecureScribe Meeting qua email
                 assistant.meowmo@gmail.com để giải quyết mọi tranh chấp một cách
                 không chính thức trước khi tiến hành hành động pháp lý chính
                 thức.
@@ -628,25 +628,25 @@ const App = () => {
                 hiệu lực và đầy đủ.
               </li>
               <li className="mb-2">
-                <strong>Từ bỏ quyền:</strong> Việc Meobeo.ai Meeting không thực
+                <strong>Từ bỏ quyền:</strong> Việc SecureScribe Meeting không thực
                 thi bất kỳ quyền hoặc điều khoản nào của các Điều khoản này sẽ
                 không được coi là sự từ bỏ các quyền đó.
               </li>
               <li className="mb-2">
                 <strong>Toàn bộ thỏa thuận:</strong> Các Điều khoản này, cùng
                 với Chính sách Bảo mật và bất kỳ thông báo pháp lý nào khác được
-                Meobeo.ai Meeting công bố trên Dịch vụ, cấu thành toàn bộ thỏa
-                thuận giữa Meobeo.ai Meeting và bạn liên quan đến Dịch vụ.
+                SecureScribe Meeting công bố trên Dịch vụ, cấu thành toàn bộ thỏa
+                thuận giữa SecureScribe Meeting và bạn liên quan đến Dịch vụ.
               </li>
               <li className="mb-2">
                 <strong>Chuyển nhượng:</strong> Bạn không được chuyển nhượng
                 hoặc chuyển giao các Điều khoản này, hoặc bất kỳ quyền hoặc
                 nghĩa vụ nào theo đây, mà không có sự đồng ý trước bằng văn bản
-                của Meobeo.ai Meeting. Meobeo.ai Meeting có thể chuyển nhượng các
+                của SecureScribe Meeting. SecureScribe Meeting có thể chuyển nhượng các
                 Điều khoản này mà không bị hạn chế.
               </li>
               <li className="mb-2">
-                <strong>Bất khả kháng:</strong> Meobeo.ai Meeting sẽ không chịu
+                <strong>Bất khả kháng:</strong> SecureScribe Meeting sẽ không chịu
                 trách nhiệm về bất kỳ sự chậm trễ hoặc thất bại nào trong việc
                 thực hiện do các nguyên nhân nằm ngoài tầm kiểm soát hợp lý của
                 mình, chẳng hạn như thiên tai, chiến tranh, khủng bố, bạo loạn,
@@ -669,7 +669,7 @@ const App = () => {
             </h2>
             <p className="mb-4 text-[var(--text-color)]">
               Để có bất kỳ câu hỏi hoặc thắc mắc nào liên quan đến các Điều
-              khoản này, vui lòng liên hệ với Meobeo.ai Meeting qua địa chỉ
+              khoản này, vui lòng liên hệ với SecureScribe Meeting qua địa chỉ
               email:{' '}
               <a
                 href="mailto:assistant.meowmo@gmail.com"

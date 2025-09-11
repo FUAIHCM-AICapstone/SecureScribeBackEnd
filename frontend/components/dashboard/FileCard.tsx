@@ -1,12 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { getMyProjects } from '../../services/api/project';
 import { getPersonalMeetings } from '../../services/api/meeting';
 import { moveFile, deleteFile } from '../../services/api/file';
+import { getIndexingStatus, reindexFile } from '../../services/api';
 import { queryKeys } from '../../lib/queryClient';
 import { showToast } from '../../hooks/useShowToast';
+import { useWebSocket, useTaskProgress } from '../../context/WebSocketContext';
 import type { FileResponse } from '../../types/file.type';
 import type { ProjectResponse } from '../../types/project.type';
 import type { MeetingResponse } from '../../types/meeting.type';
@@ -26,6 +29,56 @@ const FileCard: React.FC<FileCardProps> = ({ file }) => {
     const [hasShownProjectWarning, setHasShownProjectWarning] = useState(false);
     const [hasShownMeetingWarning, setHasShownMeetingWarning] = useState(false);
     const queryClient = useQueryClient();
+
+    // WebSocket for real-time progress updates
+    const { isConnected } = useWebSocket();
+    const { getCurrentTaskProgress } = useTaskProgress(`index_file_${file.id}`);
+
+    // Debug WebSocket connection
+    useEffect(() => {
+        console.log(`🔌 FileCard ${file.id} - WebSocket connected:`, isConnected);
+    }, [isConnected, file.id]);
+
+    // Query for indexing status
+    const { data: indexingStatus, refetch: refetchIndexingStatus } = useQuery({
+        queryKey: ['indexing-status', file.id],
+        queryFn: () => getIndexingStatus(file.id),
+        enabled: !!file.id,
+        refetchInterval: (data) => {
+            // Refetch every 5 seconds if still indexing
+            return (data as any)?.data?.status === 'in_progress' ? 5000 : false;
+        },
+    });
+
+    // Get current progress from WebSocket or API
+    const wsProgress = getCurrentTaskProgress();
+    const currentProgress = wsProgress?.progress || indexingStatus?.data?.progress || 0;
+    const indexingStatusText = wsProgress?.status || indexingStatus?.data?.status || 'not_started';
+    const indexingMessage = wsProgress?.message || indexingStatus?.data?.message || '';
+
+    // Debug progress values
+    useEffect(() => {
+        console.log(`📊 FileCard ${file.id} progress:`, {
+            wsProgress,
+            currentProgress,
+            indexingStatusText,
+            indexingMessage,
+            apiStatus: indexingStatus?.data?.status,
+            apiProgress: indexingStatus?.data?.progress
+        });
+    }, [wsProgress, currentProgress, indexingStatusText, indexingMessage, indexingStatus, file.id]);
+
+    // Debug WebSocket progress updates
+    useEffect(() => {
+        if (wsProgress && wsProgress.progress !== undefined) {
+            console.log(`📊 WebSocket progress update for file ${file.id}:`, {
+                progress: wsProgress.progress,
+                status: wsProgress.status,
+                task_type: wsProgress.task_type,
+                timestamp: wsProgress.timestamp
+            });
+        }
+    }, [wsProgress, file.id]);
 
     const loadOptions = async () => {
         try {
@@ -131,6 +184,20 @@ const FileCard: React.FC<FileCardProps> = ({ file }) => {
         },
     });
 
+    const reindexFileMutation = useMutation({
+        mutationFn: (fileId: string) => reindexFile(fileId),
+        onSuccess: () => {
+            // Invalidate indexing status and refetch
+            queryClient.invalidateQueries({ queryKey: ['indexing-status', file.id] });
+            refetchIndexingStatus();
+            showToast('success', 'Đã bắt đầu quá trình lập chỉ mục lại!');
+        },
+        onError: (error) => {
+            console.error('Failed to reindex file:', error);
+            showToast('error', 'Có lỗi xảy ra khi lập chỉ mục lại. Vui lòng thử lại.');
+        },
+    });
+
     const handleAddToProject = () => {
         if (!selectedProjectId) return;
 
@@ -164,6 +231,29 @@ const FileCard: React.FC<FileCardProps> = ({ file }) => {
 
         deleteFileMutation.mutate(file.id);
     };
+
+    const handleReindexFile = () => {
+        if (!confirm(`Bạn có muốn lập chỉ mục lại file "${file.filename}" không?\n\nQuá trình này có thể mất một chút thời gian.`)) {
+            return;
+        }
+
+        reindexFileMutation.mutate(file.id);
+    };
+
+    const getIndexingStatusDisplay = () => {
+        switch (indexingStatusText) {
+            case 'completed':
+                return { text: '✅ Đã lập chỉ mục', color: 'text-green-600', icon: '✅' };
+            case 'in_progress':
+                return { text: '🔄 Đang lập chỉ mục...', color: 'text-blue-600', icon: '🔄' };
+            case 'failed':
+                return { text: '❌ Lập chỉ mục thất bại', color: 'text-red-600', icon: '❌' };
+            default:
+                return { text: '⏳ Chưa lập chỉ mục', color: 'text-gray-500', icon: '⏳' };
+        }
+    };
+
+    const indexingDisplay = getIndexingStatusDisplay();
 
     const formatFileSize = (bytes: number | null | undefined): string => {
         if (!bytes) return '0 B';
@@ -214,9 +304,43 @@ const FileCard: React.FC<FileCardProps> = ({ file }) => {
                     <span>Ngày tải lên:</span>
                     <span>{new Date(file.created_at).toLocaleDateString('vi-VN')}</span>
                 </div>
+                <div className="flex justify-between items-center">
+                    <span>Trạng thái:</span>
+                    <span className={`flex items-center space-x-1 ${indexingDisplay.color}`}>
+                        <span>{indexingDisplay.icon}</span>
+                        <span className="text-xs">{indexingDisplay.text}</span>
+                    </span>
+                </div>
+                {indexingStatus?.data?.filename && (
+                    <div className="flex justify-between">
+                        <span>Tên file:</span>
+                        <span className="text-xs text-gray-600 truncate max-w-[120px]" title={indexingStatus.data.filename}>
+                            {indexingStatus.data.filename}
+                        </span>
+                    </div>
+                )}
+                {indexingStatusText === 'in_progress' && (
+                    <div className="mt-2">
+                        <div className="flex justify-between text-xs mb-1">
+                            <span>Tiến độ lập chỉ mục:</span>
+                            <span>{currentProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${currentProgress}%` }}
+                            ></div>
+                        </div>
+                        {indexingMessage && (
+                            <div className="text-xs text-blue-600 mt-1">
+                                {indexingMessage}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
-            <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
                 <button
                     onClick={() => {
                         setShowAddOptions(!showAddOptions);
@@ -228,6 +352,7 @@ const FileCard: React.FC<FileCardProps> = ({ file }) => {
                 >
                     + Thêm vào
                 </button>
+
                 {file.storage_url && (
                     <button
                         onClick={() => window.open(file.storage_url!, '_blank')}
@@ -236,6 +361,41 @@ const FileCard: React.FC<FileCardProps> = ({ file }) => {
                         Tải xuống
                     </button>
                 )}
+
+                {/* Indexing-related buttons */}
+                {indexingStatusText === 'failed' && (
+                    <button
+                        onClick={handleReindexFile}
+                        disabled={reindexFileMutation.isPending}
+                        className="text-xs bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded disabled:bg-gray-400"
+                        title="Lập chỉ mục lại file"
+                    >
+                        {reindexFileMutation.isPending ? '🔄...' : '🔄 Lập chỉ mục'}
+                    </button>
+                )}
+
+                {indexingStatusText === 'completed' && (
+                    <button
+                        onClick={handleReindexFile}
+                        disabled={reindexFileMutation.isPending}
+                        className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded disabled:bg-gray-400"
+                        title="Lập chỉ mục lại file"
+                    >
+                        {reindexFileMutation.isPending ? '🔄...' : '🔄 Cập nhật'}
+                    </button>
+                )}
+
+                {indexingStatusText === 'not_started' && (
+                    <button
+                        onClick={handleReindexFile}
+                        disabled={reindexFileMutation.isPending}
+                        className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded disabled:bg-gray-400"
+                        title="Bắt đầu lập chỉ mục"
+                    >
+                        {reindexFileMutation.isPending ? '🚀...' : '🚀 Lập chỉ mục'}
+                    </button>
+                )}
+
                 <button
                     onClick={handleDeleteFile}
                     disabled={deleteFileMutation.isPending}

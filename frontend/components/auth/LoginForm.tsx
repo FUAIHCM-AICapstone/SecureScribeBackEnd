@@ -93,7 +93,9 @@ const LoginForm: React.FC<LoginFormProps> = (props) => {
         // Set cookies for access_token and refresh_token
         Cookies.set('access_token', res.data.token.access_token, { expires: 7 });
         Cookies.set('refresh_token', res.data.token.refresh_token, { expires: 30 });
-        login();
+
+        // Call login with tokens and user data
+        login(res.data.token, res.data.user);
         // Dispatch Redux login action with user info
         dispatch(loginAction({
           id: res.data.user.id,

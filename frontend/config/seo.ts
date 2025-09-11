@@ -1,27 +1,27 @@
 export const seoConfig = {
-  title: 'Meobeo.ai', // <= 60 ký tự
+  title: 'SecureScribe', // <= 60 ký tự
   description:
-    'Meobeo.ai giúp ghi chú, transcript, quản lý task và lịch sử cuộc họp tự động. Tiết kiệm 60% thời gian, bảo mật chuẩn quốc tế, tích hợp Google Meet, Zoom, Webex.', // 155-160 ký tự
-  url: 'https://meobeo.ai/',
+    'SecureScribe giúp ghi chú, transcript, quản lý task và lịch sử cuộc họp tự động. Tiết kiệm 60% thời gian, bảo mật chuẩn quốc tế, tích hợp Google Meet, Zoom, Webex.', // 155-160 ký tự
+  url: 'https://SecureScribe/',
   openGraph: {
     type: 'website',
     locale: 'vi_VN',
-    url: 'https://meobeo.ai/',
-    title: 'Meobeo.ai',
+    url: 'https://SecureScribe/',
+    title: 'SecureScribe',
     description:
-      'Meobeo.ai giúp ghi chú, transcript, quản lý task và lịch sử cuộc họp tự động. Tiết kiệm 60% thời gian, bảo mật chuẩn quốc tế, tích hợp Google Meet, Zoom, Webex.',
-    site_name: 'Meobeo.ai',
+      'SecureScribe giúp ghi chú, transcript, quản lý task và lịch sử cuộc họp tự động. Tiết kiệm 60% thời gian, bảo mật chuẩn quốc tế, tích hợp Google Meet, Zoom, Webex.',
+    site_name: 'SecureScribe',
     images: [
       {
-        url: 'https://meobeo.ai/images/background-features.jpg',
+        url: 'https://SecureScribe/images/background-features.jpg',
         width: 1200,
         height: 630,
-        alt: 'Meobeo.ai - AI Note Taker',
+        alt: 'SecureScribe - AI Note Taker',
       },
     ],
   },
   favicon: '/images/logos/logo.png',
-  canonical: 'https://meobeo.ai/',
+  canonical: 'https://SecureScribe/',
   keywords: [
     'AI Note Taker',
     'ghi chú cuộc họp tự động',
@@ -31,7 +31,7 @@ export const seoConfig = {
     'export meeting note',
     'tích hợp Google Calendar',
     'bảo mật dữ liệu',
-    'Meobeo.ai',
+    'SecureScribe',
   ],
   schema: {
     faq: true,
@@ -65,7 +65,7 @@ export const seoConfig = {
     },
   ],
   product: {
-    name: 'Meobeo.ai',
+    name: 'SecureScribe',
     slogan: 'AI Note Taker cho doanh nghiệp Việt',
     features: [
       'Tự động ghi âm và ghi chú cuộc họp',
@@ -122,11 +122,11 @@ export const seoConfig = {
     metaRobots: 'index, follow',
     ogType: 'website',
     ogLocale: 'vi_VN',
-    ogImage: 'https://meobeo.ai/images/background-features.jpg',
-    canonical: 'https://meobeo.ai/',
+    ogImage: 'https://SecureScribe/images/background-features.jpg',
+    canonical: 'https://SecureScribe/',
     alternateLangs: [
-      { hrefLang: 'vi', href: 'https://meobeo.ai/' },
-      { hrefLang: 'en', href: 'https://meobeo.ai/en' },
+      { hrefLang: 'vi', href: 'https://SecureScribe/' },
+      { hrefLang: 'en', href: 'https://SecureScribe/en' },
     ],
     structuredData: true,
   },

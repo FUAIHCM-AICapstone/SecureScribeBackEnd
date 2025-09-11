@@ -6,7 +6,7 @@ const App = () => {
       <header className="bg-[var(--primary-color)] text-white p-6 shadow-md">
         <div className="container mx-auto text-center">
           <h1 className="text-3xl md:text-4xl font-bold">
-            Chính sách bảo mật của Meobeo.ai Meeting
+            Chính sách bảo mật của SecureScribe Meeting
           </h1>
         </div>
       </header>
@@ -23,16 +23,16 @@ const App = () => {
         <section>
           {/* Privacy Policy Content in HTML (converted from Markdown for direct rendering) */}
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Chính sách Bảo mật này của Meobeo.ai Meeting phác thảo chi tiết cách
-            thức Meobeo.ai Meeting thu thập, sử dụng, tiết lộ và bảo vệ thông tin
-            cá nhân của người dùng. Meobeo.ai Meeting cam kết mạnh mẽ trong việc
+            Chính sách Bảo mật này của SecureScribe Meeting phác thảo chi tiết cách
+            thức SecureScribe Meeting thu thập, sử dụng, tiết lộ và bảo vệ thông tin
+            cá nhân của người dùng. SecureScribe Meeting cam kết mạnh mẽ trong việc
             bảo vệ quyền riêng tư và bảo mật dữ liệu của người dùng, đặc biệt
             trong bối cảnh các dịch vụ được hỗ trợ bởi trí tuệ nhân tạo (AI) của
             mình. Thông tin cá nhân chỉ được sử dụng theo đúng quy định trong
             chính sách này.
           </p>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Đối với một sản phẩm AI như Meobeo.ai Meeting, chính sách bảo mật
+            Đối với một sản phẩm AI như SecureScribe Meeting, chính sách bảo mật
             không chỉ là một tài liệu pháp lý đơn thuần; nó còn là một công cụ
             thiết yếu để xây dựng lòng tin với người dùng. Người dùng thường có
             những lo ngại chính đáng về cách các hệ thống AI xử lý dữ liệu cá
@@ -55,17 +55,17 @@ const App = () => {
           </h2>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Chính sách Bảo mật này có hiệu lực từ ngày 1/6/2025. Chính sách này
-            áp dụng cho tất cả các dịch vụ của Meobeo.ai Meeting, bao gồm trang
-            web Meobeo.ai Meeting, các chức năng sản phẩm AI cốt lõi, các ứng
+            áp dụng cho tất cả các dịch vụ của SecureScribe Meeting, bao gồm trang
+            web SecureScribe Meeting, các chức năng sản phẩm AI cốt lõi, các ứng
             dụng di động (nếu có) và bất kỳ dịch vụ hoặc tính năng liên quan nào
-            khác. Meobeo.ai Meeting cam kết bảo vệ quyền riêng tư và dữ liệu cá
+            khác. SecureScribe Meeting cam kết bảo vệ quyền riêng tư và dữ liệu cá
             nhân của người dùng, đảm bảo rằng mọi thông tin cá nhân đều được sử
             dụng đúng như đã nêu trong chính sách này.
           </p>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Chính sách Bảo mật này được coi là một phần không thể thiếu của Điều
-            khoản Dịch vụ và mọi Điều khoản Xử lý Dữ liệu áp dụng của Meobeo.ai
-            Meeting. Để sử dụng các Dịch vụ của Meobeo.ai Meeting, người dùng
+            khoản Dịch vụ và mọi Điều khoản Xử lý Dữ liệu áp dụng của SecureScribe
+            Meeting. Để sử dụng các Dịch vụ của SecureScribe Meeting, người dùng
             được yêu cầu phải đồng ý với cả Chính sách Bảo mật và Điều khoản
             Dịch vụ, đồng thời phải đủ 18 tuổi trở lên. Yêu cầu rõ ràng về độ
             tuổi "trên 18" không chỉ là một thủ tục pháp lý mà còn là một chiến
@@ -75,10 +75,10 @@ const App = () => {
             ro pháp lý và đạo đức đáng kể trên toàn cầu, với các luật như COPPA
             ở Hoa Kỳ và GDPR-K ở EU áp đặt các yêu cầu chặt chẽ hơn về sự đồng ý
             và giới hạn thu thập dữ liệu từ trẻ em. Bằng cách yêu cầu người dùng
-            phải đủ tuổi và đồng ý với các điều khoản, Meobeo.ai Meeting chủ động
+            phải đủ tuổi và đồng ý với các điều khoản, SecureScribe Meeting chủ động
             giảm thiểu các trách nhiệm pháp lý phức tạp và gánh nặng tuân thủ
             liên quan đến quyền riêng tư trực tuyến của trẻ em. Điều này giúp
-            đơn giản hóa khuôn khổ xử lý dữ liệu, cho phép Meobeo.ai Meeting tập
+            đơn giản hóa khuôn khổ xử lý dữ liệu, cho phép SecureScribe Meeting tập
             trung nỗ lực tuân thủ vào người dùng trưởng thành và thể hiện sự
             quản lý dữ liệu có trách nhiệm.
           </p>
@@ -90,21 +90,21 @@ const App = () => {
               marginBottom: '0.5rem',
             }}
           >
-            2. Giới thiệu Chính sách Bảo mật của Meobeo.ai Meeting
+            2. Giới thiệu Chính sách Bảo mật của SecureScribe Meeting
           </h2>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Chính sách Bảo mật này có hiệu lực từ ngày 1/6/2025. Chính sách này
-            áp dụng cho tất cả các dịch vụ của Meobeo.ai Meeting, bao gồm trang
-            web Meobeo.ai Meeting, các chức năng sản phẩm AI cốt lõi, các ứng
+            áp dụng cho tất cả các dịch vụ của SecureScribe Meeting, bao gồm trang
+            web SecureScribe Meeting, các chức năng sản phẩm AI cốt lõi, các ứng
             dụng di động (nếu có) và bất kỳ dịch vụ hoặc tính năng liên quan nào
-            khác. Meobeo.ai Meeting cam kết bảo vệ quyền riêng tư và dữ liệu cá
+            khác. SecureScribe Meeting cam kết bảo vệ quyền riêng tư và dữ liệu cá
             nhân của người dùng, đảm bảo rằng mọi thông tin cá nhân đều được sử
             dụng đúng như đã nêu trong chính sách này.
           </p>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Chính sách Bảo mật này được coi là một phần không thể thiếu của Điều
-            khoản Dịch vụ và mọi Điều khoản Xử lý Dữ liệu áp dụng của Meobeo.ai
-            Meeting. Để sử dụng các Dịch vụ của Meobeo.ai Meeting, người dùng
+            khoản Dịch vụ và mọi Điều khoản Xử lý Dữ liệu áp dụng của SecureScribe
+            Meeting. Để sử dụng các Dịch vụ của SecureScribe Meeting, người dùng
             được yêu cầu phải đồng ý với cả Chính sách Bảo mật và Điều khoản
             Dịch vụ, đồng thời phải đủ 18 tuổi trở lên. Yêu cầu rõ ràng về độ
             tuổi "trên 18" không chỉ là một thủ tục pháp lý mà còn là một chiến
@@ -114,10 +114,10 @@ const App = () => {
             ro pháp lý và đạo đức đáng kể trên toàn cầu, với các luật như COPPA
             ở Hoa Kỳ và GDPR-K ở EU áp đặt các yêu cầu chặt chẽ hơn về sự đồng ý
             và giới hạn thu thập dữ liệu từ trẻ em. Bằng cách yêu cầu người dùng
-            phải đủ tuổi và đồng ý với các điều khoản, Meobeo.ai Meeting chủ động
+            phải đủ tuổi và đồng ý với các điều khoản, SecureScribe Meeting chủ động
             giảm thiểu các trách nhiệm pháp lý phức tạp và gánh nặng tuân thủ
             liên quan đến quyền riêng tư trực tuyến của trẻ em. Điều này giúp
-            đơn giản hóa khuôn khổ xử lý dữ liệu, cho phép Meobeo.ai Meeting tập
+            đơn giản hóa khuôn khổ xử lý dữ liệu, cho phép SecureScribe Meeting tập
             trung nỗ lực tuân thủ vào người dùng trưởng thành và thể hiện sự
             quản lý dữ liệu có trách nhiệm.
           </p>
@@ -159,12 +159,12 @@ const App = () => {
               bảo vệ và trách nhiệm giải trình.
             </li>
             <li className="mb-2">
-              <strong>Dịch vụ:</strong> Phạm vi cung cấp của Meobeo.ai Meeting,
+              <strong>Dịch vụ:</strong> Phạm vi cung cấp của SecureScribe Meeting,
               bao gồm trang web, sản phẩm AI và các công cụ liên quan.
             </li>
             <li className="mb-2">
               <strong>Người dùng:</strong> Bất kỳ cá nhân nào truy cập hoặc sử
-              dụng Dịch vụ của Meobeo.ai Meeting, bao gồm người dùng đã đăng ký
+              dụng Dịch vụ của SecureScribe Meeting, bao gồm người dùng đã đăng ký
               và khách truy cập.
             </li>
             <li className="mb-2">
@@ -187,7 +187,7 @@ const App = () => {
             4. Thông tin chúng tôi thu thập
           </h2>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting thu thập nhiều loại thông tin khác nhau để cung cấp
+            SecureScribe Meeting thu thập nhiều loại thông tin khác nhau để cung cấp
             và cải thiện Dịch vụ của mình. Các loại thông tin này được phân loại
             rõ ràng như sau:
           </p>
@@ -213,7 +213,7 @@ const App = () => {
             </li>
             <li className="mb-2">
               <strong>Dữ liệu liên lạc:</strong> Hồ sơ thư từ khi người dùng
-              liên hệ với Meobeo.ai Meeting qua email, kênh hỗ trợ hoặc phần
+              liên hệ với SecureScribe Meeting qua email, kênh hỗ trợ hoặc phần
               "Liên hệ".
             </li>
             <li className="mb-2">
@@ -229,7 +229,7 @@ const App = () => {
               các ứng viên (nếu có).
             </li>
             <li className="mb-2">
-              <strong>Dữ liệu sản phẩm AI cốt lõi:</strong> Meobeo.ai Meeting thu
+              <strong>Dữ liệu sản phẩm AI cốt lõi:</strong> SecureScribe Meeting thu
               thập dữ liệu lịch, dữ liệu cuộc họp (âm thanh, bản ghi văn bản) và
               các dữ liệu phái sinh do AI tạo ra như tóm tắt, mục hành động, bản
               nháp nội dung. Các loại dữ liệu này có thể chứa thông tin cá nhân
@@ -239,7 +239,7 @@ const App = () => {
               tắt, phân tích nội dung. Dữ liệu được thu thập thông qua tích hợp
               với các công cụ hội nghị hoặc lịch mà người dùng kết nối với Chang
               AI Meeting. Chỉ những nhân sự hoặc hệ thống được ủy quyền mới có
-              quyền truy cập dữ liệu này, và Meobeo.ai Meeting áp dụng các biện
+              quyền truy cập dữ liệu này, và SecureScribe Meeting áp dụng các biện
               pháp bảo mật nghiêm ngặt để bảo vệ dữ liệu. Nếu bạn cần làm rõ
               loại dữ liệu nào được thu thập hoặc cách xử lý, vui lòng đặt câu
               hỏi để chúng tôi trả lời cụ thể.
@@ -264,7 +264,7 @@ const App = () => {
               <strong>Dữ liệu sử dụng:</strong> Dữ liệu về tương tác của người
               dùng với Dịch vụ (Các thuật ngữ tìm kiếm, các trang đã xem, các
               tính năng đã sử dụng, thời gian sử dụng, tỷ lệ thoát, luồng nhấp
-              chuột). Dữ liệu này giúp Meobeo.ai Meeting hiểu hành vi người dùng
+              chuột). Dữ liệu này giúp SecureScribe Meeting hiểu hành vi người dùng
               và cải thiện việc cung cấp dịch vụ.
             </li>
             <li className="mb-2">
@@ -284,7 +284,7 @@ const App = () => {
           </h3>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Đây là thông tin mà người dùng tự nguyện công khai thông qua các
-            tính năng cộng tác (hồ sơ công khai, hình đại diện). Meobeo.ai
+            tính năng cộng tác (hồ sơ công khai, hình đại diện). SecureScribe
             Meeting không có nghĩa vụ giữ bí mật thông tin như vậy và khuyên
             người dùng nên thận trọng khi tiết lộ Thông tin cá nhân có thể nhận
             dạng hoặc định vị họ.
@@ -292,7 +292,7 @@ const App = () => {
 
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Để minh bạch và rõ ràng hơn, bảng sau đây tóm tắt các loại thông tin
-            được Meobeo.ai Meeting thu thập:
+            được SecureScribe Meeting thu thập:
           </p>
           <div className="overflow-x-auto mb-6">
             <table className="min-w-full bg-[var(--background-color)] border border-gray-200 rounded-lg shadow-sm ">
@@ -360,7 +360,7 @@ const App = () => {
             5. Cách chúng tôi sử dụng Cookie và các công nghệ theo dõi khác
           </h2>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting sử dụng cookie, web beacon, bộ nhớ cục bộ, SDK và
+            SecureScribe Meeting sử dụng cookie, web beacon, bộ nhớ cục bộ, SDK và
             các công nghệ theo dõi tương tự để thu thập thông tin về thiết bị,
             thói quen duyệt web và cách sử dụng. Dữ liệu này được sử dụng cho
             các mục đích sau:
@@ -417,13 +417,13 @@ const App = () => {
             6. Cách chúng tôi sử dụng thông tin thu thập được
           </h2>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting sử dụng thông tin thu thập được cho các mục đích cụ
+            SecureScribe Meeting sử dụng thông tin thu thập được cho các mục đích cụ
             thể sau, đảm bảo tính minh bạch và tuân thủ các cơ sở pháp lý:
           </p>
           <ul className="list-disc list-inside ml-4  text-[var(--text-color)]">
             <li className="mb-2">
               <strong>Cung cấp và quản lý Dịch vụ:</strong> Vận hành, duy trì và
-              cung cấp quyền truy cập vào trang web Meobeo.ai Meeting và các chức
+              cung cấp quyền truy cập vào trang web SecureScribe Meeting và các chức
               năng AI của nó, bao gồm xử lý thanh toán cho các tính năng trả
               phí.
             </li>
@@ -441,18 +441,18 @@ const App = () => {
             <li className="mb-2">
               <strong>Liên lạc:</strong> Gửi các thông báo dịch vụ, bản phát
               hành mới, cập nhật tính năng, cảnh báo bảo mật và các ưu đãi từ
-              Meobeo.ai Meeting hoặc các bên thứ ba được chọn.
+              SecureScribe Meeting hoặc các bên thứ ba được chọn.
             </li>
             <li className="mb-2">
               <strong>Bảo mật và thực thi:</strong> Thực thi Điều khoản Dịch vụ,
               giải quyết tranh chấp, phát hiện và ngăn chặn gian lận, bảo vệ
-              quyền, tài sản hoặc sự an toàn của Meobeo.ai Meeting, người dùng
+              quyền, tài sản hoặc sự an toàn của SecureScribe Meeting, người dùng
               hoặc công chúng.
             </li>
             <li className="mb-2">
               <strong>Tuân thủ pháp luật:</strong> Tuân thủ các nghĩa vụ pháp
               lý, đáp ứng các yêu cầu hợp pháp từ các cơ quan công quyền và bảo
-              vệ lợi ích pháp lý của Meobeo.ai Meeting.
+              vệ lợi ích pháp lý của SecureScribe Meeting.
             </li>
             <li className="mb-2">
               <strong>Phản hồi và hỗ trợ:</strong> Nhận phản hồi từ người dùng,
@@ -508,7 +508,7 @@ const App = () => {
             7. Cách chúng tôi chia sẻ thông tin của bạn
           </h2>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting có thể chia sẻ thông tin cá nhân với các bên thứ ba
+            SecureScribe Meeting có thể chia sẻ thông tin cá nhân với các bên thứ ba
             trong các trường hợp cần thiết và tuân thủ luật pháp. Các danh mục
             bên thứ ba này bao gồm:
           </p>
@@ -517,26 +517,26 @@ const App = () => {
             Với các nhà cung cấp dịch vụ
           </h3>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting chia sẻ thông tin với các nhà cung cấp dịch vụ bên
-            thứ ba đáng tin cậy thực hiện các dịch vụ thay mặt cho Meobeo.ai
+            SecureScribe Meeting chia sẻ thông tin với các nhà cung cấp dịch vụ bên
+            thứ ba đáng tin cậy thực hiện các dịch vụ thay mặt cho SecureScribe
             Meeting (bộ xử lý thanh toán, lưu trữ web, lưu trữ dữ liệu, dịch vụ
             điện toán đám mây, hỗ trợ phát triển, công cụ hỗ trợ khách hàng, nhà
             cung cấp phân tích). Điều quan trọng là điều này bao gồm các nhà
             cung cấp mô hình AI bên thứ ba hoặc các dịch vụ xử lý AI chuyên biệt
-            nếu Meobeo.ai Meeting tận dụng các API hoặc cơ sở hạ tầng AI bên
+            nếu SecureScribe Meeting tận dụng các API hoặc cơ sở hạ tầng AI bên
             ngoài. Các nhà cung cấp này bị ràng buộc theo hợp đồng để bảo vệ dữ
-            liệu và chỉ sử dụng dữ liệu cho các mục đích được Meobeo.ai Meeting
+            liệu và chỉ sử dụng dữ liệu cho các mục đích được SecureScribe Meeting
             chỉ định, và các Thỏa thuận Xử lý Dữ liệu (DPA) được áp dụng. Đối
             với một sản phẩm AI, danh mục "nhà cung cấp dịch vụ" đặc biệt quan
             trọng vì nó có thể bao gồm các nhà cung cấp mô hình AI bên thứ ba
             hoặc các nhà cung cấp xử lý dữ liệu chuyên biệt. Nhiều sản phẩm AI
             tận dụng các mô hình AI của bên thứ ba (các mô hình ngôn ngữ lớn từ
             Google) hoặc các dịch vụ đám mây chuyên biệt được tối ưu hóa cho
-            việc xử lý AI. Nếu Meobeo.ai Meeting sử dụng các dịch vụ như vậy, các
+            việc xử lý AI. Nếu SecureScribe Meeting sử dụng các dịch vụ như vậy, các
             bên thứ ba này sẽ xử lý dữ liệu người dùng có tính nhạy cảm cao (bản
-            ghi cuộc họp, đầu vào của người dùng) mà Meobeo.ai Meeting thu thập.
+            ghi cuộc họp, đầu vào của người dùng) mà SecureScribe Meeting thu thập.
             Điều này làm tăng đáng kể mức độ rủi ro, vì dữ liệu nằm ngoài sự
-            kiểm soát trực tiếp của Meobeo.ai Meeting, ngay cả khi chỉ để xử lý.
+            kiểm soát trực tiếp của SecureScribe Meeting, ngay cả khi chỉ để xử lý.
             Chính sách phải nêu rõ ràng nếu các nhà cung cấp mô hình AI bên thứ
             ba hoặc các dịch vụ xử lý AI được sử dụng và làm rõ vai trò của họ
             (ví dụ: là nhà xử lý dữ liệu). Cam kết về các DPA nghiêm ngặt trở
@@ -552,7 +552,7 @@ const App = () => {
             Thông tin có thể được tiết lộ cho các cơ quan công quyền (cơ quan
             thực thi pháp luật, tòa án, cơ quan chính phủ) nếu được yêu cầu hợp
             pháp, để đáp ứng trát đòi hầu tòa hoặc lệnh của tòa án, hoặc để bảo
-            vệ quyền, tài sản hoặc sự an toàn của Meobeo.ai Meeting, người dùng
+            vệ quyền, tài sản hoặc sự an toàn của SecureScribe Meeting, người dùng
             hoặc công chúng.
           </p>
 
@@ -571,7 +571,7 @@ const App = () => {
             Không bán thông tin cá nhân
           </h3>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting khẳng định rõ ràng rằng họ không bán thông tin cá
+            SecureScribe Meeting khẳng định rõ ràng rằng họ không bán thông tin cá
             nhân cho các bên thứ ba cho mục đích tiếp thị trực tiếp của họ. Một
             trong những nỗi sợ hãi lớn nhất của người dùng đối với các dịch vụ
             trực tuyến, đặc biệt là các sản phẩm AI xử lý lượng lớn dữ liệu cá
@@ -582,7 +582,7 @@ const App = () => {
             bản này, vốn thường là nguyên nhân sâu xa của những lo ngại về quyền
             riêng tư rộng hơn. Tuyên bố này không chỉ tuân thủ quy định mà còn
             là một tín hiệu tin cậy mạnh mẽ, tăng cường đáng kể sự tin tưởng của
-            người dùng và danh tiếng của Meobeo.ai Meeting như một dịch vụ quan
+            người dùng và danh tiếng của SecureScribe Meeting như một dịch vụ quan
             tâm đến quyền riêng tư. Đối với một sản phẩm AI, nơi ranh giới giữa
             "xử lý để cải thiện dịch vụ" và "kiếm tiền từ dữ liệu" có thể cảm
             thấy mơ hồ đối với người dùng, sự làm rõ này mang lại sự đảm bảo
@@ -591,7 +591,7 @@ const App = () => {
 
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Để tăng cường sự minh bạch, bảng sau đây cung cấp tổng quan về các
-            danh mục bên thứ ba mà Meobeo.ai Meeting có thể chia sẻ thông tin:
+            danh mục bên thứ ba mà SecureScribe Meeting có thể chia sẻ thông tin:
           </p>
           <div className="overflow-x-auto mb-6">
             <table className="min-w-full bg-[var(--background-color)] border border-gray-200 rounded-lg shadow-sm">
@@ -681,20 +681,20 @@ const App = () => {
 
         <section className="mb-10">
           <h2 className="text-3xl font-semibold text-[var(--primary-color)] mb-4">
-            8. Các cân nhắc cụ thể về xử lý dữ liệu sản phẩm AI của Meobeo.ai
+            8. Các cân nhắc cụ thể về xử lý dữ liệu sản phẩm AI của SecureScribe
             Meeting
           </h2>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Phần này dành riêng để giải quyết các ý nghĩa về quyền riêng tư và
             các biện pháp bảo vệ độc đáo liên quan đến các chức năng AI của
-            Meobeo.ai Meeting.
+            SecureScribe Meeting.
           </p>
 
           <h3 className="text-2xl font-semibold text-[var(--primary-color)] mb-3">
             Cách AI xử lý dữ liệu người dùng
           </h3>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            AI của Meobeo.ai Meeting xử lý các đầu vào của người dùng ( âm thanh
+            AI của SecureScribe Meeting xử lý các đầu vào của người dùng ( âm thanh
             cuộc họp, văn bản, mục nhập lịch) để thực hiện các chức năng cốt lõi
             của nó (phiên âm, tóm tắt, tạo nội dung, phân tích cảm xúc). Việc xử
             lý này có thể liên quan đến xử lý ngôn ngữ tự nhiên (NLP), học máy
@@ -705,7 +705,7 @@ const App = () => {
             Quyền kiểm soát của người dùng đối với dữ liệu được xử lý bởi AI
           </h3>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting cung cấp các cơ chế để người dùng quản lý, sửa đổi
+            SecureScribe Meeting cung cấp các cơ chế để người dùng quản lý, sửa đổi
             hoặc xóa các đầu vào dữ liệu thô và đầu ra do AI tạo ra. Người dùng
             có các tùy chọn để từ chối việc dữ liệu của họ được sử dụng để cải
             thiện mô hình AI chung (bằng cách đóng góp vào các bộ dữ liệu đào
@@ -716,12 +716,12 @@ const App = () => {
             Giới hạn trách nhiệm liên quan đến việc sử dụng AI
           </h3>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Mặc dù Meobeo.ai Meeting thực hiện các biện pháp hợp lý để bảo vệ
+            Mặc dù SecureScribe Meeting thực hiện các biện pháp hợp lý để bảo vệ
             quyền riêng tư và đảm bảo hiệu suất AI, nhưng công ty không chịu
             trách nhiệm về mất mát hoặc thiệt hại do người dùng dựa vào các đầu
             ra của AI hoặc từ nội dung người dùng nhập vào AI. Người dùng chấp
             nhận những rủi ro vốn có của công nghệ AI và đồng ý bồi thường cho
-            Meobeo.ai Meeting đối với các vấn đề phát sinh từ các đầu vào hoặc
+            SecureScribe Meeting đối với các vấn đề phát sinh từ các đầu vào hoặc
             việc sử dụng sai mục đích của họ. Điều khoản bồi thường này là một
             biện pháp bảo vệ pháp lý quan trọng cho một sản phẩm AI, nhằm chuyển
             một số rủi ro nhất định trở lại người dùng, đặc biệt liên quan đến{' '}
@@ -730,7 +730,7 @@ const App = () => {
             xử lý nội dung do người dùng tạo (như bản ghi cuộc họp, đầu vào văn
             bản để tạo nội dung), có thể tạo ra các đầu ra không chính xác,
             thiên vị hoặc thậm chí vi phạm quyền của bên thứ ba (bản quyền, phỉ
-            báng). Nhà cung cấp AI (Meobeo.ai Meeting) không thể kiểm soát hoàn
+            báng). Nhà cung cấp AI (SecureScribe Meeting) không thể kiểm soát hoàn
             toàn <em>đầu vào</em> do người dùng cung cấp hoặc đảm bảo{' '}
             <em>độ chính xác tuyệt đối hoặc sự phù hợp</em> của việc diễn giải
             hoặc đầu ra của AI. Điều khoản này nhằm quản lý các rủi ro vốn có
@@ -743,7 +743,7 @@ const App = () => {
             Các tùy chọn cách ly dữ liệu nâng cao (nếu được cung cấp)
           </h3>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Nếu Meobeo.ai Meeting cung cấp các cấp độ cao cấp hoặc dịch vụ đám
+            Nếu SecureScribe Meeting cung cấp các cấp độ cao cấp hoặc dịch vụ đám
             mây riêng, chính sách sẽ giải thích cách các dịch vụ này cung cấp
             khả năng cách ly dữ liệu và bảo mật nâng cao cho khách hàng yêu cầu
             tuân thủ nghiêm ngặt (để xử lý Thông tin sức khỏe được bảo vệ (PHI)
@@ -755,7 +755,7 @@ const App = () => {
             mức độ riêng tư và cách ly dữ liệu cao hơn, đặc biệt từ các ngành
             được quản lý (chăm sóc sức khỏe, tài chính, pháp lý) hoặc các doanh
             nghiệp lớn có các yêu cầu tuân thủ nội bộ nghiêm ngặt (nơi cư trú dữ
-            liệu, kiểm soát truy cập nghiêm ngặt). Nếu Meobeo.ai Meeting có ý
+            liệu, kiểm soát truy cập nghiêm ngặt). Nếu SecureScribe Meeting có ý
             định nhắm mục tiêu đến các khách hàng doanh nghiệp hoặc hoạt động
             trong các lĩnh vực được quản lý chặt chẽ, việc cung cấp một dịch vụ
             như vậy không chỉ là một tính năng bảo mật mà còn là một yếu tố khác
@@ -771,7 +771,7 @@ const App = () => {
             9. Bảo mật dữ liệu
           </h2>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting cam kết bảo vệ dữ liệu người dùng khỏi việc truy
+            SecureScribe Meeting cam kết bảo vệ dữ liệu người dùng khỏi việc truy
             cập, tiết lộ, thay đổi và phá hủy trái phép. Các biện pháp bảo mật
             chung được thực hiện bao gồm:
           </p>
@@ -815,16 +815,16 @@ const App = () => {
             lực cải thiện mô hình cụ thể hay không. Việc cung cấp các chi tiết
             cụ thể hơn (nhưng vẫn ở cấp cao) về các biện pháp bảo mật được điều
             chỉnh cho việc xử lý dữ liệu AI sẽ xây dựng niềm tin và sự tự tin
-            lớn hơn. Nó chứng minh rằng Meobeo.ai Meeting hiểu các thách thức bảo
+            lớn hơn. Nó chứng minh rằng SecureScribe Meeting hiểu các thách thức bảo
             mật độc đáo do AI đặt ra và đã thực hiện các biện pháp mục tiêu, phù
             hợp với các nguyên tắc như "bảo mật theo thiết kế" và "quyền riêng
             tư theo thiết kế".
           </p>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting thừa nhận rằng không có phương pháp truyền dữ liệu
+            SecureScribe Meeting thừa nhận rằng không có phương pháp truyền dữ liệu
             qua Internet hoặc lưu trữ điện tử nào là an toàn 100%, do đó, Chang
             AI Meeting không thể đảm bảo an toàn tuyệt đối. Để biết thêm thông
-            tin chi tiết về các biện pháp bảo mật của Meobeo.ai Meeting, người
+            tin chi tiết về các biện pháp bảo mật của SecureScribe Meeting, người
             dùng có thể truy cập trang bảo mật chuyên dụng.
           </p>
         </section>
@@ -834,7 +834,7 @@ const App = () => {
             10. Quyền và lựa chọn về quyền riêng tư của bạn
           </h2>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting cam kết cung cấp cho người dùng quyền kiểm soát đối
+            SecureScribe Meeting cam kết cung cấp cho người dùng quyền kiểm soát đối
             với thông tin cá nhân của họ. Người dùng có các quyền sau:
           </p>
           <ul className="list-disc list-inside ml-4  text-[var(--text-color)]">
@@ -894,18 +894,18 @@ const App = () => {
           </p>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Để thực hiện các quyền của mình, người dùng có thể làm theo hướng
-            dẫn trong cài đặt tài khoản của họ hoặc liên hệ với Meobeo.ai Meeting
-            qua địa chỉ email được chỉ định. Meobeo.ai Meeting sẽ cố gắng phản
+            dẫn trong cài đặt tài khoản của họ hoặc liên hệ với SecureScribe Meeting
+            qua địa chỉ email được chỉ định. SecureScribe Meeting sẽ cố gắng phản
             hồi các yêu cầu trong khung thời gian hợp lý (trong vòng bảy ngày
             làm việc đối với yêu cầu hủy hoặc xóa tài khoản).
           </p>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Người dùng có quyền khiếu nại với cơ quan giám sát, nhưng Meobeo.ai
-            Meeting khuyến khích người dùng liên hệ với Meobeo.ai Meeting trước
+            Người dùng có quyền khiếu nại với cơ quan giám sát, nhưng SecureScribe
+            Meeting khuyến khích người dùng liên hệ với SecureScribe Meeting trước
             để giải quyết vấn đề.
           </p>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting hiện không thực hiện hành động nào để phản hồi các
+            SecureScribe Meeting hiện không thực hiện hành động nào để phản hồi các
             tín hiệu "không theo dõi" từ trình duyệt web.
           </p>
         </section>
@@ -915,13 +915,13 @@ const App = () => {
             11. Chuyển giao dữ liệu quốc tế
           </h2>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting có trụ sở tại Việt Nam. Trong quá trình cung cấp
+            SecureScribe Meeting có trụ sở tại Việt Nam. Trong quá trình cung cấp
             dịch vụ, dữ liệu cá nhân có thể được truyền, lưu trữ và xử lý tại
-            Việt Nam hoặc chuyển ra nước ngoài đến các quốc gia nơi Meobeo.ai
+            Việt Nam hoặc chuyển ra nước ngoài đến các quốc gia nơi SecureScribe
             Meeting hoặc các đối tác, nhà cung cấp dịch vụ đang hoạt động.
           </p>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Việc chuyển giao dữ liệu cá nhân ra nước ngoài của Meobeo.ai Meeting
+            Việc chuyển giao dữ liệu cá nhân ra nước ngoài của SecureScribe Meeting
             được thực hiện theo đúng quy định tại Điều 43 và Điều 44 Nghị định
             13/2023/NĐ-CP. Các điều kiện bao gồm:
           </p>
@@ -946,7 +946,7 @@ const App = () => {
             </li>
           </ul>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting không chuyển giao dữ liệu cá nhân ra nước ngoài cho
+            SecureScribe Meeting không chuyển giao dữ liệu cá nhân ra nước ngoài cho
             mục đích khác với mục đích ban đầu nếu không có sự đồng ý lại từ
             người dùng. Chúng tôi cũng không chia sẻ dữ liệu cá nhân với bên thứ
             ba bên ngoài Việt Nam nếu bên đó không đáp ứng đầy đủ các yêu cầu
@@ -954,7 +954,7 @@ const App = () => {
           </p>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Việc tuân thủ đầy đủ các quy định pháp lý liên quan đến chuyển giao
-            dữ liệu không chỉ giúp Meobeo.ai Meeting giảm thiểu rủi ro pháp lý mà
+            dữ liệu không chỉ giúp SecureScribe Meeting giảm thiểu rủi ro pháp lý mà
             còn củng cố niềm tin với người dùng, đặc biệt trong bối cảnh các sản
             phẩm AI xử lý nội dung nhạy cảm như dữ liệu cuộc họp ngày càng bị
             giám sát chặt chẽ về quyền riêng tư và chủ quyền dữ liệu.
@@ -966,9 +966,9 @@ const App = () => {
             12. Tuân thủ các quy định bảo vệ dữ liệu cá nhân
           </h2>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting cam kết tuân thủ nghiêm ngặt các quy định bảo vệ dữ
+            SecureScribe Meeting cam kết tuân thủ nghiêm ngặt các quy định bảo vệ dữ
             liệu cá nhân theo từng khu vực pháp lý mà chúng tôi phục vụ. Với trụ
-            sở đặt tại TP. Hồ Chí Minh, Việt Nam, Meobeo.ai Meeting đảm bảo tuân
+            sở đặt tại TP. Hồ Chí Minh, Việt Nam, SecureScribe Meeting đảm bảo tuân
             thủ đầy đủ pháp luật Việt Nam về an toàn thông tin và dữ liệu cá
             nhân, đồng thời áp dụng các tiêu chuẩn quốc tế để bảo vệ quyền riêng
             tư của người dùng trên toàn cầu.
@@ -978,13 +978,13 @@ const App = () => {
             Tuân thủ pháp luật Việt Nam về bảo vệ dữ liệu cá nhân
           </h3>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Meobeo.ai Meeting tuân thủ Luật An ninh mạng 2018 và Nghị định
+            SecureScribe Meeting tuân thủ Luật An ninh mạng 2018 và Nghị định
             13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân. Chúng tôi chỉ thu thập và
             xử lý dữ liệu khi có sự đồng thuận rõ ràng từ người dùng và đảm bảo
             rằng dữ liệu được sử dụng đúng mục đích, giới hạn trong phạm vi cần
             thiết. Người dùng có quyền yêu cầu truy cập, chỉnh sửa, xóa dữ liệu,
             phản đối việc xử lý và yêu cầu rút lại sự đồng thuận bất kỳ lúc nào
-            theo đúng quy định pháp luật. Meobeo.ai Meeting không chia sẻ, mua
+            theo đúng quy định pháp luật. SecureScribe Meeting không chia sẻ, mua
             bán dữ liệu cá nhân với bất kỳ bên thứ ba nào cho mục đích thương
             mại hoặc tiếp thị trực tiếp.
           </p>
@@ -993,11 +993,11 @@ const App = () => {
             Tuân thủ CCPA/CPRA đối với người dùng California
           </h3>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Đối với cư dân California, Meobeo.ai Meeting tuân thủ các quyền theo
+            Đối với cư dân California, SecureScribe Meeting tuân thủ các quyền theo
             Đạo luật CCPA và CPRA, bao gồm quyền biết, quyền truy cập, quyền yêu
             cầu xóa, quyền từ chối chia sẻ dữ liệu và quyền không bị phân biệt
             đối xử khi thực hiện các quyền nói trên. Người dùng có thể chỉ định
-            đại lý được ủy quyền thay mặt gửi yêu cầu bảo vệ dữ liệu. Meobeo.ai
+            đại lý được ủy quyền thay mặt gửi yêu cầu bảo vệ dữ liệu. SecureScribe
             Meeting không bán hoặc chia sẻ dữ liệu người dùng California cho mục
             đích tiếp thị.
           </p>
@@ -1006,11 +1006,11 @@ const App = () => {
             Tuân thủ GDPR đối với người dùng tại EU và Vương quốc Anh
           </h3>
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
-            Khi cung cấp dịch vụ tới người dùng tại EU và Anh, Meobeo.ai Meeting
+            Khi cung cấp dịch vụ tới người dùng tại EU và Anh, SecureScribe Meeting
             áp dụng đầy đủ các nguyên tắc của Quy định chung về bảo vệ dữ liệu
             (GDPR), bao gồm tính hợp pháp, minh bạch, giới hạn mục đích, giảm
             thiểu dữ liệu, độ chính xác, giới hạn lưu trữ, tính toàn vẹn, bảo
-            mật và trách nhiệm giải trình. Meobeo.ai Meeting sẵn sàng hợp tác với
+            mật và trách nhiệm giải trình. SecureScribe Meeting sẵn sàng hợp tác với
             các Cơ quan Bảo vệ Dữ liệu (DPA) của EU và Văn phòng Ủy viên Thông
             tin (ICO) của Anh trong việc giải quyết các khiếu nại liên quan đến
             quyền riêng tư và dữ liệu cá nhân.
@@ -1059,10 +1059,10 @@ const App = () => {
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Chính sách Bảo mật này có thể được cập nhật định kỳ để phản ánh
             những thay đổi trong các hoạt động, dịch vụ hoặc yêu cầu pháp lý của
-            Meobeo.ai Meeting. Ngày "Cập nhật lần cuối" ở đầu chính sách sẽ cho
-            biết bản sửa đổi mới nhất. Meobeo.ai Meeting sẽ cố gắng thông báo cho
+            SecureScribe Meeting. Ngày "Cập nhật lần cuối" ở đầu chính sách sẽ cho
+            biết bản sửa đổi mới nhất. SecureScribe Meeting sẽ cố gắng thông báo cho
             người dùng về các thay đổi thông qua email, thông báo nổi bật trên
-            trang web hoặc trong ứng dụng. Tuy nhiên, Meobeo.ai Meeting không
+            trang web hoặc trong ứng dụng. Tuy nhiên, SecureScribe Meeting không
             chịu trách nhiệm nếu không làm được điều đó. Việc tiếp tục sử dụng
             Dịch vụ sau bất kỳ thay đổi nào sẽ cấu thành sự chấp nhận Chính sách
             Bảo mật đã sửa đổi.
@@ -1079,7 +1079,7 @@ const App = () => {
             mới có thể đòi hỏi các bản cập nhật chính sách thường xuyên hơn và
             có khả năng quan trọng hơn so với một trang web tĩnh. Các thay đổi
             về cách dữ liệu nhạy cảm được AI xử lý đặc biệt có tác động. Với
-            tính chất động của AI, Meobeo.ai Meeting nên nỗ lực giao tiếp chủ
+            tính chất động của AI, SecureScribe Meeting nên nỗ lực giao tiếp chủ
             động và rõ ràng về các thay đổi, đặc biệt là những thay đổi liên
             quan đến cách AI xử lý dữ liệu hoặc các thực tiễn chia sẻ dữ liệu
             mới. Mặc dù "cố gắng thông báo" và "tiếp tục sử dụng cấu thành sự
@@ -1101,7 +1101,7 @@ const App = () => {
           <p style={{ color: 'var(--text-color)', marginBottom: '1rem' }}>
             Để có bất kỳ mối quan tâm hoặc câu hỏi nào về Chính sách Bảo mật
             này, hoặc các yêu cầu liên quan đến quyền của người dùng, vui lòng
-            liên hệ với Meobeo.ai Meeting qua địa chỉ email chuyên dụng:{' '}
+            liên hệ với SecureScribe Meeting qua địa chỉ email chuyên dụng:{' '}
             <a
               href="mailto:assistant.meowmo@gmail.com"
               className="text-[var(--primary-color)] hover:underline"

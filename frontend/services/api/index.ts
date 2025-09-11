@@ -36,6 +36,10 @@ export {
     updateFCMToken as updateUserFCMToken
 } from './user';
 
+// Search API
+export * from './search';
+
 // Legacy exports for backward compatibility
 export { default as authApi } from './auth';
 export { default as userApi } from './user';
+export { default as searchApi } from './search';

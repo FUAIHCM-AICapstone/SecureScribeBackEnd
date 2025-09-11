@@ -1,23 +1,23 @@
 {
   "AuthLayout": {
     "logoAlt": "Logo FPT Telecom",
-    "title": "Chào mừng đến với Meobeo.ai",
+    "title": "Chào mừng đến với SecureScribe",
     "aiAgent": "AI Agent",
     "community": "cộng đồng",
     "aiFirst": "AI-first",
     "pioneer": "tiên phong",
     "fptTelecom": "FPT Telecom",
     "taskForce": "Task Force",
-    "description": "Trải nghiệm đăng nhập hiện đại bởi FPT Telecom và Meobeo.ai.",
-    "welcomeTitle": "Chào mừng đến với Meobeo.ai",
+    "description": "Trải nghiệm đăng nhập hiện đại bởi FPT Telecom và SecureScribe.",
+    "welcomeTitle": "Chào mừng đến với SecureScribe",
     "subtitle": "Trợ lý cuộc họp AI thông minh",
     "tagline": "Nâng cao hiệu quả cuộc họp | Giải pháp AI tối ưu hoá cho tiếng Việt",
     "mascotAlt": "Mascot Meobeo",
-    "mascotLabel": "Meobeo.ai",
+    "mascotLabel": "SecureScribe",
     "or": "hoặc",
     "loginGoogle": "Đăng nhập với Google",
     "loginAzure": "Đăng nhập với Azure AD",
-    "copyright": "© 2025 Meobeo.ai. Đã đăng ký bản quyền."
+    "copyright": "© 2025 SecureScribe. Đã đăng ký bản quyền."
   },
   "HomePage": {
     "title": "Xin chào thế giới!",
@@ -31,7 +31,7 @@
       },
       "users": "+50",
       "userLabel": "người dùng đã tin tưởng sử dụng chúng tôi",
-      "brand": "Meobeo.ai",
+      "brand": "SecureScribe",
       "summaryCard": {
         "title": "Tóm tắt cuộc họp",
         "description": "Cô đọng, tóm tắt lại cuộc họp bằng AI trực tiếp & gián tiếp",
@@ -104,7 +104,7 @@
 
     "stack": {
       "catAlt": "Biểu tượng mèo",
-      "laptopAlt": "Laptop với Meobeo.ai",
+      "laptopAlt": "Laptop với SecureScribe",
       "miniCatAlt": "Biểu tượng mèo nhỏ",
       "chromeStoreAlt": "Chrome Web Store",
       "bottom": {
@@ -112,7 +112,7 @@
         "strong": "Chờ gì mà không thử ngay!",
         "desc": "Nhấn để cài đặt"
       },
-      "title": "Làm việc thông minh hơn với Meobeo.ai",
+      "title": "Làm việc thông minh hơn với SecureScribe",
       "overview": "Tổng quan",
       "description": "Tăng tốc quá trình phát triển với bộ khởi động Next.js mạnh mẽ, giàu tính năng, được thiết kế cho tốc độ, khả năng mở rộng và năng suất lập trình viên. Đây là những điểm nổi bật:",
       "timeline": [
@@ -141,9 +141,9 @@
     },
     "installation": "Hướng dẫn cài đặt và thiết lập dự án dễ dàng.",
     "testimonials": {
-      "title": "Người dùng nói gì về Meobeo.ai",
+      "title": "Người dùng nói gì về SecureScribe",
       "description": "Lắng nghe chia sẻ từ các lập trình viên đã tăng tốc dự án với Next.js Starter Kit này.",
-      "ctaTitle": "Tại sao nên chọn Meobeo.ai?",
+      "ctaTitle": "Tại sao nên chọn SecureScribe?",
       "ctaButton": "Khám phá ngay",
       "benefits": [
         "Tiết kiệm thời gian với ghi chép tự động",
@@ -155,7 +155,7 @@
         {
           "name": "Nguyễn Văn A",
           "title": "Frontend Developer",
-          "review": "Meobeo.ai giúp tôi triển khai dự án nhanh hơn rất nhiều. Bộ starter rất dễ dùng và mở rộng."
+          "review": "SecureScribe giúp tôi triển khai dự án nhanh hơn rất nhiều. Bộ starter rất dễ dùng và mở rộng."
         },
         {
           "name": "Trần Thị B",
@@ -170,7 +170,7 @@
         {
           "name": "Phạm Thị D",
           "title": "Product Manager",
-          "review": "Tôi thích cách Meobeo.ai giúp quản lý cuộc họp và phân tích dữ liệu. Rất hữu ích!"
+          "review": "Tôi thích cách SecureScribe giúp quản lý cuộc họp và phân tích dữ liệu. Rất hữu ích!"
         }
       ]
     }
@@ -191,8 +191,8 @@
     "getStarted": "Thử ngay"
   },
   "Footer": {
-    "copyright": "Bản quyền © {year} Meobeo.ai. Đã đăng ký bản quyền.",
-    "title": "Meobeo.ai",
+    "copyright": "Bản quyền © {year} SecureScribe. Đã đăng ký bản quyền.",
+    "title": "SecureScribe",
     "rights": "Đã đăng ký bản quyền.",
     "github": "GitHub",
     "privacy": "Chính sách bảo mật",

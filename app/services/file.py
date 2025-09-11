@@ -71,15 +71,38 @@ def get_files(
             query = query.filter(File.uploaded_by == filters.uploaded_by)
 
     if user_id:
-        query = query.filter(
-            (File.project_id.is_(None))
-            | (
-                File.project_id.in_(
-                    db.query(Project.id)
-                    .join(Project.users)
-                    .filter(Project.users.any(user_id=user_id))
-                )
+        # Get all projects the user has access to
+        user_projects = (
+            db.query(Project.id)
+            .join(Project.users)
+            .filter(Project.users.any(user_id=user_id))
+            .subquery()
+        )
+
+        # Get all meetings the user has access to (through projects)
+        from app.models.meeting import Meeting, ProjectMeeting
+        user_meetings = (
+            db.query(Meeting.id)
+            .join(ProjectMeeting, Meeting.id == ProjectMeeting.meeting_id)
+            .join(Project, ProjectMeeting.project_id == Project.id)
+            .join(Project.users)
+            .filter(
+                Project.users.any(user_id=user_id),
+                Meeting.is_deleted == False
             )
+            .subquery()
+        )
+
+        # Filter files to only include those the user has access to
+        query = query.filter(
+            # Files uploaded by the user (personal files)
+            (File.uploaded_by == user_id)
+            |
+            # Files that belong to projects the user has access to
+            (File.project_id.in_(user_projects))
+            |
+            # Files that belong to meetings the user has access to
+            (File.meeting_id.in_(user_meetings))
         )
 
     total = query.count()
@@ -112,18 +135,26 @@ def delete_file(db: Session, file_id: uuid.UUID) -> bool:
     return True
 
 
-def bulk_delete_files(db: Session, file_ids: List[uuid.UUID]) -> List[dict]:
+def bulk_delete_files(db: Session, file_ids: List[uuid.UUID], user_id: Optional[uuid.UUID] = None) -> List[dict]:
     results = []
     for file_id in file_ids:
         file = db.query(File).filter(File.id == file_id).first()
-        if file:
-            delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
-            db.delete(file)
-            results.append({"success": True, "file_id": str(file_id)})
-        else:
+        if not file:
             results.append(
                 {"success": False, "file_id": str(file_id), "error": "File not found"}
             )
+            continue
+
+        # Check user access if user_id is provided
+        if user_id and not check_file_access(db, file, user_id):
+            results.append(
+                {"success": False, "file_id": str(file_id), "error": "Access denied"}
+            )
+            continue
+
+        delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
+        db.delete(file)
+        results.append({"success": True, "file_id": str(file_id)})
 
     db.commit()
     return results
@@ -134,20 +165,46 @@ def bulk_move_files(
     file_ids: List[uuid.UUID],
     target_project_id: Optional[uuid.UUID] = None,
     target_meeting_id: Optional[uuid.UUID] = None,
+    user_id: Optional[uuid.UUID] = None,
 ) -> List[dict]:
     results = []
     for file_id in file_ids:
         file = db.query(File).filter(File.id == file_id).first()
-        if file:
-            if target_project_id is not None:
-                file.project_id = target_project_id
-            if target_meeting_id is not None:
-                file.meeting_id = target_meeting_id
-            results.append({"success": True, "file_id": str(file_id)})
-        else:
+        if not file:
             results.append(
                 {"success": False, "file_id": str(file_id), "error": "File not found"}
             )
+            continue
+
+        # Check user access if user_id is provided
+        if user_id and not check_file_access(db, file, user_id):
+            results.append(
+                {"success": False, "file_id": str(file_id), "error": "Access denied"}
+            )
+            continue
+
+        # Check if user has access to target project/meeting
+        if target_project_id:
+            from app.services.project import is_user_in_project
+            if not is_user_in_project(db, target_project_id, user_id):
+                results.append(
+                    {"success": False, "file_id": str(file_id), "error": "Access denied to target project"}
+                )
+                continue
+
+        if target_meeting_id:
+            if not check_meeting_access(db, target_meeting_id, user_id):
+                results.append(
+                    {"success": False, "file_id": str(file_id), "error": "Access denied to target meeting"}
+                )
+                continue
+
+        if target_project_id is not None:
+            file.project_id = target_project_id
+        if target_meeting_id is not None:
+            file.meeting_id = target_meeting_id
+
+        results.append({"success": True, "file_id": str(file_id)})
 
     db.commit()
     return results

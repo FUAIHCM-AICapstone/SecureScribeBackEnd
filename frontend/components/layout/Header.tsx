@@ -67,7 +67,7 @@ const Header = () => {
               className="h-10 w-10 object-contain rounded-lg"
             />
             <span className="hidden md:block text-2xl font-bold text-[var(--text-color)] font-sofia">
-              Meobeo.ai
+              SecureScribe
             </span>
           </Link>
           <div className="w-[30%] md:w-[50%] justify-start">
