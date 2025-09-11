@@ -147,10 +147,16 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
         from app.utils.minio import delete_file_from_minio
         from app.core.config import settings
 
-        project_files = db.query(File).filter(
-            File.project_id == project_id,
-            File.meeting_id.is_(None)  # Only files directly associated with project
-        ).all()
+        project_files = (
+            db.query(File)
+            .filter(
+                File.project_id == project_id,
+                File.meeting_id.is_(
+                    None
+                ),  # Only files directly associated with project
+            )
+            .all()
+        )
 
         for file in project_files:
             # Delete from MinIO storage
@@ -162,15 +168,19 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
         from app.models.meeting import ProjectMeeting, Meeting
 
         # Get all meeting IDs associated with this project
-        project_meetings = db.query(ProjectMeeting).filter(
-            ProjectMeeting.project_id == project_id
-        ).all()
+        project_meetings = (
+            db.query(ProjectMeeting)
+            .filter(ProjectMeeting.project_id == project_id)
+            .all()
+        )
 
         for project_meeting in project_meetings:
             # Delete files associated with this meeting
-            meeting_files = db.query(File).filter(
-                File.meeting_id == project_meeting.meeting_id
-            ).all()
+            meeting_files = (
+                db.query(File)
+                .filter(File.meeting_id == project_meeting.meeting_id)
+                .all()
+            )
 
             for file in meeting_files:
                 # Delete from MinIO storage
@@ -179,22 +189,30 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
                 db.delete(file)
 
             # Soft delete the meeting
-            meeting = db.query(Meeting).filter(Meeting.id == project_meeting.meeting_id).first()
+            meeting = (
+                db.query(Meeting)
+                .filter(Meeting.id == project_meeting.meeting_id)
+                .first()
+            )
             if meeting:
                 meeting.is_deleted = True
 
         # 3. Delete ProjectMeeting relationships (projects_meetings table)
-        db.query(ProjectMeeting).filter(ProjectMeeting.project_id == project_id).delete()
+        db.query(ProjectMeeting).filter(
+            ProjectMeeting.project_id == project_id
+        ).delete()
 
         # 4. Delete UserProject relationships (users_projects table)
         db.query(UserProject).filter(UserProject.project_id == project_id).delete()
 
         # 5. Delete TaskProject relationships (tasks_projects table)
         from app.models.task import TaskProject
+
         db.query(TaskProject).filter(TaskProject.project_id == project_id).delete()
 
         # 6. Delete Integrations
         from app.models.integration import Integration
+
         db.query(Integration).filter(Integration.project_id == project_id).delete()
 
         # 7. Finally delete the project

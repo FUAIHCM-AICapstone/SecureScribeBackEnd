@@ -424,6 +424,7 @@ def test_project_edge_cases(client):
 def create_test_meeting_for_project(client, project_id):
     """Helper function to create a test meeting associated with a project"""
     from datetime import datetime, timedelta
+
     meeting_data = {
         "title": faker.sentence(nb_words=4),
         "description": faker.text(max_nb_chars=100),
@@ -441,9 +442,7 @@ def create_test_file_for_project(client, project_id):
     import io
 
     file_content = b"Test file content for project deletion test"
-    files = {
-        "file": ("test.txt", io.BytesIO(file_content), "text/plain")
-    }
+    files = {"file": ("test.txt", io.BytesIO(file_content), "text/plain")}
     data = {"project_id": project_id}
 
     resp = client.post("/api/v1/files/upload", files=files, data=data)
@@ -467,6 +466,7 @@ def test_delete_project_with_meetings_and_files(client):
 
     # Create a file associated with the meeting
     import io
+
     meeting_file_content = b"Test file content for meeting in project"
     files = {
         "file": ("meeting_test.txt", io.BytesIO(meeting_file_content), "text/plain")

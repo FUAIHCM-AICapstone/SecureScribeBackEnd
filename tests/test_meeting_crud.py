@@ -14,7 +14,9 @@ def create_test_project(client):
     }
     print(f"DEBUG create_test_project: Creating project with data: {project_data}")
     resp = client.post("/api/v1/projects", json=project_data)
-    print(f"DEBUG create_test_project: Create project response status: {resp.status_code}")
+    print(
+        f"DEBUG create_test_project: Create project response status: {resp.status_code}"
+    )
     if resp.status_code != 200:
         print(f"DEBUG create_test_project: Create project response body: {resp.json()}")
     return resp.json()["data"]["id"]
@@ -51,7 +53,9 @@ def test_create_meeting(client):
     }
     print(f"DEBUG test_create_meeting: Meeting data: {meeting_data}")
     resp = client.post("/api/v1/meetings", json=meeting_data)
-    print(f"DEBUG test_create_meeting: Create meeting response status: {resp.status_code}")
+    print(
+        f"DEBUG test_create_meeting: Create meeting response status: {resp.status_code}"
+    )
     print(f"DEBUG test_create_meeting: Create meeting response body: {resp.json()}")
     assert resp.status_code == 200
     body = resp.json()
@@ -129,7 +133,9 @@ def test_get_meeting_by_id(client):
     print(f"DEBUG test_get_meeting_by_id: Created meeting ID: {meeting_id}")
 
     resp = client.get(f"/api/v1/meetings/{meeting_id}")
-    print(f"DEBUG test_get_meeting_by_id: Get meeting response status: {resp.status_code}")
+    print(
+        f"DEBUG test_get_meeting_by_id: Get meeting response status: {resp.status_code}"
+    )
     print(f"DEBUG test_get_meeting_by_id: Get meeting response body: {resp.json()}")
     assert resp.status_code == 200
     body = resp.json()
@@ -152,8 +158,12 @@ def test_get_meetings_filter_by_status(client):
     print(f"DEBUG test_get_meetings_filter_by_status: Created meeting ID: {meeting_id}")
 
     resp = client.get("/api/v1/meetings?status=active")
-    print(f"DEBUG test_get_meetings_filter_by_status: Filter by status response status: {resp.status_code}")
-    print(f"DEBUG test_get_meetings_filter_by_status: Filter by status response body: {resp.json()}")
+    print(
+        f"DEBUG test_get_meetings_filter_by_status: Filter by status response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_get_meetings_filter_by_status: Filter by status response body: {resp.json()}"
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
@@ -167,13 +177,21 @@ def test_get_meetings_filter_by_personal(client):
     # Create personal and non-personal meetings
     personal_meeting_id = create_test_meeting(client, is_personal=True)
     non_personal_meeting_id = create_test_meeting(client, is_personal=False)
-    print(f"DEBUG test_get_meetings_filter_by_personal: Personal meeting ID: {personal_meeting_id}")
-    print(f"DEBUG test_get_meetings_filter_by_personal: Non-personal meeting ID: {non_personal_meeting_id}")
+    print(
+        f"DEBUG test_get_meetings_filter_by_personal: Personal meeting ID: {personal_meeting_id}"
+    )
+    print(
+        f"DEBUG test_get_meetings_filter_by_personal: Non-personal meeting ID: {non_personal_meeting_id}"
+    )
 
     # Filter personal meetings
     resp = client.get("/api/v1/meetings?is_personal=true")
-    print(f"DEBUG test_get_meetings_filter_by_personal: Filter personal response status: {resp.status_code}")
-    print(f"DEBUG test_get_meetings_filter_by_personal: Filter personal response body: {resp.json()}")
+    print(
+        f"DEBUG test_get_meetings_filter_by_personal: Filter personal response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_get_meetings_filter_by_personal: Filter personal response body: {resp.json()}"
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
@@ -240,7 +258,9 @@ def test_delete_meeting(client):
 
     # Verify meeting is soft deleted (should not appear in normal queries)
     resp = client.get(f"/api/v1/meetings/{meeting_id}")
-    print(f"DEBUG test_delete_meeting: Verify delete response status: {resp.status_code}")
+    print(
+        f"DEBUG test_delete_meeting: Verify delete response status: {resp.status_code}"
+    )
     print(f"DEBUG test_delete_meeting: Verify delete response body: {resp.json()}")
     assert resp.status_code == 404
 
@@ -251,9 +271,7 @@ def create_test_file_for_meeting(client, meeting_id):
 
     # Create a simple test file
     file_content = b"Test file content for meeting deletion test"
-    files = {
-        "file": ("test.txt", io.BytesIO(file_content), "text/plain")
-    }
+    files = {"file": ("test.txt", io.BytesIO(file_content), "text/plain")}
     data = {"meeting_id": meeting_id}
 
     resp = client.post("/api/v1/files/upload", files=files, data=data)
@@ -285,7 +303,9 @@ def test_delete_meeting_with_files(client):
 
     # Verify file is also deleted (hard delete)
     resp = client.get(f"/api/v1/files/{file_id}")
-    assert resp.status_code == 404, "File should be hard deleted when meeting is deleted"
+    assert resp.status_code == 404, (
+        "File should be hard deleted when meeting is deleted"
+    )
 
 
 def test_delete_meeting_not_found(client):
@@ -303,8 +323,12 @@ def test_add_meeting_to_project(client):
     print(f"DEBUG test_add_meeting_to_project: Meeting ID: {meeting_id}")
 
     resp = client.post(f"/api/v1/projects/{project_id}/meetings/{meeting_id}")
-    print(f"DEBUG test_add_meeting_to_project: Add to project response status: {resp.status_code}")
-    print(f"DEBUG test_add_meeting_to_project: Add to project response body: {resp.json()}")
+    print(
+        f"DEBUG test_add_meeting_to_project: Add to project response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_add_meeting_to_project: Add to project response body: {resp.json()}"
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
@@ -328,12 +352,18 @@ def test_remove_meeting_from_project(client):
 
     # First add meeting to project
     add_resp = client.post(f"/api/v1/projects/{project_id}/meetings/{meeting_id}")
-    print(f"DEBUG test_remove_meeting_from_project: Add to project response status: {add_resp.status_code}")
+    print(
+        f"DEBUG test_remove_meeting_from_project: Add to project response status: {add_resp.status_code}"
+    )
 
     # Then remove it
     resp = client.delete(f"/api/v1/projects/{project_id}/meetings/{meeting_id}")
-    print(f"DEBUG test_remove_meeting_from_project: Remove from project response status: {resp.status_code}")
-    print(f"DEBUG test_remove_meeting_from_project: Remove from project response body: {resp.json()}")
+    print(
+        f"DEBUG test_remove_meeting_from_project: Remove from project response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_remove_meeting_from_project: Remove from project response body: {resp.json()}"
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
@@ -358,8 +388,12 @@ def test_meeting_status_enum(client):
         update_data = {"status": status}
         print(f"DEBUG test_meeting_status_enum: Testing status: {status}")
         resp = client.put(f"/api/v1/meetings/{meeting_id}", json=update_data)
-        print(f"DEBUG test_meeting_status_enum: Status update response status: {resp.status_code}")
-        print(f"DEBUG test_meeting_status_enum: Status update response body: {resp.json()}")
+        print(
+            f"DEBUG test_meeting_status_enum: Status update response status: {resp.status_code}"
+        )
+        print(
+            f"DEBUG test_meeting_status_enum: Status update response body: {resp.json()}"
+        )
         assert resp.status_code == 200
         body = resp.json()
         assert body["data"]["status"] == status
@@ -396,14 +430,20 @@ def test_meeting_filter_by_title(client):
         "is_personal": True,
     }
     create_resp = client.post("/api/v1/meetings", json=meeting_data)
-    print(f"DEBUG test_meeting_filter_by_title: Create meeting response status: {create_resp.status_code}")
+    print(
+        f"DEBUG test_meeting_filter_by_title: Create meeting response status: {create_resp.status_code}"
+    )
 
     # Filter by title
     search_term = title[:10]
     print(f"DEBUG test_meeting_filter_by_title: Search term: {search_term}")
     resp = client.get(f"/api/v1/meetings?title={search_term}")  # Partial match
-    print(f"DEBUG test_meeting_filter_by_title: Filter by title response status: {resp.status_code}")
-    print(f"DEBUG test_meeting_filter_by_title: Filter by title response body: {resp.json()}")
+    print(
+        f"DEBUG test_meeting_filter_by_title: Filter by title response status: {resp.status_code}"
+    )
+    print(
+        f"DEBUG test_meeting_filter_by_title: Filter by title response body: {resp.json()}"
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
@@ -418,12 +458,16 @@ def test_meeting_pagination_limits(client):
     for i in range(5):
         meeting_id = create_test_meeting(client)
         meeting_ids.append(meeting_id)
-        print(f"DEBUG test_meeting_pagination_limits: Created meeting {i+1}: {meeting_id}")
+        print(
+            f"DEBUG test_meeting_pagination_limits: Created meeting {i + 1}: {meeting_id}"
+        )
 
     # Test limit parameter
     print("DEBUG test_meeting_pagination_limits: Testing limit parameter")
     resp = client.get("/api/v1/meetings?limit=2")
-    print(f"DEBUG test_meeting_pagination_limits: Limit=2 response status: {resp.status_code}")
+    print(
+        f"DEBUG test_meeting_pagination_limits: Limit=2 response status: {resp.status_code}"
+    )
     print(f"DEBUG test_meeting_pagination_limits: Limit=2 response body: {resp.json()}")
     assert resp.status_code == 200
     body = resp.json()
@@ -433,7 +477,9 @@ def test_meeting_pagination_limits(client):
     # Test page parameter
     print("DEBUG test_meeting_pagination_limits: Testing page parameter")
     resp = client.get("/api/v1/meetings?page=2&limit=2")
-    print(f"DEBUG test_meeting_pagination_limits: Page=2 response status: {resp.status_code}")
+    print(
+        f"DEBUG test_meeting_pagination_limits: Page=2 response status: {resp.status_code}"
+    )
     print(f"DEBUG test_meeting_pagination_limits: Page=2 response body: {resp.json()}")
     assert resp.status_code == 200
     body = resp.json()

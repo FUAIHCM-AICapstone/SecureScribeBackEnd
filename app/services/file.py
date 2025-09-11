@@ -81,15 +81,13 @@ def get_files(
 
         # Get all meetings the user has access to (through projects)
         from app.models.meeting import Meeting, ProjectMeeting
+
         user_meetings = (
             db.query(Meeting.id)
             .join(ProjectMeeting, Meeting.id == ProjectMeeting.meeting_id)
             .join(Project, ProjectMeeting.project_id == Project.id)
             .join(Project.users)
-            .filter(
-                Project.users.any(user_id=user_id),
-                Meeting.is_deleted == False
-            )
+            .filter(Project.users.any(user_id=user_id), Meeting.is_deleted == False)
             .subquery()
         )
 
@@ -135,7 +133,9 @@ def delete_file(db: Session, file_id: uuid.UUID) -> bool:
     return True
 
 
-def bulk_delete_files(db: Session, file_ids: List[uuid.UUID], user_id: Optional[uuid.UUID] = None) -> List[dict]:
+def bulk_delete_files(
+    db: Session, file_ids: List[uuid.UUID], user_id: Optional[uuid.UUID] = None
+) -> List[dict]:
     results = []
     for file_id in file_ids:
         file = db.query(File).filter(File.id == file_id).first()
@@ -186,16 +186,25 @@ def bulk_move_files(
         # Check if user has access to target project/meeting
         if target_project_id:
             from app.services.project import is_user_in_project
+
             if not is_user_in_project(db, target_project_id, user_id):
                 results.append(
-                    {"success": False, "file_id": str(file_id), "error": "Access denied to target project"}
+                    {
+                        "success": False,
+                        "file_id": str(file_id),
+                        "error": "Access denied to target project",
+                    }
                 )
                 continue
 
         if target_meeting_id:
             if not check_meeting_access(db, target_meeting_id, user_id):
                 results.append(
-                    {"success": False, "file_id": str(file_id), "error": "Access denied to target meeting"}
+                    {
+                        "success": False,
+                        "file_id": str(file_id),
+                        "error": "Access denied to target meeting",
+                    }
                 )
                 continue
 
@@ -236,7 +245,11 @@ def check_meeting_access(
     from app.models.meeting import Meeting, ProjectMeeting
     from app.models.project import UserProject
 
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.is_deleted == False).first()
+    meeting = (
+        db.query(Meeting)
+        .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
+        .first()
+    )
     if not meeting:
         return False
 

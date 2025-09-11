@@ -7,6 +7,7 @@ from app.schemas.common import ApiResponse
 
 class SearchRequest(BaseModel):
     """Search request schema"""
+
     query: str
     limit: Optional[int] = 10
     project_id: Optional[str] = None
@@ -15,6 +16,7 @@ class SearchRequest(BaseModel):
 
 class SearchResult(BaseModel):
     """Individual search result"""
+
     file_id: str
     chunk_index: int
     text: str
@@ -26,6 +28,7 @@ class SearchResult(BaseModel):
 
 class SearchResponse(BaseModel):
     """Search response schema"""
+
     query: str
     results: List[SearchResult]
     total_results: int
@@ -34,6 +37,7 @@ class SearchResponse(BaseModel):
 
 class IndexingProgress(BaseModel):
     """Indexing progress update"""
+
     file_id: str
     status: str  # "started", "extracting", "chunking", "embedding", "storing", "completed", "failed"
     progress: int  # 0-100
@@ -45,14 +49,13 @@ class IndexingProgress(BaseModel):
 
 class IndexingStatus(BaseModel):
     """Indexing status for a file"""
+
     file_id: str
     status: str  # "not_started", "in_progress", "completed", "failed"
     progress: int
     message: Optional[str] = None
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
-
-
 
 
 # API Response types

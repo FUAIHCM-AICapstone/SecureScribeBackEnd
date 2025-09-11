@@ -136,7 +136,9 @@ def publish_task_progress_sync(
             else:
                 logger.warning(
                     "Failed to publish task progress for user %s (attempt %d/%d)",
-                    user_id, attempt + 1, max_retries
+                    user_id,
+                    attempt + 1,
+                    max_retries,
                 )
                 if attempt < max_retries - 1:
                     time.sleep(base_delay * (2**attempt))  # Exponential backoff
@@ -144,7 +146,10 @@ def publish_task_progress_sync(
         except Exception as e:
             logger.exception(
                 "Error publishing task progress for user %s (attempt %d/%d): %s",
-                user_id, attempt + 1, max_retries, e
+                user_id,
+                attempt + 1,
+                max_retries,
+                e,
             )
             if attempt < max_retries - 1:
                 time.sleep(base_delay * (2**attempt))  # Exponential backoff

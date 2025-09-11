@@ -138,10 +138,13 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
 
         # 1. Delete user's project memberships (users_projects table)
         from app.models.project import UserProject
+
         db.query(UserProject).filter(UserProject.user_id == user_id).delete()
 
         # 2. Delete user's meetings (soft delete) - only update meetings that are not already deleted
-        db.query(Meeting).filter(Meeting.created_by == user_id, Meeting.is_deleted == False).update({"is_deleted": True})
+        db.query(Meeting).filter(
+            Meeting.created_by == user_id, Meeting.is_deleted == False
+        ).update({"is_deleted": True})
 
         # 3. Delete user's files (hard delete from database, keep in MinIO)
         user_files = db.query(File).filter(File.uploaded_by == user_id).all()
@@ -150,6 +153,7 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
             try:
                 from app.utils.minio import delete_file_from_minio
                 from app.core.config import settings
+
                 delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
             except Exception as e:
                 print(f"Failed to delete file {file.id} from MinIO: {e}")
@@ -172,7 +176,9 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
             db.query(UserProject).filter(UserProject.project_id == project_id).delete()
 
             # Delete ProjectMeeting relationships
-            db.query(ProjectMeeting).filter(ProjectMeeting.project_id == project_id).delete()
+            db.query(ProjectMeeting).filter(
+                ProjectMeeting.project_id == project_id
+            ).delete()
 
             # Delete TaskProject relationships
             db.query(TaskProject).filter(TaskProject.project_id == project_id).delete()
@@ -181,7 +187,9 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
             db.query(Integration).filter(Integration.project_id == project_id).delete()
 
             # Update Files - set project_id to NULL
-            db.query(File).filter(File.project_id == project_id).update({"project_id": None})
+            db.query(File).filter(File.project_id == project_id).update(
+                {"project_id": None}
+            )
 
             # Finally delete the project
             db.delete(project)
@@ -192,13 +200,17 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
 
         # 6. Delete user's notifications
         from app.models.notification import Notification
+
         db.query(Notification).filter(Notification.user_id == user_id).delete()
 
         # 7. Delete user's integrations
         from app.models.integration import Integration
-        db.query(Integration).filter(Integration.project_id.in_(
-            db.query(Project.id).filter(Project.created_by == user_id)
-        )).delete()
+
+        db.query(Integration).filter(
+            Integration.project_id.in_(
+                db.query(Project.id).filter(Project.created_by == user_id)
+            )
+        ).delete()
 
         # 8. Finally delete the user
         db.delete(user)

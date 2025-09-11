@@ -71,16 +71,24 @@ def upload_file_endpoint(
             raise HTTPException(status_code=400, detail="Failed to upload file")
 
         # Trigger background indexing for supported file types
-        supported_mimes = ["text/plain", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+        supported_mimes = [
+            "text/plain",
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ]
         if file.content_type in supported_mimes:
-            print(f"\033[94m🚀 Queuing indexing task for file {new_file.id} ({new_file.filename})\033[0m")
+            print(
+                f"\033[94m🚀 Queuing indexing task for file {new_file.id} ({new_file.filename})\033[0m"
+            )
             try:
                 index_file_task.delay(str(new_file.id), str(current_user.id))
                 print("\033[92m✅ Indexing task queued successfully\033[0m")
             except Exception as e:
                 print(f"\033[91m❌ Failed to queue indexing task: {e}\033[0m")
         else:
-            print(f"\033[93m⚠️ Skipping indexing for unsupported file type: {file.content_type}\033[0m")
+            print(
+                f"\033[93m⚠️ Skipping indexing for unsupported file type: {file.content_type}\033[0m"
+            )
 
         return ApiResponse(
             success=True,
@@ -248,11 +256,13 @@ def move_file_endpoint(
         # Check if user has access to target project/meeting
         if move_request.project_id:
             from app.services.project import is_user_in_project
+
             if not is_user_in_project(db, move_request.project_id, current_user.id):
                 raise HTTPException(status_code=403, detail="Access denied to project")
 
         if move_request.meeting_id:
             from app.services.file import check_meeting_access
+
             if not check_meeting_access(db, move_request.meeting_id, current_user.id):
                 raise HTTPException(status_code=403, detail="Access denied to meeting")
 
@@ -412,7 +422,11 @@ def get_meeting_files_endpoint(
     try:
         from app.models.meeting import Meeting
 
-        meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.is_deleted == False).first()
+        meeting = (
+            db.query(Meeting)
+            .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
+            .first()
+        )
         if not meeting:
             raise HTTPException(status_code=404, detail="Meeting not found")
 
@@ -499,7 +513,11 @@ def get_file_with_meeting_endpoint(
 
         meeting_title = None
         if file.meeting_id:
-            meeting = db.query(Meeting).filter(Meeting.id == file.meeting_id, Meeting.is_deleted == False).first()
+            meeting = (
+                db.query(Meeting)
+                .filter(Meeting.id == file.meeting_id, Meeting.is_deleted == False)
+                .first()
+            )
             meeting_title = meeting.title if meeting else None
 
         return ApiResponse(

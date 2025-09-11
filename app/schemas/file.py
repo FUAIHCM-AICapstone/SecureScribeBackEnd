@@ -36,7 +36,7 @@ class FileResponse(FileBase):
     class Config:
         from_attributes = True
 
-    @field_validator('created_at', 'updated_at', mode='before')
+    @field_validator("created_at", "updated_at", mode="before")
     @classmethod
     def convert_datetime_to_str(cls, v):
         """Convert datetime objects to ISO format strings"""

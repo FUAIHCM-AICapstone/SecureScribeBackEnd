@@ -33,7 +33,9 @@ async def _perform_async_indexing(file_id: str, filename: str) -> bool:
         file_content = minio_client.get_object(settings.MINIO_BUCKET_NAME, file_id)
 
         # Create temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{filename}") as temp_file:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=f"_{filename}"
+        ) as temp_file:
             temp_file.write(file_content.data)
             temp_file_path = temp_file.name
 
@@ -42,7 +44,7 @@ async def _perform_async_indexing(file_id: str, filename: str) -> bool:
             success = await qdrant_service.reindex_file(
                 file_path=temp_file_path,
                 file_id=str(file_id),
-                collection_name="documents"
+                collection_name="documents",
             )
             return success
         finally:
@@ -64,15 +66,21 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
     try:
         # Step 1: Started
         update_task_progress(task_id, user_id, 0, "started", task_type="file_indexing")
-        publish_task_progress_sync(user_id, 0, "started", "60s", "file_indexing", task_id)
+        publish_task_progress_sync(
+            user_id, 0, "started", "60s", "file_indexing", task_id
+        )
         print(f"\033[93m📋 Task {task_id}: Indexing started for file {file_id}\033[0m")
 
         # Create database session
         db = SessionLocal()
 
         # Step 2: Validating file
-        update_task_progress(task_id, user_id, 10, "validating", task_type="file_indexing")
-        publish_task_progress_sync(user_id, 10, "validating", "55s", "file_indexing", task_id)
+        update_task_progress(
+            task_id, user_id, 10, "validating", task_type="file_indexing"
+        )
+        publish_task_progress_sync(
+            user_id, 10, "validating", "55s", "file_indexing", task_id
+        )
         print(f"\033[95m🔍 Validating file {file_id}\033[0m")
 
         # Get file info
@@ -83,30 +91,50 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         print(f"\033[92m✅ File validated: {file.filename} ({file.mime_type})\033[0m")
 
         # Step 3: Extracting text
-        update_task_progress(task_id, user_id, 25, "extracting_text", task_type="file_indexing")
-        publish_task_progress_sync(user_id, 25, "extracting_text", "45s", "file_indexing", task_id)
+        update_task_progress(
+            task_id, user_id, 25, "extracting_text", task_type="file_indexing"
+        )
+        publish_task_progress_sync(
+            user_id, 25, "extracting_text", "45s", "file_indexing", task_id
+        )
         print(f"\033[96m📄 Extracting text from {file.filename}\033[0m")
 
         # Step 4: Chunking text
-        update_task_progress(task_id, user_id, 40, "chunking_text", task_type="file_indexing")
-        publish_task_progress_sync(user_id, 40, "chunking_text", "35s", "file_indexing", task_id)
+        update_task_progress(
+            task_id, user_id, 40, "chunking_text", task_type="file_indexing"
+        )
+        publish_task_progress_sync(
+            user_id, 40, "chunking_text", "35s", "file_indexing", task_id
+        )
         print("\033[94m✂️ Preparing to chunk text\033[0m")
 
         # Step 5: Generating embeddings
-        update_task_progress(task_id, user_id, 60, "generating_embeddings", task_type="file_indexing")
-        publish_task_progress_sync(user_id, 60, "generating_embeddings", "25s", "file_indexing", task_id)
+        update_task_progress(
+            task_id, user_id, 60, "generating_embeddings", task_type="file_indexing"
+        )
+        publish_task_progress_sync(
+            user_id, 60, "generating_embeddings", "25s", "file_indexing", task_id
+        )
         print("\033[95m🧠 Generating embeddings\033[0m")
 
         # Step 6: Storing vectors
-        update_task_progress(task_id, user_id, 80, "storing_vectors", task_type="file_indexing")
-        publish_task_progress_sync(user_id, 80, "storing_vectors", "15s", "file_indexing", task_id)
+        update_task_progress(
+            task_id, user_id, 80, "storing_vectors", task_type="file_indexing"
+        )
+        publish_task_progress_sync(
+            user_id, 80, "storing_vectors", "15s", "file_indexing", task_id
+        )
         print("\033[93m💾 Storing vectors in Qdrant\033[0m")
 
         # Step 7: Update database
-        update_task_progress(task_id, user_id, 95, "updating_database", task_type="file_indexing")
-        publish_task_progress_sync(user_id, 95, "updating_database", "5s", "file_indexing", task_id)
+        update_task_progress(
+            task_id, user_id, 95, "updating_database", task_type="file_indexing"
+        )
+        publish_task_progress_sync(
+            user_id, 95, "updating_database", "5s", "file_indexing", task_id
+        )
 
-        # Perform the actual indexing using new ai_service
+        # Perform the actual indexing
         print(f"\033[94m🚀 Starting actual indexing process for file {file_id}\033[0m")
 
         try:
@@ -128,8 +156,12 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         print(f"\033[92m✅ Database updated: file {file_id} marked as indexed\033[0m")
 
         # Step 8: Completed
-        update_task_progress(task_id, user_id, 100, "completed", task_type="file_indexing")
-        publish_task_progress_sync(user_id, 100, "completed", "0s", "file_indexing", task_id)
+        update_task_progress(
+            task_id, user_id, 100, "completed", task_type="file_indexing"
+        )
+        publish_task_progress_sync(
+            user_id, 100, "completed", "0s", "file_indexing", task_id
+        )
 
         # Get filename before closing session
         filename = file.filename
@@ -142,7 +174,7 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
             "status": "success",
             "file_id": file_id,
             "filename": filename,
-            "message": "File indexed successfully"
+            "message": "File indexed successfully",
         }
 
     except Exception as exc:
@@ -158,5 +190,3 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
             pass
 
         raise
-
-

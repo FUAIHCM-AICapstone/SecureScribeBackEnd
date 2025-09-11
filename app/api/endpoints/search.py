@@ -16,8 +16,8 @@ from app.schemas.search import (
     SearchResult,
 )
 from app.services.file import check_file_access
-from app.services.search import ai_service
 from app.utils.auth import get_current_user
+from app.utils.llm import embed_query
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Search"])
 
@@ -34,11 +34,12 @@ async def search_documents(
     try:
         # Perform vector search using QdrantService
         from app.services.qdrant_service import qdrant_service
-        query_embedding = await ai_service.embed_query(request.query)
+
+        query_embedding = await embed_query(request.query)
         raw_results = await qdrant_service.search_vectors(
             collection="documents",
             query_vector=query_embedding,
-            top_k=request.limit or 10
+            top_k=request.limit or 10,
         )
 
         # Filter results based on user access and request parameters
@@ -54,18 +55,22 @@ async def search_documents(
             "project_filter": 0,
             "meeting_filter": 0,
             "processing_errors": 0,
-            "final_results": 0
+            "final_results": 0,
         }
 
         for i, result in enumerate(raw_results):
             try:
-                print(f"\033[96m📄 Processing result {i+1}/{len(raw_results)}...\033[0m")
+                print(
+                    f"\033[96m📄 Processing result {i + 1}/{len(raw_results)}...\033[0m"
+                )
 
                 # Handle ScoredPoint object from Qdrant
                 print(f"\033[94m📊 Result: {result}\033[0m")
                 payload = getattr(result, "payload", None) or {}
                 score = getattr(result, "score", 0.0)
-                print(f"\033[94m📊 Payload type: {type(payload)}, Score: {score:.4f}\033[0m")
+                print(
+                    f"\033[94m📊 Payload type: {type(payload)}, Score: {score:.4f}\033[0m"
+                )
 
                 # Handle payload - could be dict or other format
                 if isinstance(payload, dict):
@@ -73,14 +78,34 @@ async def search_documents(
                     chunk_index = payload.get("chunk_index", 0)
                     text = payload.get("text", "")
                     chunk_size = payload.get("chunk_size", 0)
-                    print(f"\033[94m📋 Dict payload - file_id: {file_id_str}, text_len: {len(text)}\033[0m")
+                    print(
+                        f"\033[94m📋 Dict payload - file_id: {file_id_str}, text_len: {len(text)}\033[0m"
+                    )
                 else:
                     # Fallback for other payload formats
-                    file_id_str = getattr(payload, "file_id", None) if hasattr(payload, "file_id") else str(payload)
-                    chunk_index = getattr(payload, "chunk_index", 0) if hasattr(payload, "chunk_index") else 0
-                    text = getattr(payload, "text", "") if hasattr(payload, "text") else str(payload)
-                    chunk_size = getattr(payload, "chunk_size", 0) if hasattr(payload, "chunk_size") else 0
-                    print(f"\033[94m📋 Object payload - file_id: {file_id_str}, text_len: {len(text)}\033[0m")
+                    file_id_str = (
+                        getattr(payload, "file_id", None)
+                        if hasattr(payload, "file_id")
+                        else str(payload)
+                    )
+                    chunk_index = (
+                        getattr(payload, "chunk_index", 0)
+                        if hasattr(payload, "chunk_index")
+                        else 0
+                    )
+                    text = (
+                        getattr(payload, "text", "")
+                        if hasattr(payload, "text")
+                        else str(payload)
+                    )
+                    chunk_size = (
+                        getattr(payload, "chunk_size", 0)
+                        if hasattr(payload, "chunk_size")
+                        else 0
+                    )
+                    print(
+                        f"\033[94m📋 Object payload - file_id: {file_id_str}, text_len: {len(text)}\033[0m"
+                    )
 
                 if not file_id_str:
                     print("\033[93m❌ No file_id found in payload\033[0m")
@@ -103,12 +128,16 @@ async def search_documents(
                     filter_stats["file_not_found"] += 1
                     continue
 
-                print(f"\033[92m📁 File found: {file.filename} ({file.mime_type})\033[0m")
+                print(
+                    f"\033[92m📁 File found: {file.filename} ({file.mime_type})\033[0m"
+                )
 
                 # Check access permissions
                 has_access = check_file_access(db, file, current_user.id)
                 if not has_access:
-                    print(f"\033[93m🚫 Access denied for file {file_id} (user: {current_user.id})\033[0m")
+                    print(
+                        f"\033[93m🚫 Access denied for file {file_id} (user: {current_user.id})\033[0m"
+                    )
                     filter_stats["access_denied"] += 1
                     continue
 
@@ -117,7 +146,9 @@ async def search_documents(
                 # Apply project filter if specified
                 if request.project_id:
                     if str(file.project_id) != request.project_id:
-                        print(f"\033[93m🏢 Project filter: file.project_id={file.project_id} != request.project_id={request.project_id}\033[0m")
+                        print(
+                            f"\033[93m🏢 Project filter: file.project_id={file.project_id} != request.project_id={request.project_id}\033[0m"
+                        )
                         filter_stats["project_filter"] += 1
                         continue
                     else:
@@ -126,7 +157,9 @@ async def search_documents(
                 # Apply meeting filter if specified
                 if request.meeting_id:
                     if str(file.meeting_id) != request.meeting_id:
-                        print(f"\033[93m🏛️ Meeting filter: file.meeting_id={file.meeting_id} != request.meeting_id={request.meeting_id}\033[0m")
+                        print(
+                            f"\033[93m🏛️ Meeting filter: file.meeting_id={file.meeting_id} != request.meeting_id={request.meeting_id}\033[0m"
+                        )
                         filter_stats["meeting_filter"] += 1
                         continue
                     else:
@@ -140,13 +173,13 @@ async def search_documents(
                     score=score,
                     chunk_size=chunk_size,
                     filename=file.filename,
-                    mime_type=file.mime_type
+                    mime_type=file.mime_type,
                 )
                 filtered_results.append(enriched_result)
                 print("\033[92m✅ Result added to filtered list\033[0m")
 
             except Exception as e:
-                print(f"\033[91m❌ Error processing search result {i+1}: {e}\033[0m")
+                print(f"\033[91m❌ Error processing search result {i + 1}: {e}\033[0m")
                 filter_stats["processing_errors"] += 1
                 continue
 
@@ -160,7 +193,9 @@ async def search_documents(
         print(f"\033[93m   - Access denied: {filter_stats['access_denied']}\033[0m")
         print(f"\033[93m   - Project filter: {filter_stats['project_filter']}\033[0m")
         print(f"\033[93m   - Meeting filter: {filter_stats['meeting_filter']}\033[0m")
-        print(f"\033[93m   - Processing errors: {filter_stats['processing_errors']}\033[0m")
+        print(
+            f"\033[93m   - Processing errors: {filter_stats['processing_errors']}\033[0m"
+        )
         print(f"\033[92m   = Final results: {filter_stats['final_results']}\033[0m")
 
         search_response = SearchResponse(
@@ -239,7 +274,3 @@ def get_indexing_status(
     except Exception as e:
         print(f"\033[91m❌ Failed to get indexing status: {e}\033[0m")
         raise HTTPException(status_code=500, detail=f"Failed to get status: {str(e)}")
-
-
-
-

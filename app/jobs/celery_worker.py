@@ -14,20 +14,18 @@ celery_app = Celery(
     "worker",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.jobs.tasks"]  # Explicitly include tasks module
+    include=["app.jobs.tasks"],  # Explicitly include tasks module
 )
 
 # Configure Celery settings for better timeout handling
 celery_app.conf.update(
     # Task timeout settings
     task_soft_time_limit=300,  # 5 minutes soft limit
-    task_time_limit=600,       # 10 minutes hard limit
-
+    task_time_limit=600,  # 10 minutes hard limit
     # Worker settings
     worker_prefetch_multiplier=1,
     task_acks_late=True,
     worker_max_tasks_per_child=50,
-
     # Retry settings
     task_default_retry_delay=60,
     task_max_retries=3,
@@ -39,10 +37,12 @@ from app.jobs import tasks
 # Initialize service integration for Celery worker
 try:
     from app.services.qdrant_service import qdrant_service
-    from app.services.search import ai_service
+    from app.services.search import init_ai_service
+    from app.utils.llm import embed_query
 
-    # Inject AI service into Qdrant service for Celery context
-    qdrant_service.set_ai_service(ai_service)
+    # Initialize AI service and inject into Qdrant service for Celery context
+    init_ai_service()
+    qdrant_service.set_ai_service(embed_query)
     print("🔗 Celery: Services integration completed")
 except Exception as e:
     print(f"⚠️ Celery: Service integration failed: {e}")
@@ -117,6 +117,8 @@ def send_test_notification_task(self, user_id: str):
     except Exception as exc:
         # Publish failure state
         update_task_progress(task_id, user_id, 0, "failed")
-        publish_task_progress_sync(user_id, 0, "failed", "", "test_notification", task_id)
+        publish_task_progress_sync(
+            user_id, 0, "failed", "", "test_notification", task_id
+        )
         print(f"Task failed: {exc}")
         raise
