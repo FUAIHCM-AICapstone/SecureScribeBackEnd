@@ -18,7 +18,7 @@ def _get_embedder() -> GoogleGenerativeAIEmbeddings:
 
 def _get_chat_model() -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-2.5-flash",
         google_api_key=settings.GOOGLE_API_KEY,
         temperature=0.2,
     )

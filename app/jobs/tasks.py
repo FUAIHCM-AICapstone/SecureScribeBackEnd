@@ -221,8 +221,8 @@ def _get_meeting_member_ids(db, meeting_id: uuid.UUID, include_creator: bool = T
     if include_creator:
         members.append(meeting.created_by)
 
-    from app.utils.meeting import get_meeting_projects
     from app.models.project import UserProject
+    from app.utils.meeting import get_meeting_projects
 
     project_ids = get_meeting_projects(db, meeting_id)
     if project_ids:
@@ -271,6 +271,8 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
         _broadcast(75, "transcribing", "20s")
 
         now_iso = datetime.utcnow().isoformat() + "Z"
+        # hamàm deêểđể ASR oỏở dayâyđây
+        # content = function .... 
         mock_content = (
             f"Mock transcript generated at {now_iso} for meeting {meeting_id}.\n"
             f"This is placeholder content for ASR processing of audio {audio_file_id}."
@@ -288,13 +290,13 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
         db.refresh(transcript)
 
         try:
+            from app.core.config import settings as _settings
             from app.services.qdrant_service import (
-                create_collection_if_not_exist,
                 chunk_text,
+                create_collection_if_not_exist,
                 upsert_vectors,
             )
             from app.utils.llm import embed_documents
-            from app.core.config import settings as _settings
 
             asyncio.run(
                 create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, 768)

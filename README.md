@@ -44,7 +44,7 @@ docker-compose up api db
 
 ```bash
 # Run tests with Docker (uses production database)
-docker-compose --profile test up test
+docker compose --profile test up 
 
 # Or run tests and keep containers running
 docker-compose --profile test up --abort-on-container-exit
