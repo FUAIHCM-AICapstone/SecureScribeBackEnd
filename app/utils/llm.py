@@ -1,44 +1,36 @@
 from typing import List
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_google_genai import (
-    ChatGoogleGenerativeAI,
-    GoogleGenerativeAIEmbeddings,
-)
+from agno.models.google import Gemini
 
 from app.core.config import settings
 
 
-def _get_embedder() -> GoogleGenerativeAIEmbeddings:
-    return GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
-        google_api_key=settings.GOOGLE_API_KEY,
-    )
-
-
-def _get_chat_model() -> ChatGoogleGenerativeAI:
-    return ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        google_api_key=settings.GOOGLE_API_KEY,
-        temperature=0.2,
+def _get_model() -> Gemini:
+    return Gemini(
+        id="gemini-2.5-flash",
+        api_key=settings.GOOGLE_API_KEY,
     )
 
 
 async def embed_query(query: str) -> List[float]:
-    embedder = _get_embedder()
-    return embedder.embed_query(query)
+    model = _get_model()
+    response = await model.aembed_query(query)
+    return response
 
 
 async def embed_documents(docs: List[str]) -> List[List[float]]:
     if not docs:
         return []
-    embedder = _get_embedder()
-    return embedder.embed_documents(docs)
+    model = _get_model()
+    response = await model.aembed_documents(docs)
+    return response
 
 
 async def chat_complete(system_prompt: str, user_prompt: str) -> str:
-    llm = _get_chat_model()
-    resp = llm.invoke(
-        [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]
-    )
-    return resp.content
+    model = _get_model()
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+    response = await model.achat(messages)
+    return response.content
