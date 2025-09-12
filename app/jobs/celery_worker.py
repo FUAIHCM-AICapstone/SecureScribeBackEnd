@@ -5,8 +5,9 @@ from celery import Celery
 
 from app.core.config import settings
 from app.core.firebase import initialize_firebase
-from app.utils.redis import publish_to_user_channel
-from app.utils.task_progress import update_task_progress, publish_task_progress_sync
+from app.jobs import tasks  # noqa: F401
+from app.utils.redis import publish_to_user_channel  # noqa: F401
+from app.utils.task_progress import publish_task_progress_sync, update_task_progress
 
 initialize_firebase()
 
@@ -30,22 +31,6 @@ celery_app.conf.update(
     task_default_retry_delay=60,
     task_max_retries=3,
 )
-
-# Import tasks to register them with Celery
-from app.jobs import tasks
-
-# Initialize service integration for Celery worker
-try:
-    from app.services.qdrant_service import qdrant_service
-    from app.services.search import init_ai_service
-    from app.utils.llm import embed_query
-
-    # Initialize AI service and inject into Qdrant service for Celery context
-    init_ai_service()
-    qdrant_service.set_ai_service(embed_query)
-    print("🔗 Celery: Services integration completed")
-except Exception as e:
-    print(f"⚠️ Celery: Service integration failed: {e}")
 
 
 @celery_app.task(bind=True)

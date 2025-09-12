@@ -32,11 +32,11 @@ async def search_documents(
     print(f"\033[94m🔍 Starting semantic search for: '{request.query}'\033[0m")
 
     try:
-        # Perform vector search using QdrantService
-        from app.services.qdrant_service import qdrant_service
+        # Perform vector search using QdrantService functions
+        from app.services.qdrant_service import search_vectors
 
         query_embedding = await embed_query(request.query)
-        raw_results = await qdrant_service.search_vectors(
+        raw_results = await search_vectors(
             collection="documents",
             query_vector=query_embedding,
             top_k=request.limit or 10,

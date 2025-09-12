@@ -94,19 +94,6 @@ async def startup_event():
     """Application startup event"""
     print("🚀 Application started successfully")
 
-    # Initialize service integration
-    try:
-        from app.services.qdrant_service import qdrant_service
-        from app.services.search import init_ai_service
-        from app.utils.llm import embed_query
-
-        # Initialize AI service and inject into Qdrant service
-        init_ai_service()
-        qdrant_service.set_ai_service(embed_query)
-        print("🔗 Services integration completed")
-    except Exception as e:
-        print(f"⚠️ Service integration failed: {e}")
-
     # Start WebSocket manager Redis listener
     from app.services.websocket_manager import websocket_manager
 

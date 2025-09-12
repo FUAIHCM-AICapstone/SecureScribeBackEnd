@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 from app.jobs.celery_worker import celery_app
 from app.models.file import File
-from app.services.qdrant_service import qdrant_service
+from app.services.qdrant_service import reindex_file
 from app.utils.task_progress import (
     publish_task_progress_sync,
     update_task_progress,

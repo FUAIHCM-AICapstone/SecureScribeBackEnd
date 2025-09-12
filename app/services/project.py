@@ -15,7 +15,6 @@ from app.schemas.project import (
     ProjectWithMembers,
     UserProjectCreate,
     UserProjectResponse,
-    UserProjectUpdate,
 )
 
 
