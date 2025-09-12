@@ -49,9 +49,7 @@ async def search_documents(
                     FieldCondition(
                         key="meeting_id", match=MatchValue(value=request.meeting_id)
                     ),
-                    FieldCondition(
-                        key="is_global", match=MatchValue(value=True)
-                    ),
+                    FieldCondition(key="is_global", match=MatchValue(value=True)),
                 ],
                 must=[
                     FieldCondition(

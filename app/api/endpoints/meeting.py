@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.meeting import check_delete_permissions, get_meeting_or_404
@@ -17,17 +17,23 @@ from app.schemas.meeting import (
     MeetingsPaginatedResponse,
     MeetingUpdate,
     MeetingWithProjectsApiResponse,
+    AudioFileItem,
+    MeetingAudioFilesPaginatedResponse,
 )
 from app.services.meeting import (
     add_meeting_to_project,
     create_meeting,
     delete_meeting,
+    create_audio_file,
+    get_meeting_audio_files,
     get_meetings,
     remove_meeting_from_project,
     update_meeting,
 )
 from app.utils.auth import get_current_user
-from app.utils.meeting import get_meeting_projects
+from app.utils.meeting import check_meeting_access, get_meeting_projects
+from app.jobs.tasks import process_audio_task
+from app.models.meeting import Meeting as MeetingModel
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting"])
 
@@ -116,7 +122,7 @@ def get_meetings_endpoint(
         # Format response data
         meetings_data = []
         for meeting in meetings:
-            projects = get_meeting_projects(db, meeting.id)
+            _ = get_meeting_projects(db, meeting.id)
             meetings_data.append(
                 {
                     "id": meeting.id,
@@ -298,6 +304,128 @@ def remove_meeting_from_project_endpoint(
             success=True,
             message="Meeting removed from project successfully",
             data={},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/meetings/{meeting_id}/audio-files", response_model=ApiResponse[dict])
+def upload_meeting_audio_endpoint(
+    meeting_id: uuid.UUID,
+    file: UploadFile = File(...),
+    seq_order: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload an audio file to a meeting and enqueue ASR (mock) processing."""
+    try:
+        # Validate meeting
+        meeting = (
+            db.query(MeetingModel)
+            .filter(MeetingModel.id == meeting_id, MeetingModel.is_deleted == False)
+            .first()
+        )
+        if not meeting:
+            raise HTTPException(status_code=404, detail="Meeting not found")
+
+        # Access control: creator OR member of any linked project
+        if not check_meeting_access(db, meeting, current_user.id):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        # Validate file size and content type (≤ 100MB)
+        content = file.file.read()
+        size_bytes = len(content)
+        if size_bytes > 100 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File too large (max 100MB)")
+
+        allowed_types = {
+            "audio/mpeg",
+            "audio/wav",
+            "audio/mp3",
+            "audio/mp4",
+            "audio/x-m4a",
+            "audio/m4a",
+        }
+        if file.content_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="Unsupported audio type")
+
+        # Create and upload
+        audio = create_audio_file(
+            db,
+            meeting_id=meeting_id,
+            uploaded_by=current_user.id,
+            filename=file.filename,
+            content_type=file.content_type,
+            file_bytes=content,
+            seq_order=seq_order,
+        )
+        if not audio:
+            raise HTTPException(status_code=400, detail="Failed to upload audio")
+
+        # Enqueue Celery task (mock ASR)
+        async_result = process_audio_task.delay(str(audio.id), str(current_user.id))
+
+        return ApiResponse(
+            success=True,
+            message="Audio uploaded successfully",
+            data={
+                "audio_file_id": str(audio.id),
+                "storage_url": audio.file_url,
+                "task_id": async_result.id if async_result else None,
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get(
+    "/meetings/{meeting_id}/audio-files",
+    response_model=MeetingAudioFilesPaginatedResponse,
+)
+def list_meeting_audio_endpoint(
+    meeting_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+):
+    try:
+        meeting = (
+            db.query(MeetingModel)
+            .filter(MeetingModel.id == meeting_id, MeetingModel.is_deleted == False)
+            .first()
+        )
+        if not meeting:
+            raise HTTPException(status_code=404, detail="Meeting not found")
+
+        if not check_meeting_access(db, meeting, current_user.id):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        rows, total = get_meeting_audio_files(db, meeting_id, page, limit)
+
+        pagination_meta = create_pagination_meta(page, limit, total)
+        items = [
+            AudioFileItem(
+                id=r.id,
+                file_url=r.file_url,
+                seq_order=r.seq_order,
+                duration_seconds=r.duration_seconds,
+                uploaded_by=r.uploaded_by,
+                created_at=r.created_at,
+                can_access=True,
+            )
+            for r in rows
+        ]
+
+        return PaginatedResponse(
+            success=True,
+            message="Audio files retrieved successfully",
+            data=items,
+            pagination=pagination_meta,
         )
     except HTTPException:
         raise

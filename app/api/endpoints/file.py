@@ -261,9 +261,21 @@ def move_file_endpoint(
                 raise HTTPException(status_code=403, detail="Access denied to project")
 
         if move_request.meeting_id:
-            from app.services.file import check_meeting_access
+            from app.models.meeting import Meeting
+            from app.utils.meeting import (
+                check_meeting_access as check_meeting_access_utils,
+            )
 
-            if not check_meeting_access(db, move_request.meeting_id, current_user.id):
+            target_meeting = (
+                db.query(Meeting)
+                .filter(
+                    Meeting.id == move_request.meeting_id, Meeting.is_deleted == False
+                )
+                .first()
+            )
+            if not target_meeting or not check_meeting_access_utils(
+                db, target_meeting, current_user.id
+            ):
                 raise HTTPException(status_code=403, detail="Access denied to meeting")
 
         # Update file associations
@@ -430,7 +442,17 @@ def get_meeting_files_endpoint(
         if not meeting:
             raise HTTPException(status_code=404, detail="Meeting not found")
 
-        if not check_meeting_access(db, meeting_id, current_user.id):
+        from app.utils.meeting import check_meeting_access as check_meeting_access_utils
+        from app.models.meeting import Meeting as MeetingModel
+
+        meeting_obj = (
+            db.query(MeetingModel)
+            .filter(MeetingModel.id == meeting_id, MeetingModel.is_deleted == False)
+            .first()
+        )
+        if not meeting_obj or not check_meeting_access_utils(
+            db, meeting_obj, current_user.id
+        ):
             raise HTTPException(status_code=403, detail="Access denied")
 
         filters = FileFilter(meeting_id=meeting_id)

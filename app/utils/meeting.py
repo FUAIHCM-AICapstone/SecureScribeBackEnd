@@ -19,30 +19,34 @@ def validate_meeting_url(url: Optional[str]) -> bool:
 
 
 def check_meeting_access(db: Session, meeting: Meeting, user_id: uuid.UUID) -> bool:
-    """Check if user can access meeting"""
+    """Check if user can access meeting
+
+    Policy:
+    - Personal meeting: only owner (created_by)
+    - Non-personal with linked projects: must be member of at least one linked project
+    - Non-personal with NO linked projects: ONLY owner (created_by)
+    """
     if meeting.is_personal:
         return meeting.created_by == user_id
-    else:
-        # Check if user is member of any linked projects
-        linked_projects = get_meeting_projects(db, meeting.id)
 
-        # If meeting has linked projects, user must be member of at least one
-        if linked_projects:
-            for project_id in linked_projects:
-                user_project = (
-                    db.query(UserProject)
-                    .filter(
-                        UserProject.user_id == user_id,
-                        UserProject.project_id == project_id,
-                    )
-                    .first()
+    # Non-personal
+    linked_projects = get_meeting_projects(db, meeting.id)
+    if linked_projects:
+        for project_id in linked_projects:
+            user_project = (
+                db.query(UserProject)
+                .filter(
+                    UserProject.user_id == user_id,
+                    UserProject.project_id == project_id,
                 )
-                if user_project:
-                    return True
-            return False
-        else:
-            # If meeting has no linked projects, everyone can access
-            return True
+                .first()
+            )
+            if user_project:
+                return True
+        return False
+
+    # No linked projects → only owner
+    return meeting.created_by == user_id
 
 
 def get_meeting_projects(db: Session, meeting_id: uuid.UUID) -> List[uuid.UUID]:

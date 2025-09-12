@@ -76,3 +76,20 @@ class MeetingWithProjects(MeetingResponse):
 MeetingApiResponse = ApiResponse[MeetingResponse]
 MeetingsPaginatedResponse = PaginatedResponse[MeetingResponse]
 MeetingWithProjectsApiResponse = ApiResponse[MeetingWithProjects]
+
+
+# --- Audio files ---
+class AudioFileItem(BaseModel):
+    id: UUID
+    file_url: Optional[str] = None
+    seq_order: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    uploaded_by: UUID
+    created_at: datetime
+    can_access: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+MeetingAudioFilesPaginatedResponse = PaginatedResponse[AudioFileItem]

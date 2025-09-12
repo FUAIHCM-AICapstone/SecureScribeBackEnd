@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 from app.jobs.celery_worker import celery_app
 from app.models.file import File
+from app.models.meeting import AudioFile, Meeting, Transcript
 from app.services.qdrant_service import reindex_file
 from app.utils.task_progress import (
     publish_task_progress_sync,
@@ -210,3 +211,145 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
             pass
 
         raise
+
+
+def _get_meeting_member_ids(db, meeting_id: uuid.UUID, include_creator: bool = True):
+    members = []
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        return members
+    if include_creator:
+        members.append(meeting.created_by)
+
+    from app.utils.meeting import get_meeting_projects
+    from app.models.project import UserProject
+
+    project_ids = get_meeting_projects(db, meeting_id)
+    if project_ids:
+        rows = (
+            db.query(UserProject.user_id)
+            .filter(UserProject.project_id.in_(project_ids))
+            .all()
+        )
+        members.extend([r[0] for r in rows])
+    return list(set(members))
+
+
+@celery_app.task(bind=True, soft_time_limit=300, time_limit=600)
+def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str, Any]:
+    task_id = self.request.id or f"process_audio_{audio_file_id}_{int(time.time())}"
+    db = SessionLocal()
+    try:
+        audio = (
+            db.query(AudioFile).filter(AudioFile.id == uuid.UUID(audio_file_id)).first()
+        )
+        if not audio:
+            raise Exception(f"AudioFile {audio_file_id} not found")
+
+        meeting_id = audio.meeting_id
+        target_user_ids = _get_meeting_member_ids(db, meeting_id, include_creator=True)
+
+        def _broadcast(progress: int, status: str, eta: str = ""):
+            for uid in target_user_ids:
+                publish_task_progress_sync(
+                    str(uid), progress, status, eta, "audio_asr", task_id
+                )
+
+        update_task_progress(
+            task_id, actor_user_id, 0, "started", task_type="audio_asr"
+        )
+        _broadcast(0, "started", "60s")
+
+        update_task_progress(
+            task_id, actor_user_id, 25, "processing", task_type="audio_asr"
+        )
+        _broadcast(25, "processing", "45s")
+
+        update_task_progress(
+            task_id, actor_user_id, 75, "transcribing", task_type="audio_asr"
+        )
+        _broadcast(75, "transcribing", "20s")
+
+        now_iso = datetime.utcnow().isoformat() + "Z"
+        mock_content = (
+            f"Mock transcript generated at {now_iso} for meeting {meeting_id}.\n"
+            f"This is placeholder content for ASR processing of audio {audio_file_id}."
+        )
+
+        transcript = (
+            db.query(Transcript).filter(Transcript.meeting_id == meeting_id).first()
+        )
+        if not transcript:
+            transcript = Transcript(meeting_id=meeting_id, content=mock_content)
+            db.add(transcript)
+        else:
+            transcript.content = mock_content
+        db.commit()
+        db.refresh(transcript)
+
+        try:
+            from app.services.qdrant_service import (
+                create_collection_if_not_exist,
+                chunk_text,
+                upsert_vectors,
+            )
+            from app.utils.llm import embed_documents
+            from app.core.config import settings as _settings
+
+            asyncio.run(
+                create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, 768)
+            )
+            chunks = chunk_text(transcript.content or "")
+            if chunks:
+                vectors = asyncio.run(embed_documents(chunks))
+                payloads = [
+                    {
+                        "text": ch,
+                        "chunk_index": i,
+                        "meeting_id": str(meeting_id),
+                        "transcript_id": str(transcript.id),
+                        "total_chunks": len(chunks),
+                    }
+                    for i, ch in enumerate(chunks)
+                ]
+                asyncio.run(
+                    upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads)
+                )
+                transcript.qdrant_vector_id = str(transcript.id)
+                db.commit()
+        except Exception:
+            pass
+
+        update_task_progress(
+            task_id, actor_user_id, 100, "completed", task_type="audio_asr"
+        )
+        _broadcast(100, "completed", "0s")
+
+        return {
+            "status": "success",
+            "audio_file_id": audio_file_id,
+            "meeting_id": str(meeting_id),
+        }
+    except Exception:
+        update_task_progress(task_id, actor_user_id, 0, "failed", task_type="audio_asr")
+        try:
+            audio = (
+                db.query(AudioFile)
+                .filter(AudioFile.id == uuid.UUID(audio_file_id))
+                .first()
+            )
+            if audio:
+                for uid in _get_meeting_member_ids(
+                    db, audio.meeting_id, include_creator=True
+                ):
+                    publish_task_progress_sync(
+                        str(uid), 0, "failed", "", "audio_asr", task_id
+                    )
+        except Exception:
+            pass
+        raise
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass

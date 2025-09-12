@@ -4,7 +4,8 @@ from typing import List, Optional, Tuple
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.meeting import Meeting, ProjectMeeting
+from app.core.config import settings
+from app.models.meeting import AudioFile, Meeting, ProjectMeeting
 from app.models.project import UserProject
 from app.schemas.meeting import MeetingCreate, MeetingFilter, MeetingUpdate
 from app.utils.meeting import (
@@ -13,6 +14,7 @@ from app.utils.meeting import (
     notify_meeting_members,
     validate_meeting_url,
 )
+from app.utils.minio import generate_presigned_url, get_minio_client
 
 
 def create_meeting(
@@ -281,3 +283,83 @@ def remove_meeting_from_project(
     db.commit()
 
     return True
+
+
+def _get_next_seq_order(db: Session, meeting_id: uuid.UUID) -> int:
+    last = (
+        db.query(AudioFile)
+        .filter(AudioFile.meeting_id == meeting_id)
+        .order_by(AudioFile.seq_order.desc().nullslast(), AudioFile.created_at.desc())
+        .first()
+    )
+    if not last or last.seq_order is None:
+        return 1
+    return int(last.seq_order) + 1
+
+
+def create_audio_file(
+    db: Session,
+    meeting_id: uuid.UUID,
+    uploaded_by: uuid.UUID,
+    filename: str,
+    content_type: str,
+    file_bytes: bytes,
+    seq_order: Optional[int] = None,
+) -> Optional[AudioFile]:
+    """Create AudioFile row and upload bytes to MinIO, then set file_url."""
+    # Create DB row first
+    audio = AudioFile(
+        meeting_id=meeting_id,
+        uploaded_by=uploaded_by,
+        seq_order=seq_order
+        if seq_order is not None
+        else _get_next_seq_order(db, meeting_id),
+    )
+    db.add(audio)
+    db.commit()
+    db.refresh(audio)
+
+    # Determine extension
+    ext = ""
+    if "." in filename:
+        ext = filename.split(".")[-1].lower()
+
+    object_name = f"meetings/{meeting_id}/audio/{audio.id}{('.' + ext) if ext else ''}"
+
+    try:
+        client = get_minio_client()
+        from io import BytesIO
+
+        file_data = BytesIO(file_bytes)
+        client.put_object(
+            bucket_name=settings.MINIO_BUCKET_NAME,
+            object_name=object_name,
+            data=file_data,
+            length=len(file_bytes),
+            content_type=content_type,
+        )
+
+        url = generate_presigned_url(settings.MINIO_BUCKET_NAME, object_name)
+        audio.file_url = url
+        db.commit()
+        db.refresh(audio)
+        return audio
+    except Exception:
+        # Rollback DB row if upload failed
+        try:
+            db.delete(audio)
+            db.commit()
+        except Exception:
+            pass
+        return None
+
+
+def get_meeting_audio_files(
+    db: Session, meeting_id: uuid.UUID, page: int = 1, limit: int = 20
+) -> Tuple[List[AudioFile], int]:
+    q = db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id)
+    # Order by seq_order ASC (NULLS LAST), then created_at ASC
+    q = q.order_by(AudioFile.seq_order.asc().nullslast(), AudioFile.created_at.asc())
+    total = q.count()
+    rows = q.offset((page - 1) * limit).limit(limit).all()
+    return rows, total

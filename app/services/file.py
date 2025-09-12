@@ -5,8 +5,10 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.file import File
+from app.models.meeting import Meeting
 from app.models.project import Project
 from app.schemas.file import FileCreate, FileFilter, FileUpdate
+from app.utils.meeting import check_meeting_access as check_meeting_access_utils
 from app.utils.minio import (
     delete_file_from_minio,
     generate_presigned_url,
@@ -198,7 +200,14 @@ def bulk_move_files(
                 continue
 
         if target_meeting_id:
-            if not check_meeting_access(db, target_meeting_id, user_id):
+            target_meeting = (
+                db.query(Meeting)
+                .filter(Meeting.id == target_meeting_id, Meeting.is_deleted == False)
+                .first()
+            )
+            if not target_meeting or not check_meeting_access_utils(
+                db, target_meeting, user_id
+            ):
                 results.append(
                     {
                         "success": False,
@@ -236,43 +245,6 @@ def check_file_access(db: Session, file: File, user_id: uuid.UUID) -> bool:
         )
 
     return False
-
-
-def check_meeting_access(
-    db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID
-) -> bool:
-    """Check if user has access to a meeting's files"""
-    from app.models.meeting import Meeting, ProjectMeeting
-    from app.models.project import UserProject
-
-    meeting = (
-        db.query(Meeting)
-        .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
-        .first()
-    )
-    if not meeting:
-        return False
-
-    # Personal meeting created by the user
-    if meeting.is_personal and meeting.created_by == user_id:
-        return True
-
-    # Check if user is a member of any project linked to this meeting
-    linked_project_membership = (
-        db.query(ProjectMeeting)
-        .join(
-            UserProject,
-            UserProject.project_id == ProjectMeeting.project_id,
-        )
-        .filter(
-            ProjectMeeting.meeting_id == meeting_id,
-            UserProject.user_id == user_id,
-        )
-        .first()
-        is not None
-    )
-
-    return linked_project_membership
 
 
 def validate_file(filename: str, mime_type: str, file_size: int) -> bool:
