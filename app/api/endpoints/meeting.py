@@ -1,30 +1,31 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.meeting import check_delete_permissions, get_meeting_or_404
 from app.core.config import settings
 from app.db import get_db
+from app.jobs.tasks import process_audio_task
 from app.models.meeting import Meeting
 from app.models.user import User
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.meeting import (
+    AudioFileItem,
     MeetingApiResponse,
+    MeetingAudioFilesPaginatedResponse,
     MeetingCreate,
     MeetingFilter,
     MeetingsPaginatedResponse,
     MeetingUpdate,
     MeetingWithProjectsApiResponse,
-    AudioFileItem,
-    MeetingAudioFilesPaginatedResponse,
 )
 from app.services.meeting import (
     add_meeting_to_project,
+    create_audio_file,
     create_meeting,
     delete_meeting,
-    create_audio_file,
     get_meeting_audio_files,
     get_meetings,
     remove_meeting_from_project,
@@ -32,8 +33,6 @@ from app.services.meeting import (
 )
 from app.utils.auth import get_current_user
 from app.utils.meeting import check_meeting_access, get_meeting_projects
-from app.jobs.tasks import process_audio_task
-from app.models.meeting import Meeting as MeetingModel
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting"])
 
@@ -99,12 +98,9 @@ def get_meetings_endpoint(
         # Parse tag IDs
         tag_id_list = []
         if tag_ids.strip():
-            try:
-                tag_id_list = [
-                    uuid.UUID(tid.strip()) for tid in tag_ids.split(",") if tid.strip()
-                ]
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid tag_ids format")
+            tag_id_list = [
+                uuid.UUID(tid.strip()) for tid in tag_ids.split(",") if tid.strip()
+            ]
 
         # Create filter object
         filters = MeetingFilter(
@@ -323,8 +319,8 @@ def upload_meeting_audio_endpoint(
     try:
         # Validate meeting
         meeting = (
-            db.query(MeetingModel)
-            .filter(MeetingModel.id == meeting_id, MeetingModel.is_deleted == False)
+            db.query(Meeting)
+            .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
             .first()
         )
         if not meeting:
@@ -395,8 +391,8 @@ def list_meeting_audio_endpoint(
 ):
     try:
         meeting = (
-            db.query(MeetingModel)
-            .filter(MeetingModel.id == meeting_id, MeetingModel.is_deleted == False)
+            db.query(Meeting)
+            .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
             .first()
         )
         if not meeting:

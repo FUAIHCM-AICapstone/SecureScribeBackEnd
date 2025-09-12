@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import get_db
-from app.models.file import File
 from app.models.user import User
 from app.schemas.common import ApiResponse
 from app.schemas.search import (
@@ -15,7 +14,8 @@ from app.schemas.search import (
     SearchResponse,
     SearchResult,
 )
-from app.services.file import check_file_access
+from app.services.file import check_file_access, get_file
+from app.services.qdrant_service import search_vectors
 from app.utils.auth import get_current_user
 from app.utils.llm import embed_query
 from app.utils.qa_workflow import run_rag
@@ -34,7 +34,6 @@ async def search_documents(
 
     try:
         # Perform vector search using QdrantService functions
-        from app.services.qdrant_service import search_vectors
 
         query_embedding = await embed_query(request.query)
         # Server-side scope filtering in Qdrant
@@ -156,7 +155,7 @@ async def search_documents(
                     continue
 
                 # Check if file exists in database
-                file = db.query(File).filter(File.id == file_id).first()
+                file = get_file(db, file_id)
                 if not file:
                     print(f"\033[93m⚠️ File {file_id} not found in database\033[0m")
                     filter_stats["file_not_found"] += 1
@@ -271,7 +270,7 @@ def get_indexing_status(
 
     try:
         # Check if file exists and user has access
-        file = db.query(File).filter(File.id == file_id).first()
+        file = get_file(db, file_id)
         if not file:
             raise HTTPException(status_code=404, detail="File not found")
 

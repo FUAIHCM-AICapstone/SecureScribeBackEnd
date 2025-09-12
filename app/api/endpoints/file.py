@@ -29,11 +29,14 @@ from app.services.file import (
     bulk_delete_files,
     bulk_move_files,
     check_file_access,
-    check_meeting_access,
     create_file,
     delete_file,
     get_file,
+    get_file_with_meeting_info,
+    get_file_with_project_info,
     get_files,
+    get_meeting_files_with_info,
+    get_project_files_with_info,
     update_file,
     validate_file,
 )
@@ -386,18 +389,12 @@ def get_project_files_endpoint(
 ):
     """Get files for a specific project with project info"""
     try:
-        from app.services.project import is_user_in_project
+        files, project_name, total = get_project_files_with_info(
+            db, project_id, current_user.id, page, limit
+        )
 
-        if not is_user_in_project(db, project_id, current_user.id):
+        if files is None:
             raise HTTPException(status_code=403, detail="Access denied")
-
-        filters = FileFilter(project_id=project_id)
-        files, total = get_files(db, filters, page, limit, current_user.id)
-
-        from app.models.project import Project
-
-        project = db.query(Project).filter(Project.id == project_id).first()
-        project_name = project.name if project else None
 
         pagination_meta = create_pagination_meta(page, limit, total)
 
@@ -432,31 +429,14 @@ def get_meeting_files_endpoint(
 ):
     """Get files for a specific meeting with meeting info"""
     try:
-        from app.models.meeting import Meeting
-
-        meeting = (
-            db.query(Meeting)
-            .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
-            .first()
+        files, meeting_title, total = get_meeting_files_with_info(
+            db, meeting_id, current_user.id, page, limit
         )
-        if not meeting:
-            raise HTTPException(status_code=404, detail="Meeting not found")
 
-        from app.utils.meeting import check_meeting_access as check_meeting_access_utils
-        from app.models.meeting import Meeting as MeetingModel
-
-        meeting_obj = (
-            db.query(MeetingModel)
-            .filter(MeetingModel.id == meeting_id, MeetingModel.is_deleted == False)
-            .first()
-        )
-        if not meeting_obj or not check_meeting_access_utils(
-            db, meeting_obj, current_user.id
-        ):
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        filters = FileFilter(meeting_id=meeting_id)
-        files, total = get_files(db, filters, page, limit, current_user.id)
+        if files is None:
+            raise HTTPException(
+                status_code=404, detail="Meeting not found or access denied"
+            )
 
         pagination_meta = create_pagination_meta(page, limit, total)
 
@@ -466,7 +446,7 @@ def get_meeting_files_endpoint(
             data=[
                 FileWithMeeting(
                     **file.__dict__,
-                    meeting_title=meeting.title,
+                    meeting_title=meeting_title,
                     can_access=True,
                 )
                 for file in files
@@ -487,19 +467,10 @@ def get_file_with_project_endpoint(
 ):
     """Get a file with project information"""
     try:
-        file = get_file(db, file_id)
+        file, project_name = get_file_with_project_info(db, file_id, current_user.id)
+
         if not file:
             raise HTTPException(status_code=404, detail="File not found")
-
-        if not check_file_access(db, file, current_user.id):
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        from app.models.project import Project
-
-        project_name = None
-        if file.project_id:
-            project = db.query(Project).filter(Project.id == file.project_id).first()
-            project_name = project.name if project else None
 
         return ApiResponse(
             success=True,
@@ -524,23 +495,10 @@ def get_file_with_meeting_endpoint(
 ):
     """Get a file with meeting information"""
     try:
-        file = get_file(db, file_id)
+        file, meeting_title = get_file_with_meeting_info(db, file_id, current_user.id)
+
         if not file:
             raise HTTPException(status_code=404, detail="File not found")
-
-        if not check_file_access(db, file, current_user.id):
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        from app.models.meeting import Meeting
-
-        meeting_title = None
-        if file.meeting_id:
-            meeting = (
-                db.query(Meeting)
-                .filter(Meeting.id == file.meeting_id, Meeting.is_deleted == False)
-                .first()
-            )
-            meeting_title = meeting.title if meeting else None
 
         return ApiResponse(
             success=True,

@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import get_db
-from app.models.user import User, UserDevice
+from app.jobs.celery_worker import send_test_notification_task
+from app.models.user import User
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.user import (
     BulkUserCreate,
@@ -24,9 +24,11 @@ from app.services.user import (
     bulk_update_users,
     create_user,
     delete_user,
+    get_or_create_user_device,
     get_users,
     update_user,
 )
+from app.services.websocket_manager import websocket_manager
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["User"])
@@ -176,37 +178,14 @@ def update_fcm_token_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Find existing device or create new one
-    device = (
-        db.query(UserDevice)
-        .filter(
-            UserDevice.user_id == current_user.id,
-            UserDevice.device_name == fcm_data.device_name,
-        )
-        .first()
+    # Update FCM token using service
+    device = get_or_create_user_device(
+        db,
+        current_user.id,
+        fcm_data.device_name,
+        fcm_data.device_type,
+        fcm_data.fcm_token,
     )
-
-    if device:
-        device.fcm_token = fcm_data.fcm_token
-        device.device_type = fcm_data.device_type
-        device.last_active_at = datetime.utcnow()
-        device.is_active = True
-    else:
-        device = UserDevice(
-            user_id=current_user.id,
-            device_name=fcm_data.device_name,
-            device_type=fcm_data.device_type,
-            fcm_token=fcm_data.fcm_token,
-            is_active=True,
-        )
-        db.add(device)
-
-    try:
-        db.commit()
-        db.refresh(device)
-    except Exception:
-        db.rollback()
-        raise
 
     return ApiResponse(
         success=True,
@@ -217,8 +196,6 @@ def update_fcm_token_endpoint(
 
 @router.post("/users/me/test-stream", response_model=ApiResponse[dict])
 def test_stream_progress(current_user: User = Depends(get_current_user)):
-    from app.jobs.celery_worker import send_test_notification_task
-
     user_id_str = str(current_user.id)
     task = send_test_notification_task.delay(user_id_str)
 
@@ -234,8 +211,6 @@ def get_websocket_status(current_user: User = Depends(get_current_user)):
     """
     Get WebSocket connection status for current user
     """
-    from app.services.websocket_manager import websocket_manager
-
     user_id_str = str(current_user.id)
 
     stats = websocket_manager.get_connection_stats()

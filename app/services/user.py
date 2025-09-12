@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, selectinload
@@ -315,3 +315,74 @@ def bulk_delete_users(db: Session, user_ids: List[uuid.UUID]) -> List[dict]:
                 result["error"] = f"Commit failed: {str(e)}"
 
     return results
+
+
+def get_user_by_id(db: Session, user_id: uuid.UUID) -> Optional[User]:
+    """Get user by ID"""
+    return db.query(User).filter(User.id == user_id).first()
+
+
+def get_user_projects_stats(db: Session, user_id: uuid.UUID) -> dict:
+    """Get user's project statistics"""
+    from app.models.project import Project, UserProject
+
+    # Get user's projects directly
+    user_projects = (
+        db.query(UserProject)
+        .options(selectinload(UserProject.project))
+        .filter(UserProject.user_id == user_id)
+        .all()
+    )
+
+    # Calculate statistics
+    total_projects = len(user_projects)
+    admin_projects = sum(1 for up in user_projects if up.role in ["admin", "owner"])
+    member_projects = total_projects - admin_projects
+    active_projects = sum(
+        1 for up in user_projects if up.project and not up.project.is_archived
+    )
+
+    return {
+        "total_projects": total_projects,
+        "admin_projects": admin_projects,
+        "member_projects": member_projects,
+        "active_projects": active_projects,
+        "archived_projects": total_projects - active_projects,
+    }
+
+
+def get_or_create_user_device(
+    db: Session, user_id: uuid.UUID, device_name: str, device_type: str, fcm_token: str
+):
+    """Get or create user device and update FCM token"""
+    from datetime import datetime
+
+    from app.models.user import UserDevice
+
+    device = (
+        db.query(UserDevice)
+        .filter(
+            UserDevice.user_id == user_id,
+            UserDevice.device_name == device_name,
+        )
+        .first()
+    )
+
+    if device:
+        device.fcm_token = fcm_token
+        device.device_type = device_type
+        device.last_active_at = datetime.utcnow()
+        device.is_active = True
+    else:
+        device = UserDevice(
+            user_id=user_id,
+            device_name=device_name,
+            device_type=device_type,
+            fcm_token=fcm_token,
+            is_active=True,
+        )
+        db.add(device)
+
+    db.commit()
+    db.refresh(device)
+    return device

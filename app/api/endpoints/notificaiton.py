@@ -7,6 +7,12 @@ from uuid import UUID
 # Third-party imports
 from fastapi import APIRouter, Depends, Query, WebSocket
 from sqlalchemy.orm import Session
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 # Local imports
 from app.core.config import settings
@@ -28,7 +34,10 @@ from app.services.notification import (
     send_fcm_notification,
     update_notification,
 )
+from app.services.user import get_user_by_id
+from app.services.websocket_manager import websocket_manager
 from app.utils.auth import get_current_user, get_current_user_from_token
+from app.utils.redis import publish_to_user_channel
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Notification"])
 
@@ -96,15 +105,6 @@ def send_notification_endpoint(
     # Publish to Redis channels for real-time WebSocket delivery
     import asyncio
 
-    from tenacity import (
-        retry,
-        retry_if_exception_type,
-        stop_after_attempt,
-        wait_exponential,
-    )
-
-    from app.utils.redis import publish_to_user_channel
-
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=0.5, min=0.5, max=5),
@@ -166,15 +166,6 @@ def send_global_notification_endpoint(
 
     # Publish to Redis channels for real-time WebSocket delivery
     import asyncio
-
-    from tenacity import (
-        retry,
-        retry_if_exception_type,
-        stop_after_attempt,
-        wait_exponential,
-    )
-
-    from app.utils.redis import publish_to_user_channel
 
     @retry(
         stop=stop_after_attempt(3),
@@ -288,7 +279,6 @@ async def websocket_endpoint(
     user_id_str = None
 
     # Import WebSocket manager outside try block
-    from app.services.websocket_manager import websocket_manager
 
     try:
         # Get token from either authorization or token parameter
@@ -313,7 +303,7 @@ async def websocket_endpoint(
         # Validate user exists
         db = SessionLocal()
         try:
-            user = db.query(User).filter(User.id == UUID(user_id)).first()
+            user = get_user_by_id(db, UUID(user_id))
             if not user:
                 await websocket.close(code=4002, reason="User not found")
                 return

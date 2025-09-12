@@ -2,13 +2,13 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import get_db
-from app.models.project import UserProject
 from app.models.user import User
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
+from app.schemas.notification import NotificationCreate
 from app.schemas.project import (
     BulkUserProjectCreate,
     BulkUserProjectResponse,
@@ -22,6 +22,7 @@ from app.schemas.project import (
     UserProjectCreate,
     UserProjectUpdate,
 )
+from app.services.notification import create_notifications_bulk
 from app.services.project import (
     add_user_to_project,
     bulk_add_users_to_project,
@@ -40,6 +41,7 @@ from app.services.project import (
     update_project,
     update_user_role_in_project,
 )
+from app.services.user import get_user_projects_stats
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Project"])
@@ -535,29 +537,8 @@ def get_my_project_stats_endpoint(
     Get current user's project statistics
     """
     try:
-        # Get user's projects directly (merged from get_user_projects function)
-        user_projects = (
-            db.query(UserProject)
-            .options(joinedload(UserProject.project))
-            .filter(UserProject.user_id == current_user.id)
-            .all()
-        )
-
-        # Calculate statistics
-        total_projects = len(user_projects)
-        admin_projects = sum(1 for up in user_projects if up.role in ["admin", "owner"])
-        member_projects = total_projects - admin_projects
-        active_projects = sum(
-            1 for up in user_projects if up.project and not up.project.is_archived
-        )
-
-        stats = {
-            "total_projects": total_projects,
-            "admin_projects": admin_projects,
-            "member_projects": member_projects,
-            "active_projects": active_projects,
-            "archived_projects": total_projects - active_projects,
-        }
+        # Get user's project statistics using service
+        stats = get_user_projects_stats(db, current_user.id)
 
         return ApiResponse(
             success=True,
@@ -603,9 +584,6 @@ def request_role_change_endpoint(
 
         # Create notification for project admins
         try:
-            from app.schemas.notification import NotificationCreate
-            from app.services.notification import create_notifications_bulk
-
             # Find all admin users in the project
             members = get_project_members(db, project_id)
             admin_user_ids = [
