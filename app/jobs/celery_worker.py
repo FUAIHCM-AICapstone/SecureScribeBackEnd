@@ -4,7 +4,6 @@ from celery import Celery
 
 from app.core.config import settings
 from app.core.firebase import initialize_firebase
-from app.jobs import tasks  # noqa: F401
 from app.utils.redis import publish_to_user_channel  # noqa: F401
 from app.utils.task_progress import publish_task_progress_sync, update_task_progress
 

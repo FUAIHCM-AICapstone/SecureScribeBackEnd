@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.models.file import File
-from app.models.meeting import Meeting
-from app.models.project import Project, ProjectMeeting, TaskProject, UserProject
-from app.models.task import Task
+from app.models.meeting import Meeting, ProjectMeeting
+from app.models.project import Project, UserProject
+from app.models.task import Task, TaskProject
 from app.models.user import User
 from app.utils.minio import delete_file_from_minio
 
