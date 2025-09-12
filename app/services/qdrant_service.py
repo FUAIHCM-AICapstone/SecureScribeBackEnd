@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 import tiktoken
 from qdrant_client.http import models as qmodels
 
+from app.core.config import settings
 from app.utils.qdrant import get_qdrant_client
 
 
@@ -61,7 +62,10 @@ async def upsert_vectors(
 
 
 async def search_vectors(
-    collection: str, query_vector: List[float], top_k: int = 5
+    collection: str,
+    query_vector: List[float],
+    top_k: int = 5,
+    query_filter: qmodels.Filter | None = None,
 ) -> List[Any]:
     """Search for similar vectors in a collection"""
     if not query_vector:
@@ -73,6 +77,7 @@ async def search_vectors(
             collection_name=collection,
             query_vector=query_vector,
             limit=min(max(top_k, 1), 100),
+            query_filter=query_filter,
         )
         print(f"🟢 \033[92mFound {len(results)} results in '{collection}'\033[0m")
         return results
@@ -119,8 +124,8 @@ def chunk_text(text: str, chunk_size: int = 1000) -> List[str]:
 
     text_no_code = re.sub(r"```.*?```", _code_repl, text, flags=re.DOTALL)
 
-    # Split into sentences
-    rough_sentences = re.split(r'(?<=[\.\?\!]["\']?)\s+|\n+', text_no_code)
+    # Split into sentences (avoid variable-width lookbehind)
+    rough_sentences = re.split(r"(?<=[\.!?])\s+|\n+", text_no_code)
     sentences = [s.strip() for s in rough_sentences if s and s.strip()]
 
     chunks: List[str] = []
@@ -271,7 +276,13 @@ def _extract_text_from_docx(file_path: str) -> str:
 
 
 async def process_file(
-    file_path: str, collection_name: str = "documents", file_id: str = None
+    file_path: str,
+    collection_name: str = None,
+    file_id: str = None,
+    project_id: str | None = None,
+    meeting_id: str | None = None,
+    owner_user_id: str | None = None,
+    file_type: str | None = None,
 ) -> bool:
     """Process a file and store it in Qdrant"""
     try:
@@ -325,6 +336,10 @@ async def process_file(
             f"🟢 \033[92mExtracted {len(content)} characters from {os.path.basename(file_path)}\033[0m"
         )
 
+        # Default collection name from settings
+        if not collection_name:
+            collection_name = settings.QDRANT_COLLECTION_NAME
+
         # Create collection if needed
         from app.utils.llm import embed_documents
 
@@ -363,6 +378,17 @@ async def process_file(
             else:
                 print(f"🟡 \033[93mWarning: No file_id provided for chunk {i}\033[0m")
 
+            # Scope metadata for server-side filtering
+            if project_id:
+                payload["project_id"] = project_id
+            if meeting_id:
+                payload["meeting_id"] = meeting_id
+            if owner_user_id:
+                payload["uploaded_by"] = owner_user_id
+            if file_type:
+                payload["file_type"] = file_type
+            payload["is_global"] = bool(not project_id and not meeting_id and owner_user_id)
+
             payloads.append(payload)
 
         # Store in Qdrant
@@ -381,7 +407,7 @@ async def process_file(
 
 
 async def search_documents(
-    query: str, collection_name: str = "documents", top_k: int = 5
+    query: str, collection_name: str | None = None, top_k: int = 5
 ) -> List[Dict[str, Any]]:
     """Search documents in a collection"""
     try:
@@ -391,6 +417,8 @@ async def search_documents(
         query_embedding = await embed_query(query)
 
         # Search in Qdrant
+        if not collection_name:
+            collection_name = settings.QDRANT_COLLECTION_NAME
         results = await search_vectors(collection_name, query_embedding, top_k)
 
         # Format results
@@ -417,11 +445,13 @@ async def search_documents(
         return []
 
 
-async def delete_file_vectors(file_id: str, collection_name: str = "documents") -> bool:
+async def delete_file_vectors(file_id: str, collection_name: str | None = None) -> bool:
     """Delete all vectors for a specific file_id from the collection"""
     client = get_qdrant_client()
 
     try:
+        if not collection_name:
+            collection_name = settings.QDRANT_COLLECTION_NAME
         filter_condition = qmodels.Filter(
             must=[
                 qmodels.FieldCondition(
@@ -444,9 +474,23 @@ async def delete_file_vectors(file_id: str, collection_name: str = "documents") 
 
 
 async def reindex_file(
-    file_path: str, file_id: str, collection_name: str = "documents"
+    file_path: str,
+    file_id: str,
+    collection_name: str | None = None,
+    project_id: str | None = None,
+    meeting_id: str | None = None,
+    owner_user_id: str | None = None,
+    file_type: str | None = None,
 ) -> bool:
     """Reindex a file by first deleting existing vectors, then indexing anew"""
     print(f"🔄 \033[94mReindexing file {file_id}\033[0m")
     await delete_file_vectors(file_id, collection_name)
-    return await process_file(file_path, collection_name, file_id)
+    return await process_file(
+        file_path,
+        collection_name,
+        file_id,
+        project_id=project_id,
+        meeting_id=meeting_id,
+        owner_user_id=owner_user_id,
+        file_type=file_type,
+    )

@@ -18,6 +18,7 @@ from app.schemas.search import (
 from app.services.file import check_file_access
 from app.utils.auth import get_current_user
 from app.utils.llm import embed_query
+from app.utils.qa_workflow import run_rag
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Search"])
 
@@ -36,10 +37,45 @@ async def search_documents(
         from app.services.qdrant_service import search_vectors
 
         query_embedding = await embed_query(request.query)
+        # Server-side scope filtering in Qdrant
+        from qdrant_client.http.models import FieldCondition, Filter, MatchValue
+
+        # Meeting scope: only that meeting's files
+        # Project scope: project files OR current user's personal files
+        qfilter = None
+        if request.meeting_id:
+            qfilter = Filter(
+                should=[
+                    FieldCondition(
+                        key="meeting_id", match=MatchValue(value=request.meeting_id)
+                    ),
+                    FieldCondition(
+                        key="is_global", match=MatchValue(value=True)
+                    ),
+                ],
+                must=[
+                    FieldCondition(
+                        key="uploaded_by", match=MatchValue(value=str(current_user.id))
+                    )
+                ],
+            )
+        elif request.project_id:
+            qfilter = Filter(
+                should=[
+                    FieldCondition(
+                        key="project_id", match=MatchValue(value=request.project_id)
+                    ),
+                    FieldCondition(
+                        key="uploaded_by", match=MatchValue(value=str(current_user.id))
+                    ),
+                ]
+            )
+
         raw_results = await search_vectors(
-            collection="documents",
+            collection=settings.QDRANT_COLLECTION_NAME,
             query_vector=query_embedding,
             top_k=request.limit or 10,
+            query_filter=qfilter,
         )
 
         # Filter results based on user access and request parameters
@@ -143,11 +179,17 @@ async def search_documents(
 
                 print("\033[92m✅ Access granted for file\033[0m")
 
-                # Apply project filter if specified
+                # Apply project filter if specified (allow user's global files too)
                 if request.project_id:
-                    if str(file.project_id) != request.project_id:
+                    is_project_match = str(file.project_id) == request.project_id
+                    is_users_global = (
+                        file.project_id is None
+                        and file.meeting_id is None
+                        and str(file.uploaded_by or "") == str(current_user.id)
+                    )
+                    if not (is_project_match or is_users_global):
                         print(
-                            f"\033[93m🏢 Project filter: file.project_id={file.project_id} != request.project_id={request.project_id}\033[0m"
+                            f"\033[93m🏢 Project filter: excluded file {file.id} (project match={is_project_match}, users_global={is_users_global})\033[0m"
                         )
                         filter_stats["project_filter"] += 1
                         continue
@@ -274,3 +316,20 @@ def get_indexing_status(
     except Exception as e:
         print(f"\033[91m❌ Failed to get indexing status: {e}\033[0m")
         raise HTTPException(status_code=500, detail=f"Failed to get status: {str(e)}")
+
+
+@router.post("/search/rag")
+async def rag_search(
+    request: SearchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Minimal RAG endpoint using LangGraph workflow."""
+    data = await run_rag(
+        request.query,
+        db,
+        current_user,
+        project_id=request.project_id,
+        meeting_id=request.meeting_id,
+    )
+    return ApiResponse(success=True, message="RAG completed", data=data)

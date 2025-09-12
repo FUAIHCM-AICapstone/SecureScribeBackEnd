@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.meeting import Meeting
 from app.models.project import UserProject
-from app.models.user import User
+from app.models.user import User  # noqa: F401
 from app.schemas.notification import NotificationCreate
 from app.services.notification import create_notifications_bulk
 

@@ -1,47 +1,44 @@
 from typing import List
 
-import google.generativeai as genai
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_google_genai import (
+    ChatGoogleGenerativeAI,
+    GoogleGenerativeAIEmbeddings,
+)
 
 from app.core.config import settings
 
 
-def init_google_ai():
-    """Initialize Google AI client"""
-    genai.configure(api_key=settings.GOOGLE_API_KEY)
-    return genai
+def _get_embedder() -> GoogleGenerativeAIEmbeddings:
+    return GoogleGenerativeAIEmbeddings(
+        model="models/text-embedding-004",
+        google_api_key=settings.GOOGLE_API_KEY,
+    )
 
 
-def get_embedding_client():
-    """Get Google AI embedding client"""
-    return init_google_ai()
+def _get_chat_model() -> ChatGoogleGenerativeAI:
+    return ChatGoogleGenerativeAI(
+        model="gemini-1.5-flash",
+        google_api_key=settings.GOOGLE_API_KEY,
+        temperature=0.2,
+    )
 
 
 async def embed_query(query: str) -> List[float]:
-    """Generate embedding for query"""
-    client = get_embedding_client()
-    result = client.embed_content(
-        model="models/text-embedding-004",
-        content=query,
-        task_type="retrieval_query",
-    )
-    return result["embedding"] if result and "embedding" in result else []
+    embedder = _get_embedder()
+    return embedder.embed_query(query)
 
 
 async def embed_documents(docs: List[str]) -> List[List[float]]:
-    """Generate embeddings for documents"""
     if not docs:
         return []
+    embedder = _get_embedder()
+    return embedder.embed_documents(docs)
 
-    client = get_embedding_client()
-    embeddings = []
 
-    for doc in docs:
-        result = client.embed_content(
-            model="models/text-embedding-004",
-            content=doc,
-            task_type="retrieval_document",
-        )
-        if result and "embedding" in result:
-            embeddings.append(result["embedding"])
-
-    return embeddings
+async def chat_complete(system_prompt: str, user_prompt: str) -> str:
+    llm = _get_chat_model()
+    resp = llm.invoke(
+        [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]
+    )
+    return resp.content

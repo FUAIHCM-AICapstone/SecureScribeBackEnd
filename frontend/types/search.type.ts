@@ -87,3 +87,15 @@ export interface IndexingStatusExtended {
 export type SearchApiResponse = ApiResponse<SearchResponse>;
 export type IndexingStatusResponse = ApiResponse<IndexingStatus>;
 export type IndexingStatusExtendedResponse = ApiResponse<IndexingStatusExtended>;
+
+// RAG Types
+export interface RagRequest {
+    query: string;
+}
+
+export interface RagResponseData {
+    answer: string;
+    contexts: string[];
+}
+
+export type RagApiResponse = ApiResponse<RagResponseData>;

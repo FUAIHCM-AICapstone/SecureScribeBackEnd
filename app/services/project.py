@@ -145,8 +145,6 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
     try:
         # Delete in correct order to avoid foreign key conflicts
 
-
-
         project_files = (
             db.query(File)
             .filter(

@@ -140,7 +140,6 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     try:
-
         db.query(UserProject).filter(UserProject.user_id == user_id).delete()
 
         # 2. Delete user's meetings (soft delete) - only update meetings that are not already deleted

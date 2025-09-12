@@ -6,6 +6,7 @@ import {
     searchDocuments,
     validateSearchQuery
 } from '../../services/api';
+import { ragChat } from '../../services/api/search';
 import { getMyProjects } from '../../services/api/project';
 import { getPersonalMeetings } from '../../services/api/meeting';
 import { queryKeys } from '../../lib/queryClient';
@@ -123,12 +124,22 @@ const SearchComponent: React.FC = () => {
 
         setIsChatting(true);
         const currentQuery = chatQuery;
-        setChatQuery(''); // Clear input immediately
+        setChatQuery('');
+        setChatResponse('');
 
-        // RAG chat functionality has been removed
-        setChatResponse(`RAG chat functionality has been removed. Your query: "${currentQuery}"`);
-        setIsChatting(false);
-        showToast('info', 'RAG chat functionality has been removed');
+        try {
+            const res = await ragChat({ query: currentQuery.trim() });
+            if (res.success && res.data) {
+                setChatResponse(res.data.answer || '');
+            } else {
+                showToast('error', res.message || 'RAG chat thất bại');
+            }
+        } catch (err) {
+            console.error('RAG error', err);
+            showToast('error', 'Có lỗi xảy ra khi gọi RAG');
+        } finally {
+            setIsChatting(false);
+        }
     };
 
 

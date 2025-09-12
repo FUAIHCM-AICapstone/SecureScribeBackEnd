@@ -4,6 +4,8 @@ import type {
     SearchApiResponse,
     IndexingStatusResponse,
     ApiResponse,
+    RagRequest,
+    RagApiResponse,
 } from '../../types/search.type';
 
 // Search API functions
@@ -50,6 +52,13 @@ export const searchDocumentsAdvanced = async (
     if (options.meetingId) params.meeting_id = options.meetingId;
 
     const response = await axiosInstance.post('/search', params);
+    return response.data;
+};
+
+// RAG
+export const ragChat = async (payload: RagRequest): Promise<RagApiResponse> => {
+    console.log('🤖 RAG chat:', payload);
+    const response = await axiosInstance.post('/search/rag', payload);
     return response.data;
 };
 

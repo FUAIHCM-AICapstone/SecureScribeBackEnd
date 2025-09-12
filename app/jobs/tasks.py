@@ -21,7 +21,14 @@ engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-async def _perform_async_indexing(file_id: str, filename: str) -> bool:
+async def _perform_async_indexing(
+    file_id: str,
+    filename: str,
+    project_id: str | None,
+    meeting_id: str | None,
+    owner_user_id: str | None,
+    file_type: str | None,
+) -> bool:
     """Async helper function to perform file indexing"""
     try:
         import os
@@ -44,7 +51,11 @@ async def _perform_async_indexing(file_id: str, filename: str) -> bool:
             success = await reindex_file(
                 file_path=temp_file_path,
                 file_id=str(file_id),
-                collection_name="documents",
+                collection_name=settings.QDRANT_COLLECTION_NAME,
+                project_id=project_id,
+                meeting_id=meeting_id,
+                owner_user_id=owner_user_id,
+                file_type=file_type,
             )
             return success
         finally:
@@ -139,7 +150,16 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
 
         try:
             # Use asyncio.run to handle the async indexing
-            success = asyncio.run(_perform_async_indexing(file_id, file.filename))
+            success = asyncio.run(
+                _perform_async_indexing(
+                    file_id,
+                    file.filename,
+                    str(file.project_id) if file.project_id else None,
+                    str(file.meeting_id) if file.meeting_id else None,
+                    str(file.uploaded_by) if file.uploaded_by else None,
+                    str(file.file_type) if file.file_type else None,
+                )
+            )
 
         except Exception as e:
             print(f"\033[91m❌ Error during indexing: {e}\033[0m")
