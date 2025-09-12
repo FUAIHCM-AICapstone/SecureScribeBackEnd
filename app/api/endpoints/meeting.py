@@ -4,7 +4,6 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.meeting import check_delete_permissions, get_meeting_or_404
 from app.core.config import settings
 from app.db import get_db
 from app.jobs.tasks import process_audio_task
@@ -23,13 +22,16 @@ from app.schemas.meeting import (
 )
 from app.services.meeting import (
     add_meeting_to_project,
+    check_delete_permissions,
     create_audio_file,
     create_meeting,
     delete_meeting,
+    get_meeting,
     get_meeting_audio_files,
     get_meetings,
     remove_meeting_from_project,
     update_meeting,
+    validate_meeting_for_audio_operations,
 )
 from app.utils.auth import get_current_user
 from app.utils.meeting import check_meeting_access, get_meeting_projects
@@ -153,11 +155,13 @@ def get_meetings_endpoint(
 
 @router.get("/meetings/{meeting_id}", response_model=MeetingWithProjectsApiResponse)
 def get_meeting_endpoint(
-    meeting: Meeting = Depends(get_meeting_or_404),
+    meeting_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Get a specific meeting by ID"""
     try:
+        meeting = get_meeting(db, meeting_id, current_user.id, raise_404=True)
         projects = get_meeting_projects(db, meeting.id)
         response_data = {
             "id": meeting.id,
@@ -182,6 +186,8 @@ def get_meeting_endpoint(
             message="Meeting retrieved successfully",
             data=response_data,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -189,12 +195,13 @@ def get_meeting_endpoint(
 @router.put("/meetings/{meeting_id}", response_model=MeetingApiResponse)
 def update_meeting_endpoint(
     updates: MeetingUpdate,
-    meeting: Meeting = Depends(get_meeting_or_404),
+    meeting_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Update a meeting"""
     try:
+        meeting = get_meeting(db, meeting_id, current_user.id, raise_404=True)
         updated_meeting = update_meeting(db, meeting.id, updates, current_user.id)
         if not updated_meeting:
             raise HTTPException(status_code=400, detail="Failed to update meeting")
@@ -228,12 +235,14 @@ def update_meeting_endpoint(
 
 @router.delete("/meetings/{meeting_id}", response_model=ApiResponse[dict])
 def delete_meeting_endpoint(
-    meeting: Meeting = Depends(check_delete_permissions),
+    meeting_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Delete a meeting"""
     try:
+        meeting = get_meeting(db, meeting_id, current_user.id, raise_404=True)
+        check_delete_permissions(db, meeting, current_user.id)
         success = delete_meeting(db, meeting.id, current_user.id)
         if not success:
             raise HTTPException(status_code=404, detail="Meeting not found")
@@ -317,18 +326,8 @@ def upload_meeting_audio_endpoint(
 ):
     """Upload an audio file to a meeting and enqueue ASR (mock) processing."""
     try:
-        # Validate meeting
-        meeting = (
-            db.query(Meeting)
-            .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
-            .first()
-        )
-        if not meeting:
-            raise HTTPException(status_code=404, detail="Meeting not found")
-
-        # Access control: creator OR member of any linked project
-        if not check_meeting_access(db, meeting, current_user.id):
-            raise HTTPException(status_code=403, detail="Access denied")
+        # Validate meeting and access control
+        meeting = validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
 
         # Validate file size and content type (≤ 100MB)
         content = file.file.read()
@@ -390,16 +389,8 @@ def list_meeting_audio_endpoint(
     limit: int = Query(20, ge=1, le=100),
 ):
     try:
-        meeting = (
-            db.query(Meeting)
-            .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
-            .first()
-        )
-        if not meeting:
-            raise HTTPException(status_code=404, detail="Meeting not found")
-
-        if not check_meeting_access(db, meeting, current_user.id):
-            raise HTTPException(status_code=403, detail="Access denied")
+        # Validate meeting and access control
+        meeting = validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
 
         rows, total = get_meeting_audio_files(db, meeting_id, page, limit)
 

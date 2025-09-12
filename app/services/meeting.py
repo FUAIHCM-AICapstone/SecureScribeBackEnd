@@ -1,6 +1,7 @@
 import uuid
 from typing import List, Optional, Tuple
 
+from fastapi import HTTPException
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -52,7 +53,7 @@ def create_meeting(
 
 
 def get_meeting(
-    db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID
+    db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, raise_404: bool = False
 ) -> Optional[Meeting]:
     """Get meeting by ID with access control"""
     meeting = (
@@ -66,9 +67,13 @@ def get_meeting(
     )
 
     if not meeting:
+        if raise_404:
+            raise HTTPException(status_code=404, detail="Meeting not found or access denied")
         return None
 
     if not check_meeting_access(db, meeting, user_id):
+        if raise_404:
+            raise HTTPException(status_code=404, detail="Meeting not found or access denied")
         return None
 
     return meeting
@@ -202,7 +207,7 @@ def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bo
         .first()
     )
 
-    if not meeting or not can_delete_meeting(db, meeting, user_id):
+    if not meeting:
         return False
 
     # Get all files associated with this meeting
@@ -283,6 +288,35 @@ def remove_meeting_from_project(
     db.commit()
 
     return True
+
+
+def validate_meeting_for_audio_operations(
+    db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID
+) -> Meeting:
+    """Validate meeting exists and user has access for audio operations"""
+    meeting = (
+        db.query(Meeting)
+        .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
+        .first()
+    )
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if not check_meeting_access(db, meeting, user_id):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return meeting
+
+
+def check_delete_permissions(
+    db: Session, meeting: Meeting, current_user_id: uuid.UUID
+) -> Meeting:
+    """Check if user can delete meeting and raise HTTPException if not"""
+    if not can_delete_meeting(db, meeting, current_user_id):
+        raise HTTPException(
+            status_code=403, detail="You don't have permission to delete this meeting"
+        )
+    return meeting
 
 
 def _get_next_seq_order(db: Session, meeting_id: uuid.UUID) -> int:
