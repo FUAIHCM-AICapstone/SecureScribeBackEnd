@@ -41,7 +41,7 @@ async def _perform_async_indexing(file_id: str, filename: str) -> bool:
 
         try:
             # Use qdrant_service to reindex the file (cleans up old vectors first)
-            success = await qdrant_service.reindex_file(
+            success = await reindex_file(
                 file_path=temp_file_path,
                 file_id=str(file_id),
                 collection_name="documents",

@@ -5,7 +5,13 @@ from typing import List, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.config import settings
+from app.models.file import File
+from app.models.meeting import Meeting
+from app.models.project import Project, ProjectMeeting, TaskProject, UserProject
+from app.models.task import Task
 from app.models.user import User
+from app.utils.minio import delete_file_from_minio
 
 
 def get_users(db: Session, **kwargs) -> Tuple[List[User], int]:
@@ -134,10 +140,6 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     try:
-        # Delete in correct order to avoid foreign key conflicts
-
-        # 1. Delete user's project memberships (users_projects table)
-        from app.models.project import UserProject
 
         db.query(UserProject).filter(UserProject.user_id == user_id).delete()
 
@@ -151,26 +153,17 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
         for file in user_files:
             # Delete from MinIO if needed
             try:
-                from app.utils.minio import delete_file_from_minio
-                from app.core.config import settings
-
                 delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
             except Exception as e:
                 print(f"Failed to delete file {file.id} from MinIO: {e}")
             # Delete from database
             db.delete(file)
 
-        # 4. Delete user's created projects (this will cascade delete related records)
-        from app.models.project import Project, UserProject, ProjectMeeting, TaskProject
-        from app.models.task import Task
-        from app.models.meeting import Meeting
-        from app.models.file import File
-        from app.models.integration import Integration
-
         user_projects = db.query(Project).filter(Project.created_by == user_id).all()
         for project in user_projects:
             # Delete project with proper cascade handling (inline to avoid circular import)
             project_id = project.id
+            from app.models.integration import Integration
 
             # Delete UserProject relationships
             db.query(UserProject).filter(UserProject.project_id == project_id).delete()

@@ -275,34 +275,6 @@ def check_meeting_access(
     return linked_project_membership
 
 
-def extract_text_from_file(file_content: bytes, mime_type: str) -> Optional[str]:
-    if mime_type == "text/plain":
-        return file_content.decode("utf-8", errors="ignore")
-
-    if mime_type == "application/pdf":
-        try:
-            import PyPDF2
-
-            pdf_reader = PyPDF2.PdfReader(file_content)
-            return " ".join(page.extract_text() for page in pdf_reader.pages)
-        except ImportError:
-            return None
-
-    if (
-        mime_type
-        == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ):
-        try:
-            from docx import Document
-
-            doc = Document(file_content)
-            return " ".join(paragraph.text for paragraph in doc.paragraphs)
-        except ImportError:
-            return None
-
-    return None
-
-
 def validate_file(filename: str, mime_type: str, file_size: int) -> bool:
     """Validate file size and type in single function"""
     # Check file size

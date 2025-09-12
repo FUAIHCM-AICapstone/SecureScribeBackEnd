@@ -1,4 +1,3 @@
-import asyncio
 import os
 from typing import Any, Dict
 
@@ -271,7 +270,7 @@ def health(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
     # Test Qdrant connection
     try:
-        from app.utils.qdrant import health_check, get_collection_info
+        from app.utils.qdrant import get_collection_info, health_check
 
         qdrant_healthy = health_check()
         if qdrant_healthy:
@@ -294,9 +293,8 @@ def health(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
     # Test MinIO connection
     try:
-        from app.utils.minio import get_minio_client, health_check as minio_health_check
+        from app.utils.minio import health_check as minio_health_check
 
-        minio_client = get_minio_client()
         minio_healthy = minio_health_check()
         if minio_healthy:
             health_data["services"]["minio"] = {
@@ -402,7 +400,7 @@ def health_qdrant() -> Dict[str, Any]:
     Qdrant health check endpoint
     """
     try:
-        from app.utils.qdrant import health_check, get_collection_info
+        from app.utils.qdrant import get_collection_info, health_check
 
         # Test connection
         qdrant_healthy = health_check()
@@ -503,7 +501,7 @@ def health_services(db: Session = Depends(get_db)) -> Dict[str, Any]:
     try:
         db.query(text("SELECT 1"))
         services_status["database"] = "✅ connected"
-    except:
+    except Exception:
         services_status["database"] = "❌ disconnected"
 
     # Redis
@@ -512,7 +510,7 @@ def health_services(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
         get_redis_client().ping()
         services_status["redis"] = "✅ connected"
-    except:
+    except Exception:
         services_status["redis"] = "❌ disconnected"
 
     # Qdrant
@@ -523,7 +521,7 @@ def health_services(db: Session = Depends(get_db)) -> Dict[str, Any]:
             services_status["qdrant"] = "✅ connected"
         else:
             services_status["qdrant"] = "❌ disconnected"
-    except:
+    except Exception:
         services_status["qdrant"] = "❌ error"
 
     # MinIO

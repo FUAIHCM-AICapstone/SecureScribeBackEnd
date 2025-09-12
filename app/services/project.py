@@ -5,6 +5,9 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.config import settings
+from app.models.file import File
+from app.models.meeting import Meeting, ProjectMeeting
 from app.models.project import Project, UserProject
 from app.models.user import User
 from app.schemas.project import (
@@ -16,6 +19,7 @@ from app.schemas.project import (
     UserProjectCreate,
     UserProjectResponse,
 )
+from app.utils.minio import delete_file_from_minio
 
 
 def create_project(
@@ -141,10 +145,7 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
     try:
         # Delete in correct order to avoid foreign key conflicts
 
-        # 1. Delete files directly associated with project (not through meetings)
-        from app.models.file import File
-        from app.utils.minio import delete_file_from_minio
-        from app.core.config import settings
+
 
         project_files = (
             db.query(File)
@@ -164,7 +165,6 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
             db.delete(file)
 
         # 2. Delete meetings associated with project and their files
-        from app.models.meeting import ProjectMeeting, Meeting
 
         # Get all meeting IDs associated with this project
         project_meetings = (
