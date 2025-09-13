@@ -343,7 +343,7 @@ async def process_file(
         # Create collection if needed
         from app.utils.llm import embed_documents
 
-        await create_collection_if_not_exist(collection_name, 768)
+        await create_collection_if_not_exist(collection_name, 3072)
 
         # Simple chunking
         chunks = chunk_text(content)
@@ -407,44 +407,6 @@ async def process_file(
         print(f"🔴 \033[91mProcessing failed: {e}\033[0m")
         return False
 
-
-async def search_documents(
-    query: str, collection_name: str | None = None, top_k: int = 5
-) -> List[Dict[str, Any]]:
-    """Search documents in a collection"""
-    try:
-        # Generate query embedding
-        from app.utils.llm import embed_query
-
-        query_embedding = await embed_query(query)
-
-        # Search in Qdrant
-        if not collection_name:
-            collection_name = settings.QDRANT_COLLECTION_NAME
-        results = await search_vectors(collection_name, query_embedding, top_k)
-
-        # Format results
-        formatted_results = []
-        for i, result in enumerate(results):
-            payload = getattr(result, "payload", {}) or {}
-            score = getattr(result, "score", 0.0)
-
-            formatted_results.append(
-                {
-                    "rank": i + 1,
-                    "score": score,
-                    "text": payload.get("text", ""),
-                    "source_file": payload.get("source_file", ""),
-                    "chunk_index": payload.get("chunk_index", 0),
-                }
-            )
-
-        print(f"🟢 \033[92mFound {len(formatted_results)} results for query\033[0m")
-        return formatted_results
-
-    except Exception as e:
-        print(f"🔴 \033[91mSearch failed: {e}\033[0m")
-        return []
 
 
 async def delete_file_vectors(file_id: str, collection_name: str | None = None) -> bool:

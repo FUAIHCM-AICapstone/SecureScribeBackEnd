@@ -116,9 +116,8 @@ async def shutdown_event():
 @app.middleware("http")
 async def log_requests(request, call_next):
     print(f"[REQUEST] {request.method} {request.url}")
-    print(f"[HEADERS] {dict(request.headers)}")
     response = await call_next(request)
-    print(f"[RESPONSE] {response.status_code}")
+    print(f"[RESPONSE] {response}")
     return response
 
 
