@@ -271,8 +271,6 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
         _broadcast(75, "transcribing", "20s")
 
         now_iso = datetime.utcnow().isoformat() + "Z"
-        # hamàm deêểđể ASR oỏở dayâyđây
-        # content = function .... 
         mock_content = (
             f"Mock transcript generated at {now_iso} for meeting {meeting_id}.\n"
             f"This is placeholder content for ASR processing of audio {audio_file_id}."

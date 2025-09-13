@@ -1,6 +1,8 @@
 from typing import Any, Dict, List, TypedDict
 
-from agno.workflow.v2 import Step, StepOutput, Workflow
+from agno.workflow.step import Step
+from agno.workflow.types import StepOutput
+from agno.workflow.workflow import Workflow
 
 from app.core.config import settings
 from app.services.qdrant_service import search_vectors
@@ -95,8 +97,8 @@ async def generate_step(step_input: Dict[str, Any]) -> StepOutput:
 workflow = Workflow(
     name="RAGWorkflow",
     steps=[
-        Step("retrieve", retrieve_step),
-        Step("generate", generate_step, depends_on=["retrieve"]),
+        Step(name="retrieve", executor=retrieve_step),
+        Step(name="generate", executor=generate_step),
     ],
 )
 

@@ -36,5 +36,5 @@ pymupdf>=1.23.0
 python-docx>=1.1.0
 python-multipart>=0.0.6
 qdrant-client>=1.9.0
-agno>=1.7.9
-google-generativeai>=0.3.0
+agno>=2.0.0
+google-genai>=0.20.0
