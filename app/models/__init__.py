@@ -1,4 +1,5 @@
 # Import base first
+from .base import BaseDatabaseModel
 from .audit import AuditLog
 from .file import File
 from .integration import Integration
@@ -22,6 +23,7 @@ from .task import Task, TaskProject
 from .user import User, UserDevice, UserIdentity
 
 __all__ = [
+    "BaseDatabaseModel",
     "User",
     "UserIdentity",
     "UserDevice",
