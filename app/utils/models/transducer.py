@@ -17,27 +17,27 @@ import torch
 import torch.nn as nn
 
 # Base Model
-from models.model import Model, init_vn
+from app.utils.models.model import Model, init_vn
 
 # Encoders
-from models.encoders import (
+from app.utils.models.encoders import (
     ConformerEncoder
 )
 
 # Decoders
-from models.decoders import (
+from app.utils.models.decoders import (
     RnnDecoder,
     TransformerDecoder,
     ConformerDecoder
 )
 
 # Joint Network
-from models.joint_networks import (
+from app.utils.models.joint_networks import (
     JointNetwork
 )
 
 # Language Model
-from models.lm import (
+from app.utils.models.lm import (
     LanguageModel
 )
 

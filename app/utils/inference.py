@@ -3,9 +3,9 @@ import json
 import torchaudio
 import os
 
-from models.transducer import Transducer
-from models.model_ctc import ModelCTC, InterCTC
-from models.lm import LanguageModel
+from app.utils.models.transducer import Transducer
+from app.utils.models.model_ctc import ModelCTC, InterCTC
+from app.utils.models.lm import LanguageModel
 
 def create_model(config):
 
@@ -58,14 +58,13 @@ def create_model(config):
 
     return model
 
-model_config_path = os.getenv("MODEL_CONFIG_PATH", "./configs/EfficientConformerCTCSmall.json")
+model_config_path = os.getenv("MODEL_CONFIG_PATH", "./config/EfficientConformerCTCSmall.json")
 checkpoint_path = os.getenv("MODEL_CHECKPOINT_PATH", "./checkpoints/checkpoints_56_90h_07.ckpt")
 
 
 # chỉnh đường dẫn
 config_file = model_config_path
 checkpoint_file = checkpoint_path
-wav_path = r'E:\Capstone\STTEfficientConformer\meeting_459_9cd9f6f4-8270-4eb2-8c4e-1de316e4ee7b_chunk7_SPEAKER_2_5.wav'
 
 
 # Load Config
@@ -74,8 +73,6 @@ with open(config_file) as json_config:
 
 # Device
 device = torch.device("cpu")
-print("Device:", device)
-
 model = create_model(config).to(device)
 model.eval()
 
@@ -125,6 +122,3 @@ def transcriber_tensor(audio_tensor):
     except Exception as e:
         print(f"   ❌ Transcription error: {e}")
         return ""
-
-predicted_text = transcriber(wav_path)
-print('predicted_text: ', predicted_text)

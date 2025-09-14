@@ -1,49 +1,5 @@
-# Copyright 2021, Maxime Burchi.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# PyTorch
 import torch
 import torch.nn as nn
-
-# RNN-T Loss
-# import warp_rnnt
-
-# class LossRNNT(nn.Module):
-
-#     def __init__(self):
-#         super(LossRNNT, self).__init__()
-
-#     def forward(self, batch, pred):
-
-#         # Unpack Batch
-#         x, y, x_len, y_len = batch
-
-#         # Unpack Predictions
-#         outputs_pred, f_len, _ = pred
-
-#         # Compute Loss
-#         loss = warp_rnnt.rnnt_loss(
-#             log_probs=torch.nn.functional.log_softmax(outputs_pred, dim=-1),
-#             labels=y.int(),
-#             frames_lengths=f_len.int(),
-#             labels_lengths=y_len.int(),
-#             average_frames=False,
-#             reduction='mean',
-#             blank=0,
-#             gather=True)
-
-#         return loss
 
 class LossCTC(nn.Module):
 

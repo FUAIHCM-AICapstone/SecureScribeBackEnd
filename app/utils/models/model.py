@@ -24,7 +24,7 @@ import sentencepiece as spm
 from sentencepiece import SentencePieceProcessor
 
 # Schedulers
-from models.schedules import *
+from app.utils.models.schedules import *
 
 # Other
 from tqdm import tqdm

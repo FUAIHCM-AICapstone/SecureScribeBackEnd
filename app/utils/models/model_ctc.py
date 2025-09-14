@@ -17,16 +17,16 @@ import torch
 import torch.nn as nn
 
 # Base Model
-from models.model import Model
+from app.utils.models.model import Model
 
 # Encoders
-from models.encoders import (
+from app.utils.models.encoders import (
     ConformerEncoder,
     ConformerEncoderInterCTC
 )
 
 # Losses
-from models.losses import (
+from app.utils.models.losses import (
     LossCTC, 
     LossInterCTC
 )
