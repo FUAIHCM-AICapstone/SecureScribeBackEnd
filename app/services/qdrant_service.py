@@ -4,7 +4,7 @@ import re
 import uuid
 from typing import Any, Dict, List
 
-import tiktoken
+from chonkie import CodeChunker, SentenceChunker
 from qdrant_client.http import models as qmodels
 
 from app.core.config import settings
@@ -82,35 +82,30 @@ async def search_vectors(
 
 
 def chunk_text(text: str, chunk_size: int = 1000) -> List[str]:
-    """Token-aware, sentence-boundary chunking with overlap and code-block preservation."""
+    """Chunk text using Chonkie: Code first, then sentences; 15% overlap; merge <200 tokens."""
     if not text:
         return []
 
     from collections import Counter
 
-    enc = tiktoken.get_encoding("cl100k_base")
-
-    # params
-    overlap_ratio = 0.15
+    # Parameters
+    overlap_tokens = int(max(0, chunk_size) * 0.15)
     min_chunk_tokens = 200
 
-    # Normalize whitespace
+    # Normalize and trim boilerplate
     text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
-
-    # Simple boilerplate removal
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     line_counts = Counter(lines)
     boilerplate = {ln for ln, cnt in line_counts.items() if cnt > 2 and len(ln) < 200}
     if boilerplate:
         text_lines = [ln for ln in text.splitlines() if ln.strip() not in boilerplate]
         text = "\n".join(text_lines).strip()
-
     text = re.sub(r"[ \t]+", " ", text)
 
-    # Extract code blocks
-    code_blocks = {}
+    # Extract code blocks into placeholders
+    code_blocks: Dict[str, str] = {}
 
-    def _code_repl(m):
+    def _code_repl(m: re.Match) -> str:
         idx = len(code_blocks)
         key = f"__CODE_BLOCK_{idx}__"
         code_blocks[key] = m.group(0)
@@ -118,88 +113,70 @@ def chunk_text(text: str, chunk_size: int = 1000) -> List[str]:
 
     text_no_code = re.sub(r"```.*?```", _code_repl, text, flags=re.DOTALL)
 
-    # Split into sentences (avoid variable-width lookbehind)
-    rough_sentences = re.split(r"(?<=[\.!?])\s+|\n+", text_no_code)
-    sentences = [s.strip() for s in rough_sentences if s and s.strip()]
+    # Prepare a simple Gemini-like token counter (run-first, minimal)
+    def _gemini_token_counter(s: str) -> int:
+        return len(s.split())
 
-    chunks: List[str] = []
-    current_chunk_sents: List[str] = []
-    current_chunk_tokens = 0
+    # Initialize chunkers
+    sent_chunker = SentenceChunker(
+        tokenizer_or_token_counter=_gemini_token_counter,
+        chunk_size=chunk_size,
+        chunk_overlap=overlap_tokens,
+        min_sentences_per_chunk=1,
+    )
+    code_chunker = CodeChunker(
+        language="markdown",
+        tokenizer_or_token_counter=_gemini_token_counter,
+        chunk_size=chunk_size,
+        include_nodes=False,
+    )
 
-    def _finalize_current_chunk():
-        nonlocal current_chunk_sents, current_chunk_tokens
-        if not current_chunk_sents:
-            return
-        chunk_text = " ".join(current_chunk_sents).strip()
-        try:
-            token_count = len(enc.encode(chunk_text))
-        except Exception:
-            token_count = sum(len(enc.encode(s)) for s in current_chunk_sents)
-        if token_count < min_chunk_tokens and chunks:
-            chunks[-1] = (chunks[-1] + " " + chunk_text).strip()
-        else:
-            chunks.append(chunk_text)
-        current_chunk_sents = []
-        current_chunk_tokens = 0
+    # Split back into prose vs placeholder segments preserving order
+    placeholder_pattern = re.compile(r"__CODE_BLOCK_\d+__")
+    segments: List[str] = []
+    last = 0
+    for m in placeholder_pattern.finditer(text_no_code):
+        if m.start() > last:
+            segments.append(text_no_code[last:m.start()])
+        segments.append(m.group(0))
+        last = m.end()
+    if last < len(text_no_code):
+        segments.append(text_no_code[last:])
 
-    for sent in sentences:
-        if sent.startswith("__CODE_BLOCK_") and sent.endswith("__"):
-            _finalize_current_chunk()
-            code_text = code_blocks.get(sent, sent)
-            chunks.append(code_text.strip())
+    # Collect chunks with token counts for post-merge
+    collected: List[Dict[str, Any]] = []
+    for seg in segments:
+        seg_str = seg.strip()
+        if not seg_str:
+            continue
+        if seg_str.startswith("__CODE_BLOCK_") and seg_str.endswith("__"):
+            code_text = code_blocks.get(seg_str, "").strip()
+            if code_text:
+                code_chunks = code_chunker.chunk(code_text)
+                for ch in code_chunks:
+                    if ch and ch.text.strip():
+                        collected.append({"text": ch.text.strip(), "tokens": int(ch.token_count)})
             continue
 
-        try:
-            sent_tokens = len(enc.encode(sent))
-        except Exception:
-            sent_tokens = max(1, len(sent.split()))
+        # Prose segment via sentence chunker
+        prose_chunks = sent_chunker.chunk(seg_str)
+        for ch in prose_chunks:
+            if ch and ch.text.strip():
+                collected.append({"text": ch.text.strip(), "tokens": int(ch.token_count)})
 
-        if current_chunk_tokens + sent_tokens > chunk_size:
-            _finalize_current_chunk()
+    # Merge small chunks (< min_chunk_tokens)
+    merged: List[str] = []
+    for item in collected:
+        txt = item["text"]
+        toks = int(item.get("tokens", 0))
+        if toks < min_chunk_tokens and merged:
+            merged[-1] = (merged[-1] + " " + txt).strip()
+        else:
+            merged.append(txt)
 
-            overlap_tokens = int(chunk_size * overlap_ratio)
-            if overlap_tokens > 0 and chunks:
-                last_chunk = chunks[-1]
-                try:
-                    last_tokens = enc.encode(last_chunk)
-                    if len(last_tokens) > overlap_tokens:
-                        tail_tokens = last_tokens[-overlap_tokens:]
-                    else:
-                        tail_tokens = last_tokens
-                    overlap_text = enc.decode(tail_tokens).strip()
-                except Exception:
-                    overlap_text = ""
-                if overlap_text:
-                    current_chunk_sents = [overlap_text]
-                    try:
-                        current_chunk_tokens = len(enc.encode(overlap_text))
-                    except Exception:
-                        current_chunk_tokens = max(1, len(overlap_text.split()))
-                else:
-                    current_chunk_sents = []
-                    current_chunk_tokens = 0
-            else:
-                current_chunk_sents = []
-                current_chunk_tokens = 0
-
-        current_chunk_sents.append(sent)
-        current_chunk_tokens += sent_tokens
-
-        if current_chunk_tokens >= chunk_size and len(current_chunk_sents) == 1:
-            _finalize_current_chunk()
-
-    _finalize_current_chunk()
-
-    # Replace placeholders
-    if code_blocks:
-        for i, ch in enumerate(chunks):
-            for key, code in code_blocks.items():
-                if key in ch:
-                    chunks[i] = chunks[i].replace(key, code)
-
-    chunks = [c.strip() for c in chunks if c and c.strip()]
-    print(f"🟢 \033[92mCreated {len(chunks)} text chunks\033[0m")
-    return chunks
+    merged = [c.strip() for c in merged if c and c.strip()]
+    print(f"🟢 \033[92mCreated {len(merged)} text chunks\033[0m")
+    return merged
 
 
 def _read_text_file(file_path: str) -> str:
@@ -321,10 +298,8 @@ async def process_file(
         if not collection_name:
             collection_name = settings.QDRANT_COLLECTION_NAME
 
-        # Create collection if needed
+        # Generate embeddings for chunks
         from app.utils.llm import embed_documents
-
-        await create_collection_if_not_exist(collection_name, 3072)
 
         # Simple chunking
         chunks = chunk_text(content)
@@ -333,12 +308,15 @@ async def process_file(
             print("🔴 \033[91mNo chunks generated\033[0m")
             return False
 
-        # Generate embeddings
         embeddings = await embed_documents(chunks)
 
         if not embeddings:
             print("🔴 \033[91mEmbedding generation failed\033[0m")
             return False
+
+        # Ensure collection exists with correct vector size
+        vector_dim = len(embeddings[0])
+        await create_collection_if_not_exist(collection_name, vector_dim)
 
         # Prepare simple payloads
         payloads = []

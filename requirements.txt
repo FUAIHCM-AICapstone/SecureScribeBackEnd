@@ -46,3 +46,5 @@ tqdm
 pyannote.audio==3.3.2
 soundfile>=0.12.1
 jiwer
+chonkie[all]
+numpy>=1.26.0

@@ -2,13 +2,9 @@ from typing import List
 
 from agno.models.google import Gemini
 from agno.models.message import Message
-from google import genai
+from chonkie import GeminiEmbeddings
 
 from app.core.config import settings
-
-
-def _get_client() -> genai.Client:
-    return genai.Client(api_key=settings.GOOGLE_API_KEY)
 
 
 def _get_model() -> Gemini:
@@ -18,18 +14,22 @@ def _get_model() -> Gemini:
     )
 
 
+def _get_embeddings() -> GeminiEmbeddings:
+    return GeminiEmbeddings(api_key=settings.GOOGLE_API_KEY)
+
+
 async def embed_query(query: str) -> List[float]:
-    client = _get_client()
-    result = client.models.embed_content(model="gemini-embedding-001", contents=query)
-    return result.embeddings[0].values
+    embeddings = _get_embeddings()
+    vector = embeddings.embed(query)
+    return list(vector)
 
 
 async def embed_documents(docs: List[str]) -> List[List[float]]:
     if not docs:
         return []
-    client = _get_client()
-    result = client.models.embed_content(model="gemini-embedding-001", contents=docs)
-    return [emb.values for emb in result.embeddings]
+    embeddings = _get_embeddings()
+    vectors = embeddings.embed_batch(docs)
+    return [list(v) for v in vectors]
 
 
 async def chat_complete(system_prompt: str, user_prompt: str) -> str:

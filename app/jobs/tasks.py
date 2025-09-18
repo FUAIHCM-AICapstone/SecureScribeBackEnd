@@ -245,10 +245,11 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
             )
             from app.utils.llm import embed_documents
 
-            asyncio.run(create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, 3072))
             chunks = chunk_text(transcript.content or "")
             if chunks:
                 vectors = asyncio.run(embed_documents(chunks))
+                if vectors:
+                    asyncio.run(create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, len(vectors[0])))
                 payloads = [
                     {
                         "text": ch,
