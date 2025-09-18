@@ -38,8 +38,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "SecureScribeBE"
 
     # Database Configuration
-    POSTGRES_SERVER: str = "db"  # Use "db" for Docker, "160.191.88.194" for external
-    POSTGRES_PORT: int = 5432  # Use 5432 for Docker, 5400 for external
+    POSTGRES_SERVER: str = "160.191.88.194"  # External database server
+    POSTGRES_PORT: int = 5400  # External database port
     POSTGRES_USER: str = "admin"
     POSTGRES_PASSWORD: str = "admin123"
     POSTGRES_DB: str = "securescribe"
