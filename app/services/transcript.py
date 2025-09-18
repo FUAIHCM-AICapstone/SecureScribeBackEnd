@@ -7,9 +7,18 @@ from sqlalchemy.orm import Session
 
 from app.models.meeting import Transcript
 from app.schemas.transcript import TranscriptCreate
-from app.services.audio_file import get_audio_file
-from app.utils.inference import transcriber
+from app.services.audio_file import get_audio_file, get_audio_files_by_meeting
+from app.utils.inference import transcriber_bytes
 from app.utils.minio import download_file_from_minio
+
+
+def transcribe_meeting(db: Session, meeting_id: uuid.UUID) -> Optional[Transcript]:
+    audio_files = get_audio_files_by_meeting(db, meeting_id)
+    if not audio_files:
+        return None
+    
+    concat_file = next((af for af in audio_files if af.is_concatenated), audio_files[0])
+    return transcribe_audio_file(db, concat_file.id)
 
 
 def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcript]:
@@ -24,21 +33,13 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
     if not audio_bytes:
         return None
 
-    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as temp_file:
-        temp_file.write(audio_bytes)
-        temp_path = temp_file.name
-
-    try:
-        transcript_text = transcriber(temp_path)
-        transcript_data = TranscriptCreate(
-            meeting_id=audio_file.meeting_id,
-            content=transcript_text,
-            audio_concat_file_id=audio_file.id,
-        )
-        transcript = create_transcript(db, transcript_data)
-        return transcript
-    finally:
-        os.unlink(temp_path)
+    transcript_text = transcriber_bytes(audio_bytes)
+    transcript_data = TranscriptCreate(
+        meeting_id=audio_file.meeting_id,
+        content=transcript_text,
+        audio_concat_file_id=audio_file.id,
+    )
+    return create_transcript(db, transcript_data)
 
 
 def create_transcript(db: Session, transcript_data: TranscriptCreate) -> Optional[Transcript]:

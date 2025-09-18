@@ -1,5 +1,8 @@
 import json
 import os
+import subprocess
+import tempfile
+import io
 
 import torch
 import torchaudio
@@ -77,9 +80,48 @@ model.eval()
 model.load(checkpoint_file)
 
 
-def transcriber(wav_path):
-    audio, _ = torchaudio.load(wav_path)
-    return transcriber_tensor(audio)
+def transcriber_bytes(audio_bytes: bytes) -> str:
+    try:
+        audio, _ = torchaudio.load(io.BytesIO(audio_bytes))
+        return transcriber_tensor(audio)
+    except Exception as e:
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as temp_input:
+            temp_input.write(audio_bytes)
+            temp_input_path = temp_input.name
+        
+        wav_path = temp_input_path.replace('.webm', '_converted.wav')
+        try:
+            subprocess.run([
+                'ffmpeg', '-i', temp_input_path, '-ar', '16000', '-ac', '1', '-y', wav_path
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            audio, _ = torchaudio.load(wav_path)
+            os.unlink(temp_input_path)
+            os.unlink(wav_path)
+            return transcriber_tensor(audio)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            os.unlink(temp_input_path)
+            if os.path.exists(wav_path):
+                os.unlink(wav_path)
+        raise RuntimeError(f"Unable to load audio bytes. Error: {str(e)}")
+
+
+def transcriber(audio_path):
+    try:
+        audio, _ = torchaudio.load(audio_path)
+        return transcriber_tensor(audio)
+    except Exception as e:
+        if audio_path.endswith('.webm'):
+            wav_path = audio_path.replace('.webm', '_converted.wav')
+            try:
+                subprocess.run([
+                    'ffmpeg', '-i', audio_path, '-ar', '16000', '-ac', '1', '-y', wav_path
+                ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                audio, _ = torchaudio.load(wav_path)
+                os.unlink(wav_path)
+                return transcriber_tensor(audio)
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                pass
+        raise RuntimeError(f"Unable to load audio file: {audio_path}. Error: {str(e)}")
 
 
 def transcriber_tensor(audio_tensor):
