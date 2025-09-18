@@ -1,6 +1,6 @@
 # Import base first
-from .base import BaseDatabaseModel
 from .audit import AuditLog
+from .base import BaseDatabaseModel
 from .file import File
 from .integration import Integration
 from .meeting import (
