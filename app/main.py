@@ -93,6 +93,10 @@ async def startup_event():
     """Application startup event"""
     print("🚀 Application started successfully")
 
+    # Initialize database and create tables if needed
+    from app.db import init_database
+    init_database()
+
     # Start WebSocket manager Redis listener
     from app.services.websocket_manager import websocket_manager
 
