@@ -387,7 +387,9 @@ async def process_file(
                 payload["uploaded_by"] = owner_user_id
             if file_type:
                 payload["file_type"] = file_type
-            payload["is_global"] = bool(not project_id and not meeting_id and owner_user_id)
+            payload["is_global"] = bool(
+                not project_id and not meeting_id and owner_user_id
+            )
 
             payloads.append(payload)
 

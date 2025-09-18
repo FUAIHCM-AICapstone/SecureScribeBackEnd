@@ -1,8 +1,11 @@
 import uuid
 from datetime import datetime
 from typing import Optional
+
 from pydantic import BaseModel
+
 from app.schemas.common import ApiResponse
+
 
 class AudioFileBase(BaseModel):
     meeting_id: uuid.UUID
@@ -10,12 +13,15 @@ class AudioFileBase(BaseModel):
     seq_order: Optional[int] = None
     duration_seconds: Optional[int] = None
 
+
 class AudioFileCreate(AudioFileBase):
     uploaded_by: uuid.UUID
+
 
 class AudioFileUpdate(BaseModel):
     seq_order: Optional[int] = None
     duration_seconds: Optional[int] = None
+
 
 class AudioFileResponse(BaseModel):
     id: uuid.UUID
@@ -30,6 +36,7 @@ class AudioFileResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class AudioFileApiResponse(ApiResponse[AudioFileResponse]):
     pass

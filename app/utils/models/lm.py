@@ -2,24 +2,23 @@
 import torch
 import torch.nn as nn
 
+# Decoder
+from app.utils.models.decoders import RnnDecoder, TransformerDecoder
+
+# Losses
+from app.utils.models.losses import LossCE
+
 # Base Model
 from app.utils.models.model import Model
 
-# Decoder
-from app.utils.models.decoders import (
-    RnnDecoder,
-    TransformerDecoder
-)
 
-# Losses
-from app.utils.models.losses import (
-    LossCE
-)
-  
 class LanguageModel(Model):
-
-    def __init__(self, lm_params, tokenizer_params, training_params, decoding_params, name):
-        super(LanguageModel, self).__init__(tokenizer_params, training_params, decoding_params, name)
+    def __init__(
+        self, lm_params, tokenizer_params, training_params, decoding_params, name
+    ):
+        super(LanguageModel, self).__init__(
+            tokenizer_params, training_params, decoding_params, name
+        )
 
         # Language Model
         if lm_params["arch"] == "RNN":
@@ -39,7 +38,6 @@ class LanguageModel(Model):
         self.compile(training_params)
 
     def decode(self, x, hidden):
-
         # Text Decoder (1, 1) -> (1, 1, Dlm)
         logits, hidden = self.decoder(x, hidden)
 
@@ -49,7 +47,6 @@ class LanguageModel(Model):
         return logits, hidden
 
     def forward(self, batch):
-
         # Unpack Batch
         x, x_len, y = batch
 
@@ -67,5 +64,4 @@ class LanguageModel(Model):
         return logits
 
     def gready_search_decoding(self, x, x_len):
-        
         return [""]

@@ -20,24 +20,22 @@ import torch.nn as nn
 from app.utils.models.model import Model
 
 # Encoders
-from app.utils.models.encoders import (
-    ConformerEncoder,
-    ConformerEncoderInterCTC
-)
+from app.utils.models.encoders import ConformerEncoder, ConformerEncoderInterCTC
 
 # Losses
-from app.utils.models.losses import (
-    LossCTC, 
-    LossInterCTC
-)
+from app.utils.models.losses import LossCTC, LossInterCTC
 
 # CTC Decode Beam Search
 # from ctcdecode import CTCBeamDecoder
 
-class ModelCTC(Model):
 
-    def __init__(self, encoder_params, tokenizer_params, training_params, decoding_params, name):
-        super(ModelCTC, self).__init__(tokenizer_params, training_params, decoding_params, name)
+class ModelCTC(Model):
+    def __init__(
+        self, encoder_params, tokenizer_params, training_params, decoding_params, name
+    ):
+        super(ModelCTC, self).__init__(
+            tokenizer_params, training_params, decoding_params, name
+        )
 
         # Encoder
         if encoder_params["arch"] == "Conformer":
@@ -46,7 +44,12 @@ class ModelCTC(Model):
             raise Exception("Unknown encoder architecture:", encoder_params["arch"])
 
         # FC Layer
-        self.fc = nn.Linear(encoder_params["dim_model"][-1] if isinstance(encoder_params["dim_model"], list) else encoder_params["dim_model"], tokenizer_params["vocab_size"])
+        self.fc = nn.Linear(
+            encoder_params["dim_model"][-1]
+            if isinstance(encoder_params["dim_model"], list)
+            else encoder_params["dim_model"],
+            tokenizer_params["vocab_size"],
+        )
 
         # Criterion
         self.criterion = LossCTC()
@@ -55,7 +58,6 @@ class ModelCTC(Model):
         self.compile(training_params)
 
     def forward(self, batch):
-
         # Unpack Batch
         x, _, x_len, _ = batch
 
@@ -71,24 +73,42 @@ class ModelCTC(Model):
         super(ModelCTC, self).distribute_strategy(rank)
 
         self.encoder = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.encoder)
-        self.encoder = torch.nn.parallel.DistributedDataParallel(self.encoder, device_ids=[self.rank])
-        self.fc = torch.nn.parallel.DistributedDataParallel(self.fc, device_ids=[self.rank])
+        self.encoder = torch.nn.parallel.DistributedDataParallel(
+            self.encoder, device_ids=[self.rank]
+        )
+        self.fc = torch.nn.parallel.DistributedDataParallel(
+            self.fc, device_ids=[self.rank]
+        )
 
     def load_encoder(self, path):
-
         # Load Encoder Params
         checkpoint = torch.load(path, map_location=next(self.parameters()).device)
         if checkpoint["is_distributed"] and not self.is_distributed:
-            self.encoder.load_state_dict({key.replace(".module.", ".").replace("encoder.", ""):value for key, value in checkpoint["model_state_dict"].items() if key[:len("encoder")] == "encoder"})
+            self.encoder.load_state_dict(
+                {
+                    key.replace(".module.", ".").replace("encoder.", ""): value
+                    for key, value in checkpoint["model_state_dict"].items()
+                    if key[: len("encoder")] == "encoder"
+                }
+            )
         else:
-            self.encoder.load_state_dict({key.replace("encoder.", ""):value for key, value in checkpoint["model_state_dict"].items() if key[:len("encoder")] == "encoder"})
+            self.encoder.load_state_dict(
+                {
+                    key.replace("encoder.", ""): value
+                    for key, value in checkpoint["model_state_dict"].items()
+                    if key[: len("encoder")] == "encoder"
+                }
+            )
 
         # Print Encoder state
         if self.rank == 0:
-            print("Model encoder loaded at step {} from {}".format(checkpoint["model_step"], path))
+            print(
+                "Model encoder loaded at step {} from {}".format(
+                    checkpoint["model_step"], path
+                )
+            )
 
     def gready_search_decoding(self, x, x_len):
-
         # Forward Encoder (B, Taud) -> (B, T, Denc)
         logits, logits_len = self.encoder(x, x_len)[:2]
 
@@ -103,7 +123,6 @@ class ModelCTC(Model):
 
         # Batch loop
         for b in range(logits.size(0)):
-
             # Blank
             blank = False
 
@@ -112,7 +131,6 @@ class ModelCTC(Model):
 
             # Decoding Loop
             for t in range(logits_len[b]):
-
                 # Blank Prediction
                 if preds[b, t] == 0:
                     blank = True
@@ -125,7 +143,7 @@ class ModelCTC(Model):
                 # New Prediction
                 elif pred_list[-1] != preds[b, t] or blank:
                     pred_list.append(preds[b, t].item())
-                
+
                 # Update Blank
                 blank = False
 
@@ -180,9 +198,11 @@ class ModelCTC(Model):
     #     # Decode Sequences
     #     return self.tokenizer.decode(batch_pred_list)
 
-class InterCTC(ModelCTC):
 
-    def __init__(self, encoder_params, tokenizer_params, training_params, decoding_params, name):
+class InterCTC(ModelCTC):
+    def __init__(
+        self, encoder_params, tokenizer_params, training_params, decoding_params, name
+    ):
         super(ModelCTC, self).__init__(tokenizer_params, training_params, name)
 
         # Update Encoder Params
@@ -193,7 +213,12 @@ class InterCTC(ModelCTC):
             self.encoder = ConformerEncoderInterCTC(encoder_params)
 
         # FC Layer
-        self.fc = nn.Linear(encoder_params["dim_model"][-1] if isinstance(encoder_params["dim_model"], list) else encoder_params["dim_model"], tokenizer_params["vocab_size"])
+        self.fc = nn.Linear(
+            encoder_params["dim_model"][-1]
+            if isinstance(encoder_params["dim_model"], list)
+            else encoder_params["dim_model"],
+            tokenizer_params["vocab_size"],
+        )
 
         # Criterion
         self.criterion = LossInterCTC(training_params["interctc_lambda"])
@@ -202,7 +227,6 @@ class InterCTC(ModelCTC):
         self.compile(training_params)
 
     def forward(self, batch):
-
         # Unpack Batch
         x, _, x_len, _ = batch
 

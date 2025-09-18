@@ -1,9 +1,8 @@
 import math
 
+
 class constant_learning_rate_scheduler:
-
     def __init__(self, optimizer, lr_value):
-
         # Model Optimizer
         self.optimizer = optimizer
 
@@ -14,18 +13,16 @@ class constant_learning_rate_scheduler:
         self.lr_value = lr_value
 
     def step(self):
-        
         # Update Model Step
         self.model_step += 1
         s = self.model_step + 1
 
         # Update LR
-        self.optimizer.param_groups[0]['lr'] = self.lr_value
+        self.optimizer.param_groups[0]["lr"] = self.lr_value
+
 
 class constant_with_decay_learning_rate_scheduler:
-
     def __init__(self, optimizer, lr_values, decay_steps):
-
         # Model Optimizer
         self.optimizer = optimizer
 
@@ -37,7 +34,6 @@ class constant_with_decay_learning_rate_scheduler:
         self.decay_steps = decay_steps
 
     def step(self):
-        
         # Update Model Step
         self.model_step += 1
         s = self.model_step + 1
@@ -49,12 +45,11 @@ class constant_with_decay_learning_rate_scheduler:
                 lr_value = self.lr_values[i + 1]
             else:
                 break
-        self.optimizer.param_groups[0]['lr'] = lr_value
+        self.optimizer.param_groups[0]["lr"] = lr_value
+
 
 class cosine_annealing_learning_rate_scheduler:
-
     def __init__(self, optimizer, warmup_steps, lr_max, lr_min, end_step):
-
         # Model Optimizer
         self.optimizer = optimizer
 
@@ -68,24 +63,29 @@ class cosine_annealing_learning_rate_scheduler:
         self.end_step = end_step
 
     def step(self):
-        
         # Update Model Step
         self.model_step += 1
         s = self.model_step + 1
 
         # Compute LR
-        if s <= self.warmup_steps: # Warmup phase
+        if s <= self.warmup_steps:  # Warmup phase
             lr = s / self.warmup_steps * self.lr_max
-        else: # Annealing phase
-            lr = (self.lr_max - self.lr_min) * 0.5 * (1 + math.cos(math.pi * (s - self.warmup_steps) / (self.end_step - self.warmup_steps))) + self.lr_min
+        else:  # Annealing phase
+            lr = (self.lr_max - self.lr_min) * 0.5 * (
+                1
+                + math.cos(
+                    math.pi
+                    * (s - self.warmup_steps)
+                    / (self.end_step - self.warmup_steps)
+                )
+            ) + self.lr_min
 
         # Update LR
-        self.optimizer.param_groups[0]['lr'] = lr
+        self.optimizer.param_groups[0]["lr"] = lr
+
 
 class transformer_learning_rate_scheduler:
-
     def __init__(self, optimizer, dim_model, warmup_steps, K):
-
         # Model Optimizer
         self.optimizer = optimizer
 
@@ -98,7 +98,6 @@ class transformer_learning_rate_scheduler:
         self.K = K
 
     def step(self):
-        
         # Update Model Step
         self.model_step += 1
         s = self.model_step + 1
@@ -106,12 +105,13 @@ class transformer_learning_rate_scheduler:
         # Update LR
         arg1 = s**-0.5
         arg2 = s * (self.warmup_steps**-1.5)
-        self.optimizer.param_groups[0]['lr'] = self.K * self.dim_model**-0.5 * min(arg1, arg2)
+        self.optimizer.param_groups[0]["lr"] = (
+            self.K * self.dim_model**-0.5 * min(arg1, arg2)
+        )
+
 
 class exponential_decay_transformer_learning_rate_scheduler:
-
     def __init__(self, optimizer, warmup_steps, lr_max, alpha, end_step):
-
         # Model Optimizer
         self.optimizer = optimizer
 
@@ -125,12 +125,13 @@ class exponential_decay_transformer_learning_rate_scheduler:
         self.end_step = end_step
 
     def step(self):
-        
         # Update Model Step
         self.model_step += 1
         s = self.model_step + 1
 
         # Update LR
-        arg1 = s / self.warmup_steps * self.lr_max # Warmup phase
-        arg2 = self.lr_max * self.alpha**((s - self.warmup_steps) / (self.end_step - self.warmup_steps)) # Decay phase
-        self.optimizer.param_groups[0]['lr'] = min(arg1, arg2)
+        arg1 = s / self.warmup_steps * self.lr_max  # Warmup phase
+        arg2 = self.lr_max * self.alpha ** (
+            (s - self.warmup_steps) / (self.end_step - self.warmup_steps)
+        )  # Decay phase
+        self.optimizer.param_groups[0]["lr"] = min(arg1, arg2)

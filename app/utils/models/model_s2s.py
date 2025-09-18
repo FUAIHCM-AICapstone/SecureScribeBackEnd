@@ -1,32 +1,34 @@
+# Ngram
+import kenlm
 import torch
 import torch.nn as nn
+
+# Decoders
+from app.utils.models.decoders import ConformerCrossDecoder, TransformerCrossDecoder
+
+# Encoders
+from app.utils.models.encoders import ConformerEncoder
+
+# Losses
+from app.utils.models.losses import LossCE
 
 # Base Model
 from app.utils.models.model import Model
 
-# Encoders
-from app.utils.models.encoders import (
-    ConformerEncoder
-)
-
-# Decoders
-from app.utils.models.decoders import (
-    ConformerCrossDecoder,
-    TransformerCrossDecoder
-)
-
-# Losses
-from app.utils.models.losses import (
-    LossCE
-)
-
-# Ngram
-import kenlm
 
 class ModelS2S(Model):
-
-    def __init__(self, encoder_params, decoder_params, tokenizer_params, training_params, decoding_params, name):
-        super(ModelS2S, self).__init__(tokenizer_params, training_params, decoding_params, name)
+    def __init__(
+        self,
+        encoder_params,
+        decoder_params,
+        tokenizer_params,
+        training_params,
+        decoding_params,
+        name,
+    ):
+        super(ModelS2S, self).__init__(
+            tokenizer_params, training_params, decoding_params, name
+        )
 
         # Not Implemented
         raise Exception("Sequence-to-sequence model not implemented")
@@ -46,7 +48,12 @@ class ModelS2S(Model):
             raise Exception("Unknown decoder architecture:", decoder_params["arch"])
 
         # Joint Network
-        self.fc = nn.Linear(encoder_params["dim_model"][-1] if isinstance(encoder_params["dim_model"], list) else encoder_params["dim_model"], tokenizer_params["vocab_size"])
+        self.fc = nn.Linear(
+            encoder_params["dim_model"][-1]
+            if isinstance(encoder_params["dim_model"], list)
+            else encoder_params["dim_model"],
+            tokenizer_params["vocab_size"],
+        )
 
         # Criterion
         self.criterion = LossCE()
@@ -55,7 +62,6 @@ class ModelS2S(Model):
         self.compile(training_params)
 
     def forward(self, batch):
-
         # Unpack Batch
         x, y, _ = batch
 
@@ -77,9 +83,15 @@ class ModelS2S(Model):
         super(ModelS2S, self).distribute_strategy(rank)
 
         self.encoder = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.encoder)
-        self.encoder = torch.nn.parallel.DistributedDataParallel(self.encoder, device_ids=[self.rank])
-        self.decoder = torch.nn.parallel.DistributedDataParallel(self.decoder, device_ids=[self.rank])
-        self.fc = torch.nn.parallel.DistributedDataParallel(self.fc, device_ids=[self.rank])
+        self.encoder = torch.nn.parallel.DistributedDataParallel(
+            self.encoder, device_ids=[self.rank]
+        )
+        self.decoder = torch.nn.parallel.DistributedDataParallel(
+            self.decoder, device_ids=[self.rank]
+        )
+        self.fc = torch.nn.parallel.DistributedDataParallel(
+            self.fc, device_ids=[self.rank]
+        )
 
     def parallel_strategy(self):
         super(ModelS2S, self).parallel_strategy()
@@ -89,16 +101,34 @@ class ModelS2S(Model):
         self.fc = torch.nn.DataParallel(self.fc)
 
     def summary(self, show_dict=False):
-
         print(self.name)
-        print("Model Parameters :", self.num_params() - self.lm.num_params() if self.lm else self.num_params())
-        print(" - Encoder Parameters :", sum([p.numel() for p in self.encoder.parameters()]))
-        print(" - Decoder Parameters :", sum([p.numel() for p in self.decoder.parameters()]))
-        print(" - Joint Parameters :", sum([p.numel() for p in self.joint_network.parameters()]))
+        print(
+            "Model Parameters :",
+            self.num_params() - self.lm.num_params() if self.lm else self.num_params(),
+        )
+        print(
+            " - Encoder Parameters :",
+            sum([p.numel() for p in self.encoder.parameters()]),
+        )
+        print(
+            " - Decoder Parameters :",
+            sum([p.numel() for p in self.decoder.parameters()]),
+        )
+        print(
+            " - Joint Parameters :",
+            sum([p.numel() for p in self.joint_network.parameters()]),
+        )
 
         if self.lm:
             print("LM Parameters :", self.lm.num_params())
 
         if show_dict:
             for key, value in self.state_dict().items():
-                print("{:<64} {:<16} mean {:<16.4f} std {:<16.4f}".format(key, str(tuple(value.size())), value.float().mean(), value.float().std()))
+                print(
+                    "{:<64} {:<16} mean {:<16.4f} std {:<16.4f}".format(
+                        key,
+                        str(tuple(value.size())),
+                        value.float().mean(),
+                        value.float().std(),
+                    )
+                )

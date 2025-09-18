@@ -3,43 +3,43 @@ import torch
 import torch.nn as nn
 
 # Positional Encodings and Masks
-from app.utils.models.attentions import (
-    SinusoidalPositionalEncoding,
-    StreamingMask
-)
+from app.utils.models.attentions import SinusoidalPositionalEncoding, StreamingMask
 
 # Blocks
-from app.utils.models.blocks import (
-    TransformerBlock,
-    ConformerBlock
-)
+from app.utils.models.blocks import ConformerBlock, TransformerBlock
 
 # Layers
-from app.utils.models.layers import (
-    Embedding,
-    LSTM
-)
+from app.utils.models.layers import LSTM, Embedding
 
 ###############################################################################
 # Decoder Models
 ###############################################################################
 
-class RnnDecoder(nn.Module):
 
+class RnnDecoder(nn.Module):
     def __init__(self, params):
         super(RnnDecoder, self).__init__()
 
-        self.embedding = Embedding(params["vocab_size"], params["dim_model"], padding_idx=0)
-        self.rnn = LSTM(input_size=params["dim_model"], hidden_size=params["dim_model"], num_layers=params["num_layers"], batch_first=True, bidirectional=False)
+        self.embedding = Embedding(
+            params["vocab_size"], params["dim_model"], padding_idx=0
+        )
+        self.rnn = LSTM(
+            input_size=params["dim_model"],
+            hidden_size=params["dim_model"],
+            num_layers=params["num_layers"],
+            batch_first=True,
+            bidirectional=False,
+        )
 
     def forward(self, y, hidden, y_len=None):
-
         # Sequence Embedding (B, U + 1) -> (N, U + 1, D)
         y = self.embedding(y)
 
         # Pack padded batch sequences
         if y_len is not None:
-            y = nn.utils.rnn.pack_padded_sequence(y, y_len.cpu(), batch_first=True, enforce_sorted=False)
+            y = nn.utils.rnn.pack_padded_sequence(
+                y, y_len.cpu(), batch_first=True, enforce_sorted=False
+            )
 
         # Hidden state provided
         if hidden is not None:
@@ -55,36 +55,51 @@ class RnnDecoder(nn.Module):
         # return last layer steps outputs and every layer last step hidden state
         return y, hidden
 
-class TransformerDecoder(nn.Module):
 
+class TransformerDecoder(nn.Module):
     def __init__(self, params):
         super(TransformerDecoder, self).__init__()
 
         # Look Ahead Mask
-        self.look_ahead_mask = StreamingMask(left_context=params.get("left_context", params["max_pos_encoding"]), right_context=0)
+        self.look_ahead_mask = StreamingMask(
+            left_context=params.get("left_context", params["max_pos_encoding"]),
+            right_context=0,
+        )
 
         # Embedding Layer
-        self.embedding = nn.Embedding(params["vocab_size"], params["dim_model"], padding_idx=0)
+        self.embedding = nn.Embedding(
+            params["vocab_size"], params["dim_model"], padding_idx=0
+        )
 
         # Dropout
         self.dropout = nn.Dropout(p=params["Pdrop"])
 
         # Sinusoidal Positional Encodings
-        self.pos_enc = None if params["relative_pos_enc"] else SinusoidalPositionalEncoding(params["max_pos_encoding"], params["dim_model"])
+        self.pos_enc = (
+            None
+            if params["relative_pos_enc"]
+            else SinusoidalPositionalEncoding(
+                params["max_pos_encoding"], params["dim_model"]
+            )
+        )
 
         # Transformer Blocks
-        self.blocks = nn.ModuleList([TransformerBlock(
-            dim_model=params["dim_model"], 
-            ff_ratio=params["ff_ratio"], 
-            num_heads=params["num_heads"], 
-            Pdrop=params["Pdrop"], 
-            max_pos_encoding=params["max_pos_encoding"],
-            relative_pos_enc=params["relative_pos_enc"],
-            causal=True
-        ) for block_id in range(params["num_blocks"])])
+        self.blocks = nn.ModuleList(
+            [
+                TransformerBlock(
+                    dim_model=params["dim_model"],
+                    ff_ratio=params["ff_ratio"],
+                    num_heads=params["num_heads"],
+                    Pdrop=params["Pdrop"],
+                    max_pos_encoding=params["max_pos_encoding"],
+                    relative_pos_enc=params["relative_pos_enc"],
+                    causal=True,
+                )
+                for block_id in range(params["num_blocks"])
+            ]
+        )
 
     def forward(self, y, hidden, y_len=None):
-
         # Look Ahead Mask
         if hidden == None:
             mask = self.look_ahead_mask(y, y_len)
@@ -105,7 +120,6 @@ class TransformerDecoder(nn.Module):
         attentions = []
         hidden_new = []
         for block_id, block in enumerate(self.blocks):
-
             # Hidden State Provided
             if hidden is not None:
                 y, attention, block_hidden = block(y, mask, hidden[block_id])
@@ -119,42 +133,57 @@ class TransformerDecoder(nn.Module):
 
         return y, hidden_new
 
-class ConformerDecoder(nn.Module):
 
+class ConformerDecoder(nn.Module):
     def __init__(self, params):
         super(ConformerDecoder, self).__init__()
 
         # Look Ahead Mask
-        self.look_ahead_mask = StreamingMask(left_context=params.get("left_context", params["max_pos_encoding"]), right_context=0)
+        self.look_ahead_mask = StreamingMask(
+            left_context=params.get("left_context", params["max_pos_encoding"]),
+            right_context=0,
+        )
 
         # Embedding Layer
-        self.embedding = nn.Embedding(params["vocab_size"], params["dim"], padding_idx=0)
+        self.embedding = nn.Embedding(
+            params["vocab_size"], params["dim"], padding_idx=0
+        )
 
         # Dropout
         self.dropout = nn.Dropout(p=params["Pdrop"])
 
         # Sinusoidal Positional Encodings
-        self.pos_enc = None if params["relative_pos_enc"] else SinusoidalPositionalEncoding(params["max_pos_encoding"], params["dim_model"])
+        self.pos_enc = (
+            None
+            if params["relative_pos_enc"]
+            else SinusoidalPositionalEncoding(
+                params["max_pos_encoding"], params["dim_model"]
+            )
+        )
 
         # Conformer Layers
-        self.blocks = nn.ModuleList([ConformerBlock(
-            dim_model=params["dim_model"],
-            dim_expand=params["dim_model"],
-            ff_ratio=params["ff_ratio"],
-            num_heads=params["num_heads"], 
-            kernel_size=params["kernel_size"],
-            att_group_size=1,
-            att_kernel_size=None,
-            Pdrop=params["Pdrop"], 
-            relative_pos_enc=params["relative_pos_enc"], 
-            max_pos_encoding=params["max_pos_encoding"],
-            conv_stride=1,
-            att_stride=1,
-            causal=True
-        ) for block_id in range(params["num_blocks"])])
+        self.blocks = nn.ModuleList(
+            [
+                ConformerBlock(
+                    dim_model=params["dim_model"],
+                    dim_expand=params["dim_model"],
+                    ff_ratio=params["ff_ratio"],
+                    num_heads=params["num_heads"],
+                    kernel_size=params["kernel_size"],
+                    att_group_size=1,
+                    att_kernel_size=None,
+                    Pdrop=params["Pdrop"],
+                    relative_pos_enc=params["relative_pos_enc"],
+                    max_pos_encoding=params["max_pos_encoding"],
+                    conv_stride=1,
+                    att_stride=1,
+                    causal=True,
+                )
+                for block_id in range(params["num_blocks"])
+            ]
+        )
 
     def forward(self, y, hidden, y_len=None):
-
         # Hidden state provided
         if hidden is not None:
             y = torch.cat([hidden, y], axis=1)
