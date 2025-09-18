@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from app.schemas.common import ApiResponse, PaginatedResponse
+from app.schemas.project import ProjectResponse
 from app.schemas.user import UserResponse
 
 
@@ -24,7 +24,7 @@ class TaskUpdate(BaseModel):
     assignee_id: Optional[uuid.UUID] = None
     status: Optional[str] = None
     due_date: Optional[datetime] = None
-    reminder_at: Optional[str] = None
+    reminder_at: Optional[datetime] = None
 
 
 class TaskResponse(BaseModel):
@@ -42,7 +42,7 @@ class TaskResponse(BaseModel):
 
     creator: Optional[UserResponse] = None
     assignee: Optional[UserResponse] = None
-    projects: List[dict] = []
+    projects: List[ProjectResponse] = []
 
     class Config:
         from_attributes = True

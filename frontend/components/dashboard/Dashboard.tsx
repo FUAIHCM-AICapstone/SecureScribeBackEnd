@@ -17,6 +17,7 @@ import CreateProjectModal from './CreateProjectModal';
 import CreateMeetingModal from './CreateMeetingModal';
 import FileUploadModal from './FileUploadModal';
 import SearchComponent from './SearchComponent';
+import TaskManager from './TaskManager';
 
 
 type ViewType = 'dashboard' | 'project' | 'meeting';
@@ -182,6 +183,14 @@ const Dashboard: React.FC = () => {
                 {/* Search Section */}
                 <div className="mb-8">
                     <SearchComponent />
+                </div>
+
+                {/* Tasks Section */}
+                <div className="mb-8">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-2xl font-semibold">Nhiệm vụ</h2>
+                    </div>
+                    <TaskManager />
                 </div>
             </div>
 

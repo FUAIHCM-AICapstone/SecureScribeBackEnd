@@ -5,10 +5,12 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.meeting import Meeting, ProjectMeeting
-from app.models.project import Project
+from app.models.project import Project, UserProject
 from app.models.task import Task, TaskProject
-from app.models.user import User
-from app.schemas.task import TaskCreate, TaskUpdate
+from app.models.user import User  # noqa: F401 (may be used in relationship loading hints)
+from app.schemas.project import ProjectResponse
+from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
+from app.schemas.user import UserResponse
 from app.services.notification import create_notifications_bulk, send_fcm_notification
 
 
@@ -17,8 +19,11 @@ def check_task_access(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bo
     if not task:
         return False
 
+    # Direct access if user is creator or assignee
+    if task.creator_id == user_id or task.assignee_id == user_id:
+        return True
+
     # Check if user has access to any project linked to the task
-    task_projects = db.query(TaskProject.project_id).filter(TaskProject.task_id == task_id).subquery()
     user_projects = db.query(Project.id).join(Project.users).filter(Project.users.any(user_id=user_id)).subquery()
 
     # Check if user has access to the meeting linked to the task
@@ -225,18 +230,18 @@ def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id:
             if task.assignee_id:
                 notify_user_ids.add(task.assignee_id)
 
-            # Add project users
+            # Add project users (collect actual user UUIDs)
             task_projects = db.query(TaskProject.project_id).filter(TaskProject.task_id == task_id).subquery()
-            project_users = db.query(Project.users.any(user_id=user_id).label("user_id")).filter(Project.id.in_(task_projects)).all()
-            for pu in project_users:
-                notify_user_ids.add(pu.user_id)
+            project_user_ids = db.query(UserProject.user_id).filter(UserProject.project_id.in_(task_projects)).all()
+            for (uid,) in project_user_ids:
+                notify_user_ids.add(uid)
 
-            # Add meeting users
+            # Add meeting users (collect actual user UUIDs)
             if task.meeting_id:
                 meeting_projects = db.query(ProjectMeeting.project_id).filter(ProjectMeeting.meeting_id == task.meeting_id).subquery()
-                meeting_users = db.query(Project.users.any(user_id=user_id).label("user_id")).filter(Project.id.in_(meeting_projects)).all()
-                for mu in meeting_users:
-                    notify_user_ids.add(mu.user_id)
+                meeting_user_ids = db.query(UserProject.user_id).filter(UserProject.project_id.in_(meeting_projects)).all()
+                for (uid,) in meeting_user_ids:
+                    notify_user_ids.add(uid)
 
             # Remove current user from notification list
             notify_user_ids.discard(user_id)
@@ -314,3 +319,40 @@ def bulk_delete_tasks(db: Session, task_ids: List[uuid.UUID], user_id: uuid.UUID
         except Exception as e:
             results.append({"success": False, "id": task_id, "error": str(e)})
     return results
+
+
+def serialize_task(task: Task) -> TaskResponse:
+    """Map a Task ORM object to TaskResponse with full ProjectResponse list.
+
+    Ensures `projects` contains project objects (not TaskProject junctions)
+    and expands `creator`/`assignee` to full UserResponse as requested.
+    """
+    projects: list[ProjectResponse] = []
+    try:
+        projects = [
+            ProjectResponse.model_validate(tp.project, from_attributes=True)
+            for tp in (task.projects or [])
+            if getattr(tp, "project", None) is not None
+        ]
+    except Exception:
+        projects = []
+
+    creator = UserResponse.model_validate(task.creator, from_attributes=True) if getattr(task, "creator", None) else None
+    assignee = UserResponse.model_validate(task.assignee, from_attributes=True) if getattr(task, "assignee", None) else None
+
+    return TaskResponse(
+        id=task.id,
+        title=task.title,
+        description=task.description,
+        status=task.status,
+        creator_id=task.creator_id,
+        assignee_id=task.assignee_id,
+        meeting_id=task.meeting_id,
+        due_date=task.due_date,
+        reminder_at=task.reminder_at,
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+        creator=creator,
+        assignee=assignee,
+        projects=projects,
+    )

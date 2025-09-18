@@ -9,21 +9,18 @@ from app.db import get_db
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.task import (
     BulkTaskCreate,
-    BulkTaskDelete,
     BulkTaskResponse,
-    BulkTaskUpdate,
     TaskCreate,
     TaskResponse,
     TaskUpdate,
 )
 from app.services.task import (
     bulk_create_tasks,
-    bulk_delete_tasks,
-    bulk_update_tasks,
     create_task,
     delete_task,
     get_task,
     get_tasks,
+    serialize_task,
     update_task,
 )
 from app.utils.auth import get_current_user
@@ -48,7 +45,7 @@ def get_tasks_endpoint(
 ):
     tasks, total = get_tasks(
         db=db,
-        user_id=current_user["id"],
+        user_id=current_user.id,
         title=title,
         status=status,
         creator_id=creator_id,
@@ -66,7 +63,7 @@ def get_tasks_endpoint(
     return PaginatedResponse(
         success=True,
         message="Tasks retrieved successfully",
-        data=tasks,
+        data=[serialize_task(t) for t in tasks],
         pagination=pagination_meta,
     )
 
@@ -77,14 +74,14 @@ def get_task_endpoint(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    task = get_task(db, task_id, current_user["id"])
+    task = get_task(db, task_id, current_user.id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
     return ApiResponse(
         success=True,
         message="Task retrieved successfully",
-        data=task,
+        data=serialize_task(task),
     )
 
 
@@ -94,40 +91,13 @@ def create_task_endpoint(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    created_task = create_task(db, task, current_user["id"])
+    created_task = create_task(db, task, current_user.id)
+    # Reload with relationships for consistent serialization
+    loaded_task = get_task(db, created_task.id, current_user.id)
     return ApiResponse(
         success=True,
         message="Task created successfully",
-        data=created_task,
-    )
-
-
-@router.put("/tasks/{task_id}", response_model=ApiResponse[TaskResponse])
-def update_task_endpoint(
-    task_id: uuid.UUID,
-    task_update: TaskUpdate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    updated_task = update_task(db, task_id, task_update, current_user["id"])
-    return ApiResponse(
-        success=True,
-        message="Task updated successfully",
-        data=updated_task,
-    )
-
-
-@router.delete("/tasks/{task_id}", response_model=ApiResponse[dict])
-def delete_task_endpoint(
-    task_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    delete_task(db, task_id, current_user["id"])
-    return ApiResponse(
-        success=True,
-        message="Task deleted successfully",
-        data={"id": task_id},
+        data=serialize_task(loaded_task or created_task),
     )
 
 
@@ -137,7 +107,7 @@ def bulk_create_tasks_endpoint(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    results = bulk_create_tasks(db, bulk_request.tasks, current_user["id"])
+    results = bulk_create_tasks(db, bulk_request.tasks, current_user.id)
 
     total_processed = len(results)
     total_success = sum(1 for r in results if r["success"])
@@ -153,46 +123,33 @@ def bulk_create_tasks_endpoint(
     )
 
 
-@router.put("/tasks/bulk", response_model=BulkTaskResponse)
-def bulk_update_tasks_endpoint(
-    bulk_request: BulkTaskUpdate,
+@router.put("/tasks/{task_id}", response_model=ApiResponse[TaskResponse])
+def update_task_endpoint(
+    task_id: uuid.UUID,
+    task_update: TaskUpdate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    updates = [{"id": item.id, "updates": item.updates} for item in bulk_request.tasks]
-    results = bulk_update_tasks(db, updates, current_user["id"])
-
-    total_processed = len(results)
-    total_success = sum(1 for r in results if r["success"])
-    total_failed = total_processed - total_success
-
-    return BulkTaskResponse(
-        success=total_failed == 0,
-        message=f"Bulk task update completed. {total_success} successful, {total_failed} failed.",
-        data=results,
-        total_processed=total_processed,
-        total_success=total_success,
-        total_failed=total_failed,
+    updated_task = update_task(db, task_id, task_update, current_user.id)
+    # Reload with relationships for consistent serialization
+    loaded_task = get_task(db, task_id, current_user.id)
+    return ApiResponse(
+        success=True,
+        message="Task updated successfully",
+        data=serialize_task(loaded_task or updated_task),
     )
 
 
-@router.delete("/tasks/bulk", response_model=BulkTaskResponse)
-def bulk_delete_tasks_endpoint(
-    task_ids: str = BulkTaskDelete,
+@router.delete("/tasks/{task_id}", response_model=ApiResponse[dict])
+def delete_task_endpoint(
+    task_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    results = bulk_delete_tasks(db, task_ids, current_user["id"])
-
-    total_processed = len(results)
-    total_success = sum(1 for r in results if r["success"])
-    total_failed = total_processed - total_success
-
-    return BulkTaskResponse(
-        success=total_failed == 0,
-        message=f"Bulk task deletion completed. {total_success} successful, {total_failed} failed.",
-        data=results,
-        total_processed=total_processed,
-        total_success=total_success,
-        total_failed=total_failed,
+    delete_task(db, task_id, current_user.id)
+    return ApiResponse(
+        success=True,
+        message="Task deleted successfully",
+        data={"id": task_id},
     )
+

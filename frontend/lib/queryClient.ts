@@ -25,17 +25,22 @@ export const queryKeys = {
     project: (id: string) => ['projects', id] as const,
     projectMeetings: (id: string) => ['projects', id, 'meetings'] as const,
     projectFiles: (id: string) => ['projects', id, 'files'] as const,
+    tasksByProject: (id: string) => ['projects', id, 'tasks'] as const,
 
     meetings: ['meetings'] as const,
     personalMeetings: ['meetings', 'personal'] as const,
     meeting: (id: string) => ['meetings', id] as const,
     meetingFiles: (id: string) => ['meetings', id, 'files'] as const,
+    tasksByMeeting: (id: string) => ['meetings', id, 'tasks'] as const,
 
     files: ['files'] as const,
     file: (id: string) => ['files', id] as const,
 
     user: ['user'] as const,
     userStats: ['user', 'stats'] as const,
+
+    tasks: ['tasks'] as const,
+    task: (id: string) => ['tasks', id] as const,
 };
 
 export default queryClient;

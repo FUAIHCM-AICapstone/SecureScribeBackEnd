@@ -1,6 +1,5 @@
 import axios, { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import Cookies from 'js-cookie';
-import authApi from './auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
 const API_VERSION = 'v1';
@@ -96,13 +95,14 @@ axiosInstance.interceptors.response.use(
             }
 
             try {
-                // Attempt to refresh token
-                const response = await authApi.refreshToken({
-                    refresh_token: refreshToken!
+                // Attempt to refresh token (backend expects query param refresh_token)
+                const resp = await axiosInstance.post('/auth/refresh', null, {
+                    params: { refresh_token: refreshToken! },
                 });
 
-                if (response.success && response.data) {
-                    const { access_token, refresh_token } = response.data;
+                const api = resp.data as any;
+                if (api?.success && api?.data) {
+                    const { access_token, refresh_token } = api.data;
 
                     if (!access_token) {
                         throw new Error('No access token received from refresh');

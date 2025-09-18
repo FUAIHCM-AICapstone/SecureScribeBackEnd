@@ -46,6 +46,9 @@ class ProjectResponse(ProjectBase):
     updated_at: Optional[datetime]
     member_count: Optional[int] = Field(None, description="Number of project members")
 
+    class Config:
+        from_attributes = True
+
 
 class ProjectWithMembers(ProjectResponse):
     """Project response with full member details"""

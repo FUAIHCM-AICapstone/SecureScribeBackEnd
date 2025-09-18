@@ -1,28 +1,36 @@
 import uuid
+
 import pytest
+from faker import Faker
 from sqlalchemy.orm import Session
 
-from app.models.task import Task, TaskProject
 from app.models.project import Project
+from app.models.task import Task, TaskProject
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.services.task import (
-    create_task,
-    get_tasks,
-    get_task,
-    update_task,
-    delete_task,
     bulk_create_tasks,
-    bulk_update_tasks,
     bulk_delete_tasks,
+    bulk_update_tasks,
     check_task_access,
+    create_task,
+    delete_task,
+    get_task,
+    get_tasks,
+    update_task,
 )
+
+faker = Faker()
 
 
 @pytest.fixture
 def test_user(db: Session):
     """Create a test user"""
-    user = User(email="test@example.com", name="Test User", password_hash="hashed_password")
+    user = User(
+        email=faker.email(),
+        name=faker.name(),
+        password_hash="hashed_password",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -33,8 +41,8 @@ def test_user(db: Session):
 def test_project(db: Session, test_user: User):
     """Create a test project"""
     project = Project(
-        name="Test Project",
-        description="Test project description",
+        name=faker.company(),
+        description=faker.text(max_nb_chars=120),
         created_by=test_user.id,
     )
     db.add(project)
@@ -55,8 +63,8 @@ def test_project(db: Session, test_user: User):
 def test_task(db: Session, test_user: User, test_project: Project):
     """Create a test task"""
     task_data = TaskCreate(
-        title="Test Task",
-        description="Test task description",
+        title=faker.sentence(nb_words=3),
+        description=faker.text(max_nb_chars=120),
         project_ids=[test_project.id],
     )
     task = create_task(db, task_data, test_user.id)
@@ -68,16 +76,18 @@ class TestTaskCRUD:
 
     def test_create_task(self, db: Session, test_user: User, test_project: Project):
         """Test creating a task"""
+        title = faker.sentence(nb_words=3)
+        desc = faker.text(max_nb_chars=100)
         task_data = TaskCreate(
-            title="New Task",
-            description="Task description",
+            title=title,
+            description=desc,
             project_ids=[test_project.id],
         )
 
         task = create_task(db, task_data, test_user.id)
 
-        assert task.title == "New Task"
-        assert task.description == "Task description"
+        assert task.title == title
+        assert task.description == desc
         assert task.creator_id == test_user.id
         assert task.status == "todo"
 
@@ -95,7 +105,7 @@ class TestTaskCRUD:
     def test_create_task_with_assignee(self, db: Session, test_user: User, test_project: Project):
         """Test creating a task with assignee"""
         task_data = TaskCreate(
-            title="Assigned Task",
+            title=faker.sentence(nb_words=4),
             assignee_id=test_user.id,
             project_ids=[test_project.id],
         )
@@ -126,7 +136,7 @@ class TestTaskCRUD:
     def test_get_task_no_access(self, db: Session):
         """Test getting task without access"""
         # Create another user
-        other_user = User(email="other@example.com", name="Other User")
+        other_user = User(email=faker.email(), name=faker.name())
         db.add(other_user)
         db.commit()
 
@@ -163,7 +173,7 @@ class TestTaskCRUD:
         assert check_task_access(db, test_task.id, test_user.id) is True
 
         # Other user should not have access
-        other_user = User(email="other@example.com", name="Other User")
+        other_user = User(email=faker.email(), name=faker.name())
         db.add(other_user)
         db.commit()
 
@@ -216,17 +226,19 @@ class TestTaskCRUD:
         """Test task filtering"""
         # Create tasks with different statuses
         tasks_data = [
-            TaskCreate(title="Todo Task", status="todo", project_ids=[test_project.id]),
-            TaskCreate(
-                title="In Progress Task",
-                status="in_progress",
-                project_ids=[test_project.id],
-            ),
-            TaskCreate(title="Done Task", status="done", project_ids=[test_project.id]),
+            TaskCreate(title="Todo Task", project_ids=[test_project.id]),
+            TaskCreate(title="In Progress Task", project_ids=[test_project.id]),
+            TaskCreate(title="Done Task", project_ids=[test_project.id]),
         ]
 
+        created = {}
         for task_data in tasks_data:
-            create_task(db, task_data, test_user.id)
+            t = create_task(db, task_data, test_user.id)
+            created[t.title] = t
+
+        # Update statuses after creation to match new schema
+        update_task(db, created["In Progress Task"].id, TaskUpdate(status="in_progress"), test_user.id)
+        update_task(db, created["Done Task"].id, TaskUpdate(status="done"), test_user.id)
 
         # Test status filtering
         todo_tasks, _ = get_tasks(db, test_user.id, status="todo")
@@ -237,3 +249,115 @@ class TestTaskCRUD:
         search_tasks, _ = get_tasks(db, test_user.id, title="Progress")
         assert len(search_tasks) >= 1
         assert all("Progress" in t.title for t in search_tasks)
+
+    def test_task_filter_by_due_date_and_created_at(self, db: Session, test_user: User, test_project: Project):
+        """Advanced filter: by due_date ranges and created_at ranges"""
+        from datetime import datetime, timedelta
+
+        # Create two tasks with different due dates
+        t1 = create_task(
+            db,
+            TaskCreate(
+                title=f"Due Soon {faker.word()}",
+                project_ids=[test_project.id],
+                due_date=(datetime.utcnow() + timedelta(days=1)),
+            ),
+            test_user.id,
+        )
+        t2 = create_task(
+            db,
+            TaskCreate(
+                title=f"Due Later {faker.word()}",
+                project_ids=[test_project.id],
+                due_date=(datetime.utcnow() + timedelta(days=5)),
+            ),
+            test_user.id,
+        )
+
+        # due_date_gte should include both when set to now
+        tasks, _ = get_tasks(db, test_user.id, due_date_gte=datetime.utcnow().isoformat())
+        ids = {t.id for t in tasks}
+        assert t1.id in ids and t2.id in ids
+
+        # due_date_lte with +2 days should include only t1
+        tasks, _ = get_tasks(db, test_user.id, due_date_lte=(datetime.utcnow() + timedelta(days=2)).isoformat())
+        ids = {t.id for t in tasks}
+        assert t1.id in ids and t2.id not in ids
+
+        # created_at_gte in future should include none
+        future = (datetime.utcnow() + timedelta(days=10)).isoformat()
+        tasks, total = get_tasks(db, test_user.id, created_at_gte=future)
+        assert total == 0 and len(tasks) == 0
+
+    def test_tasks_pagination(self, db: Session, test_user: User, test_project: Project):
+        """Ensure pagination works and returns expected counts"""
+        # Create 7 tasks
+        payloads = [
+            TaskCreate(title=f"PTask {i} {faker.word()}", project_ids=[test_project.id])
+            for i in range(7)
+        ]
+        for p in payloads:
+            create_task(db, p, test_user.id)
+
+        page1, meta1_total = get_tasks(db, test_user.id, page=1, limit=3)
+        assert len(page1) == 3
+
+        page2, _ = get_tasks(db, test_user.id, page=2, limit=3)
+        assert len(page2) == 3
+
+        page3, _ = get_tasks(db, test_user.id, page=3, limit=3)
+        # The last page can have <= limit
+        assert len(page3) >= 1
+
+    def test_bulk_update_mixed_success(self, db: Session, test_user: User, test_project: Project):
+        """Bulk update where one id is invalid"""
+        # Create one real task
+        real = create_task(db, TaskCreate(title=f"BMix {faker.word()}", project_ids=[test_project.id]), test_user.id)
+        fake = uuid.uuid4()
+
+        updates = [
+            {"id": real.id, "updates": TaskUpdate(status="in_progress")},
+            {"id": fake, "updates": TaskUpdate(status="done")},
+        ]
+        results = bulk_update_tasks(db, updates, test_user.id)
+        assert len(results) == 2
+        assert any(r["success"] and r.get("id") == real.id for r in results)
+        assert any((not r["success"]) and r.get("id") == fake for r in results)
+
+    def test_bulk_delete_mixed_success(self, db: Session, test_user: User, test_project: Project):
+        """Bulk delete where one id is invalid"""
+        real = create_task(db, TaskCreate(title=f"BDel {faker.word()}", project_ids=[test_project.id]), test_user.id)
+        fake = uuid.uuid4()
+        results = bulk_delete_tasks(db, [real.id, fake], test_user.id)
+        assert len(results) == 2
+        assert any(r["success"] and r.get("id") == real.id for r in results)
+        assert any((not r["success"]) and r.get("id") == fake for r in results)
+
+    def test_assignee_access_without_project_membership(self, db: Session, test_user: User):
+        """Assignee should access the task even if not member of project"""
+        # Create a separate project and NOT add user as member
+        owner = User(email=faker.email(), name=faker.name(), password_hash="hashed_password")
+        db.add(owner)
+        db.commit()
+        db.refresh(owner)
+
+        project = Project(name=faker.company(), description=faker.text(max_nb_chars=80), created_by=owner.id)
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+
+        # Add owner as member to satisfy creator access for create_task validation
+        from app.models.project import UserProject
+        db.add(UserProject(user_id=owner.id, project_id=project.id, role="admin"))
+        db.commit()
+
+        # Create a task assigned to test_user under this project
+        t = create_task(
+            db,
+            TaskCreate(title=f"AssigneeOnly {faker.word()}", assignee_id=test_user.id, project_ids=[project.id]),
+            owner.id,
+        )
+
+        # Assignee should be able to see the task
+        task = get_task(db, t.id, test_user.id)
+        assert task is not None and task.id == t.id
