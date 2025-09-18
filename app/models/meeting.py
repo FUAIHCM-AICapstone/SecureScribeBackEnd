@@ -42,20 +42,14 @@ class Meeting(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
     title: Optional[str] = Field(default=None, sa_column=Column(String))
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
     url: Optional[str] = Field(default=None, sa_column=Column(String))
-    start_time: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True))
-    )
+    start_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     created_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     is_personal: bool = Field(default=False, sa_column=Column(Boolean))
     status: str = Field(default=MeetingStatus.active, sa_column=Column(String))
@@ -106,13 +100,9 @@ class AudioFile(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
     meeting_id: uuid.UUID = Field(foreign_key="meetings.id", nullable=False)
     uploaded_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
@@ -144,24 +134,14 @@ class Transcript(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    meeting_id: uuid.UUID = Field(
-        foreign_key="meetings.id", unique=True, nullable=False
-    )
+    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", unique=True, nullable=False)
     content: Optional[str] = Field(default=None, sa_column=Column(Text))
-    audio_concat_file_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="audio_files.id"
-    )
-    extracted_text_for_search: Optional[str] = Field(
-        default=None, sa_column=Column(Text)
-    )
+    audio_concat_file_id: Optional[uuid.UUID] = Field(default=None, foreign_key="audio_files.id")
+    extracted_text_for_search: Optional[str] = Field(default=None, sa_column=Column(Text))
     qdrant_vector_id: Optional[str] = Field(default=None, sa_column=Column(String))
 
     # Relationships
@@ -183,22 +163,14 @@ class MeetingNote(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    meeting_id: uuid.UUID = Field(
-        foreign_key="meetings.id", unique=True, nullable=False
-    )
+    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", unique=True, nullable=False)
     content: Optional[str] = Field(default=None, sa_column=Column(Text))
     last_editor_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
-    last_edited_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True))
-    )
+    last_edited_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
 
     # Relationships
     meeting: Meeting = Relationship(back_populates="notes")
@@ -219,24 +191,14 @@ class MeetingBot(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
     meeting_id: uuid.UUID = Field(foreign_key="meetings.id", nullable=False)
-    scheduled_start_time: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True))
-    )
-    actual_start_time: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True))
-    )
-    actual_end_time: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True))
-    )
+    scheduled_start_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    actual_start_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    actual_end_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     status: str = Field(default="pending", sa_column=Column(String))
     meeting_url: Optional[str] = Field(default=None, sa_column=Column(String))
     retry_count: int = Field(default=0, sa_column=Column(Integer))
@@ -263,13 +225,9 @@ class MeetingBotLog(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
     meeting_bot_id: uuid.UUID = Field(foreign_key="meeting_bots.id", nullable=False)
     action: Optional[str] = Field(default=None, sa_column=Column(String))

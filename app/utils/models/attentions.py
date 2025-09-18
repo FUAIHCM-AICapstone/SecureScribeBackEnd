@@ -113,9 +113,7 @@ class MultiHeadAttention(nn.Module):
 
         elif padding_KV:
             # None -> (B, 1, 1, T + P)
-            mask = F.pad(
-                Q.new_zeros(batch_size, 1, 1, seq_len_KV), pad=(0, padding_KV), value=1
-            )
+            mask = F.pad(Q.new_zeros(batch_size, 1, 1, seq_len_KV), pad=(0, padding_KV), value=1)
 
         return Q, K, V, mask, padding_Q
 
@@ -225,15 +223,9 @@ class LocalMultiHeadAttention(MultiHeadAttention):
         Q, K, V, mask, padding = self.pad(Q, K, V, mask, chunk_size=self.kernel_size)
 
         # Reshape and Transpose (B, T, D) -> (B, T//K, H, K, d)
-        Q = Q.reshape(
-            batch_size, -1, self.kernel_size, self.num_heads, self.dim_head
-        ).transpose(2, 3)
-        K = K.reshape(
-            batch_size, -1, self.kernel_size, self.num_heads, self.dim_head
-        ).transpose(2, 3)
-        V = V.reshape(
-            batch_size, -1, self.kernel_size, self.num_heads, self.dim_head
-        ).transpose(2, 3)
+        Q = Q.reshape(batch_size, -1, self.kernel_size, self.num_heads, self.dim_head).transpose(2, 3)
+        K = K.reshape(batch_size, -1, self.kernel_size, self.num_heads, self.dim_head).transpose(2, 3)
+        V = V.reshape(batch_size, -1, self.kernel_size, self.num_heads, self.dim_head).transpose(2, 3)
 
         # Att scores (B, T//K, H, K, K)
         att_scores = Q.matmul(K.transpose(3, 4)) / K.shape[-1] ** 0.5
@@ -322,9 +314,7 @@ class StridedLocalMultiHeadAttention(MultiHeadAttention):
         super(StridedLocalMultiHeadAttention, self).__init__(dim_model, num_heads)
 
         # Assert
-        assert kernel_size % stride == 0, (
-            "Attention kernel size has to be a multiple of attention stride"
-        )
+        assert kernel_size % stride == 0, "Attention kernel size has to be a multiple of attention stride"
 
         # Attention Params
         self.kernel_size = kernel_size  # K
@@ -354,12 +344,8 @@ class StridedLocalMultiHeadAttention(MultiHeadAttention):
             self.dim_head,
         ).transpose(2, 3)
         # Reshape and Transpose (B, T, D) -> (B, T//K, H, K, d)
-        K = K.reshape(
-            batch_size, -1, self.kernel_size, self.num_heads, self.dim_head
-        ).transpose(2, 3)
-        V = V.reshape(
-            batch_size, -1, self.kernel_size, self.num_heads, self.dim_head
-        ).transpose(2, 3)
+        K = K.reshape(batch_size, -1, self.kernel_size, self.num_heads, self.dim_head).transpose(2, 3)
+        V = V.reshape(batch_size, -1, self.kernel_size, self.num_heads, self.dim_head).transpose(2, 3)
 
         # Att scores (B, T//K, H, K//S, K)
         att_scores = Q.matmul(K.transpose(3, 4)) / K.shape[-1] ** 0.5
@@ -481,17 +467,11 @@ class RelPosMultiHeadSelfAttention(MultiHeadAttention):
         # Global content and positional bias
         self.u = nn.Parameter(torch.Tensor(self.dim_model))  # Content bias
         self.v = nn.Parameter(torch.Tensor(self.dim_model))  # Pos bias
-        torch.nn.init.xavier_uniform_(
-            self.u.reshape(self.num_heads, self.dim_head)
-        )  # glorot uniform
-        torch.nn.init.xavier_uniform_(
-            self.v.reshape(self.num_heads, self.dim_head)
-        )  # glorot uniform
+        torch.nn.init.xavier_uniform_(self.u.reshape(self.num_heads, self.dim_head))  # glorot uniform
+        torch.nn.init.xavier_uniform_(self.v.reshape(self.num_heads, self.dim_head))  # glorot uniform
 
         # Relative Sinusoidal Positional Encodings
-        self.rel_pos_enc = RelativeSinusoidalPositionalEncoding(
-            max_pos_encoding, self.dim_model, self.causal
-        )
+        self.rel_pos_enc = RelativeSinusoidalPositionalEncoding(max_pos_encoding, self.dim_model, self.causal)
 
     def rel_to_abs(self, att_scores):
         """Relative to absolute position indexing
@@ -529,9 +509,7 @@ class RelPosMultiHeadSelfAttention(MultiHeadAttention):
             att_scores = F.pad(att_scores, pad=(seq_length2 - seq_length1, 0), value=0)
 
             # Reshape (B, H, 1 + T, Th + T)
-            att_scores = att_scores.reshape(
-                batch_size, num_heads, 1 + seq_length1, seq_length2
-            )
+            att_scores = att_scores.reshape(batch_size, num_heads, 1 + seq_length1, seq_length2)
 
             # Slice (B, H, T, Th + T)
             att_scores = att_scores[:, :, 1:]
@@ -551,9 +529,7 @@ class RelPosMultiHeadSelfAttention(MultiHeadAttention):
             att_scores = F.pad(att_scores, pad=(0, seq_length2 - seq_length1), value=0)
 
             # Reshape (B, H, T + 1, Th + 2*T-1)
-            att_scores = att_scores.reshape(
-                batch_size, num_heads, 1 + seq_length1, seq_length2
-            )
+            att_scores = att_scores.reshape(batch_size, num_heads, 1 + seq_length1, seq_length2)
 
             # Slice (B, H, T, Th + T)
             att_scores = att_scores[:, :, :seq_length1, seq_length1 - 1 :]
@@ -598,9 +574,7 @@ class RelPosMultiHeadSelfAttention(MultiHeadAttention):
         Qv = Q + self.v
 
         # Relative Positional Embeddings (B, Th + 2*T-1, D) / (B, Th + T, D)
-        E = self.pos_layer(
-            self.rel_pos_enc(batch_size, Q.size(1), K.size(1) - Q.size(1))
-        )
+        E = self.pos_layer(self.rel_pos_enc(batch_size, Q.size(1), K.size(1) - Q.size(1)))
 
         # Reshape and Transpose (B, T, D) -> (B, H, T, d)
         Qu = Qu.reshape(batch_size, -1, self.num_heads, self.dim_head).transpose(1, 2)
@@ -648,18 +622,14 @@ class GroupedRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
     """
 
     def __init__(self, dim_model, num_heads, causal, max_pos_encoding, group_size):
-        super(GroupedRelPosMultiHeadSelfAttention, self).__init__(
-            dim_model, num_heads, causal, max_pos_encoding
-        )
+        super(GroupedRelPosMultiHeadSelfAttention, self).__init__(dim_model, num_heads, causal, max_pos_encoding)
 
         # Attention Params
         self.group_size = group_size  # G
         self.dim_head = (self.group_size * dim_model) // self.num_heads  # d
 
         # Grouped Relative Sinusoidal Positional Encodings
-        self.rel_pos_enc = GroupedRelativeSinusoidalPositionalEncoding(
-            max_pos_encoding, self.dim_model, self.group_size, self.causal
-        )
+        self.rel_pos_enc = GroupedRelativeSinusoidalPositionalEncoding(max_pos_encoding, self.dim_model, self.group_size, self.causal)
 
     def forward(self, Q, K, V, mask=None, hidden=None):
         # Batch size B
@@ -674,12 +644,8 @@ class GroupedRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
         if hidden:
             Kh = torch.cat([hidden["K"], K], dim=1)
             Vh = torch.cat([hidden["V"], V], dim=1)
-            K = torch.cat(
-                [hidden["K"][:, hidden["K"].size(1) % self.group_size :], K], dim=1
-            )
-            V = torch.cat(
-                [hidden["V"][:, hidden["V"].size(1) % self.group_size :], V], dim=1
-            )
+            K = torch.cat([hidden["K"][:, hidden["K"].size(1) % self.group_size :], K], dim=1)
+            V = torch.cat([hidden["V"][:, hidden["V"].size(1) % self.group_size :], V], dim=1)
 
             # Update Hidden State
             hidden = {"K": Kh.detach(), "V": Vh.detach()}
@@ -696,9 +662,7 @@ class GroupedRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
         Qv = Q + self.v
 
         # Relative Positional Embeddings (B, Th + 2*T-G, D) / (B, Th + T, D)
-        E = self.pos_layer(
-            self.rel_pos_enc(batch_size, Q.size(1), K.size(1) - Q.size(1))
-        )
+        E = self.pos_layer(self.rel_pos_enc(batch_size, Q.size(1), K.size(1) - Q.size(1)))
 
         # Reshape and Transpose (B, T, D) -> (B, H, T//G, d)
         Qu = Qu.reshape(batch_size, -1, self.num_heads, self.dim_head).transpose(1, 2)
@@ -756,9 +720,7 @@ class LocalRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
     """
 
     def __init__(self, dim_model, num_heads, causal, kernel_size):
-        super(LocalRelPosMultiHeadSelfAttention, self).__init__(
-            dim_model, num_heads, causal, kernel_size
-        )
+        super(LocalRelPosMultiHeadSelfAttention, self).__init__(dim_model, num_heads, causal, kernel_size)
 
         # Attention Params
         self.kernel_size = kernel_size  # K
@@ -785,17 +747,13 @@ class LocalRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
             batch_size, num_heads, seq_length1, seq_length2 = att_scores.size()
 
             # Reshape (B, T//K, H, K, K)
-            att_scores = att_scores.reshape(
-                batch_size, -1, self.num_heads, self.kernel_size, self.kernel_size
-            )
+            att_scores = att_scores.reshape(batch_size, -1, self.num_heads, self.kernel_size, self.kernel_size)
 
             # Column Padding (B, T//K, H, K, 1 + K)
             att_scores = F.pad(att_scores, pad=(1, 0), value=0)
 
             # Reshape (B, T//K, H, 1 + K, K)
-            att_scores = att_scores.reshape(
-                batch_size, -1, self.num_heads, self.kernel_size + 1, self.kernel_size
-            )
+            att_scores = att_scores.reshape(batch_size, -1, self.num_heads, self.kernel_size + 1, self.kernel_size)
 
             # Slice (B, T//K, H, K, K)
             att_scores = att_scores[:, :, :, 1:]
@@ -806,25 +764,19 @@ class LocalRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
             batch_size, num_heads, seq_length1, seq_length2 = att_scores.size()
 
             # Reshape (B, T//K, H, K, 2 * K - 1)
-            att_scores = att_scores.reshape(
-                batch_size, -1, self.num_heads, self.kernel_size, seq_length2
-            )
+            att_scores = att_scores.reshape(batch_size, -1, self.num_heads, self.kernel_size, seq_length2)
 
             # Column Padding (B, T//K, H, K, 2 * K)
             att_scores = F.pad(att_scores, pad=(0, 1), value=0)
 
             # Flatten (B, T//K, H, K * 2 * K)
-            att_scores = att_scores.reshape(
-                batch_size, -1, self.num_heads, 2 * self.kernel_size**2
-            )
+            att_scores = att_scores.reshape(batch_size, -1, self.num_heads, 2 * self.kernel_size**2)
 
             # End Padding (B, T//K, H, K * 2 * K + K - 1)
             att_scores = F.pad(att_scores, pad=(0, self.kernel_size - 1), value=0)
 
             # Reshape (B, T//K, H, K + 1, 2 * K - 1)
-            att_scores = att_scores.reshape(
-                batch_size, -1, self.num_heads, self.kernel_size + 1, seq_length2
-            )
+            att_scores = att_scores.reshape(batch_size, -1, self.num_heads, self.kernel_size + 1, seq_length2)
 
             # Slice (B, T//K, H, K, K)
             att_scores = att_scores[:, :, :, : self.kernel_size, self.kernel_size - 1 :]
@@ -853,15 +805,9 @@ class LocalRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
         # Reshape and Transpose (B, T, D) -> (B, H, T, d)
         Qv = Qv.reshape(batch_size, -1, self.num_heads, self.dim_head).transpose(1, 2)
         # Reshape and Transpose (B, T, D) -> (B, T//K, H, K, d)
-        Qu = Qu.reshape(
-            batch_size, -1, self.kernel_size, self.num_heads, self.dim_head
-        ).transpose(2, 3)
-        K = K.reshape(
-            batch_size, -1, self.kernel_size, self.num_heads, self.dim_head
-        ).transpose(2, 3)
-        V = V.reshape(
-            batch_size, -1, self.kernel_size, self.num_heads, self.dim_head
-        ).transpose(2, 3)
+        Qu = Qu.reshape(batch_size, -1, self.kernel_size, self.num_heads, self.dim_head).transpose(2, 3)
+        K = K.reshape(batch_size, -1, self.kernel_size, self.num_heads, self.dim_head).transpose(2, 3)
+        V = V.reshape(batch_size, -1, self.kernel_size, self.num_heads, self.dim_head).transpose(2, 3)
         # Reshape and Transpose (B, 2*K-1, D) -> (B, H, 2*K-1, d) / (B, K, D) -> (B, H, K, d)
         E = E.reshape(batch_size, -1, self.num_heads, self.dim_head).transpose(1, 2)
 
@@ -918,9 +864,7 @@ class StridedRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
     """
 
     def __init__(self, dim_model, num_heads, causal, max_pos_encoding, stride):
-        super(StridedRelPosMultiHeadSelfAttention, self).__init__(
-            dim_model, num_heads, causal, max_pos_encoding
-        )
+        super(StridedRelPosMultiHeadSelfAttention, self).__init__(dim_model, num_heads, causal, max_pos_encoding)
 
         # Attention Params
         self.stride = stride  # S
@@ -949,14 +893,10 @@ class StridedRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
             att_scores = att_scores.reshape(batch_size, num_heads, -1)
 
             # Start Padding (B, H, TTh//S + TT//S + T + Th)
-            att_scores = F.pad(
-                att_scores, pad=(seq_length2 - self.stride * seq_length1, 0), value=0
-            )
+            att_scores = F.pad(att_scores, pad=(seq_length2 - self.stride * seq_length1, 0), value=0)
 
             # Reshape (B, H, 1 + T // S, Th + T)
-            att_scores = att_scores.reshape(
-                batch_size, num_heads, seq_length1 + 1, seq_length2
-            )
+            att_scores = att_scores.reshape(batch_size, num_heads, seq_length1 + 1, seq_length2)
 
             # Slice (B, H, T // S, Th + T)
             att_scores = att_scores[:, :, 1:]
@@ -973,14 +913,10 @@ class StridedRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
             att_scores = att_scores.reshape(batch_size, num_heads, -1)
 
             # End Padding (B, H, TTh//S + 2*TT//S - T//S + Th + 2T-1)
-            att_scores = F.pad(
-                att_scores, pad=(0, seq_length2 - seq_length1 * self.stride), value=0
-            )
+            att_scores = F.pad(att_scores, pad=(0, seq_length2 - seq_length1 * self.stride), value=0)
 
             # Reshape (B, H, T//S + 1, Th + 2*T-1)
-            att_scores = att_scores.reshape(
-                batch_size, num_heads, seq_length1 + 1, seq_length2
-            )
+            att_scores = att_scores.reshape(batch_size, num_heads, seq_length1 + 1, seq_length2)
 
             # Slice (B, H, T // S, Th + T)
             att_scores = att_scores[:, :, :seq_length1, seq_length1 * self.stride - 1 :]
@@ -1015,11 +951,7 @@ class StridedRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
         Qv = Q + self.v
 
         # Relative Positional Embeddings (B, Th + 2*T-1, D) / (B, Th + T, D)
-        E = self.pos_layer(
-            self.rel_pos_enc(
-                batch_size, self.stride * Q.size(1), K.size(1) - self.stride * Q.size(1)
-            )
-        )
+        E = self.pos_layer(self.rel_pos_enc(batch_size, self.stride * Q.size(1), K.size(1) - self.stride * Q.size(1)))
 
         # Reshape and Transpose (B, T//S, D) -> (B, H, T//S, d)
         Qu = Qu.reshape(batch_size, -1, self.num_heads, self.dim_head).transpose(1, 2)
@@ -1071,14 +1003,10 @@ class StridedLocalRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
     """
 
     def __init__(self, dim_model, num_heads, causal, kernel_size, stride):
-        super(StridedLocalRelPosMultiHeadSelfAttention, self).__init__(
-            dim_model, num_heads, causal, kernel_size
-        )
+        super(StridedLocalRelPosMultiHeadSelfAttention, self).__init__(dim_model, num_heads, causal, kernel_size)
 
         # Assert
-        assert kernel_size % stride == 0, (
-            "Attention kernel size has to be a multiple of attention stride"
-        )
+        assert kernel_size % stride == 0, "Attention kernel size has to be a multiple of attention stride"
 
         # Attention Params
         self.kernel_size = kernel_size  # K
@@ -1146,9 +1074,7 @@ class StridedLocalRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
                 batch_size,
                 -1,
                 self.num_heads,
-                self.kernel_size
-                // self.stride
-                * (2 * self.kernel_size - 1 + self.stride),
+                self.kernel_size // self.stride * (2 * self.kernel_size - 1 + self.stride),
             )
 
             # End Padding (B, T//K, H, 2KK//S - K//S + 2K-1)
@@ -1164,9 +1090,7 @@ class StridedLocalRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
             )
 
             # Slice (B, T//K, H, K//S, K)
-            att_scores = att_scores[
-                :, :, :, : self.kernel_size // self.stride, self.kernel_size - 1 :
-            ]
+            att_scores = att_scores[:, :, :, : self.kernel_size // self.stride, self.kernel_size - 1 :]
 
         return att_scores
 
@@ -1203,12 +1127,8 @@ class StridedLocalRelPosMultiHeadSelfAttention(RelPosMultiHeadSelfAttention):
             self.dim_head,
         ).transpose(2, 3)
         # Reshape and Transpose (B, T, D) -> (B, T//K, H, K, d)
-        K = K.reshape(
-            batch_size, -1, self.kernel_size, self.num_heads, self.dim_head
-        ).transpose(2, 3)
-        V = V.reshape(
-            batch_size, -1, self.kernel_size, self.num_heads, self.dim_head
-        ).transpose(2, 3)
+        K = K.reshape(batch_size, -1, self.kernel_size, self.num_heads, self.dim_head).transpose(2, 3)
+        V = V.reshape(batch_size, -1, self.kernel_size, self.num_heads, self.dim_head).transpose(2, 3)
         # Reshape and Transpose (B, 2*K-1, D) -> (B, H, 2*K-1, d) / (B, K, D) -> (B, H, K, d)
         E = E.reshape(batch_size, -1, self.num_heads, self.dim_head).transpose(1, 2)
 
@@ -1317,11 +1237,7 @@ class RelativeSinusoidalPositionalEncoding(nn.Module):
         pos = torch.cat([pos_left, pos_right], dim=0).unsqueeze(1)
 
         # Angles
-        angles = pos / 10000 ** (
-            2
-            * torch.arange(0, dim_model // 2, dtype=torch.float).unsqueeze(0)
-            / dim_model
-        )
+        angles = pos / 10000 ** (2 * torch.arange(0, dim_model // 2, dtype=torch.float).unsqueeze(0) / dim_model)
 
         # Rel Sinusoidal PE
         pos_encoding[:, 0::2] = angles.sin()
@@ -1338,9 +1254,7 @@ class RelativeSinusoidalPositionalEncoding(nn.Module):
         if self.causal:
             # (B, Th + T, D)
             if seq_len is not None:
-                R = self.pos_encoding[
-                    :, self.max_len - seq_len - hidden_len : self.max_len
-                ]
+                R = self.pos_encoding[:, self.max_len - seq_len - hidden_len : self.max_len]
 
             # (B, Tmax, D)
             else:
@@ -1350,9 +1264,7 @@ class RelativeSinusoidalPositionalEncoding(nn.Module):
         else:
             # (B, Th + 2*T-1, D)
             if seq_len is not None:
-                R = self.pos_encoding[
-                    :, self.max_len - seq_len - hidden_len : self.max_len - 1 + seq_len
-                ]
+                R = self.pos_encoding[:, self.max_len - seq_len - hidden_len : self.max_len - 1 + seq_len]
 
             # (B, 2*Tmax-1, D)
             else:
@@ -1376,18 +1288,12 @@ class GroupedRelativeSinusoidalPositionalEncoding(nn.Module):
         pos_encoding = torch.zeros(2 * max_len - group_size % 2, dim_model)
 
         # Positions (max_len - 1, ..., max_len - 1)
-        pos_left = torch.arange(
-            start=max_len - 1, end=group_size % 2 - 1, step=-1, dtype=torch.float
-        )
+        pos_left = torch.arange(start=max_len - 1, end=group_size % 2 - 1, step=-1, dtype=torch.float)
         pos_right = torch.arange(start=0, end=-max_len, step=-1, dtype=torch.float)
         pos = torch.cat([pos_left, pos_right], dim=0).unsqueeze(1)
 
         # Angles
-        angles = pos / 10000 ** (
-            2
-            * torch.arange(0, dim_model // 2, dtype=torch.float).unsqueeze(0)
-            / dim_model
-        )
+        angles = pos / 10000 ** (2 * torch.arange(0, dim_model // 2, dtype=torch.float).unsqueeze(0) / dim_model)
 
         # Rel Sinusoidal PE
         pos_encoding[:, 0::2] = angles.sin()
@@ -1405,9 +1311,7 @@ class GroupedRelativeSinusoidalPositionalEncoding(nn.Module):
         if self.causal:
             # (B, Th + T, D)
             if seq_len is not None:
-                R = self.pos_encoding[
-                    :, self.max_len - seq_len - hidden_len : self.max_len
-                ]
+                R = self.pos_encoding[:, self.max_len - seq_len - hidden_len : self.max_len]
 
             # (B, Tmax, D)
             else:
@@ -1417,13 +1321,7 @@ class GroupedRelativeSinusoidalPositionalEncoding(nn.Module):
             if seq_len is not None:
                 R = self.pos_encoding[
                     :,
-                    self.max_len
-                    - seq_len
-                    + self.group_size // 2
-                    - hidden_len : self.max_len
-                    - self.group_size % 2
-                    + seq_len
-                    - self.group_size // 2,
+                    self.max_len - seq_len + self.group_size // 2 - hidden_len : self.max_len - self.group_size % 2 + seq_len - self.group_size // 2,
                 ]
 
             # (B, 2*Tmax-G, D)
@@ -1492,14 +1390,10 @@ class StreamingMask(nn.Module):
         seq_len = x.size(-1)
 
         # Right Context Mask (T, T)
-        right_context_mask = x.new_ones(seq_len, seq_len).triu(
-            diagonal=1 + self.right_context
-        )
+        right_context_mask = x.new_ones(seq_len, seq_len).triu(diagonal=1 + self.right_context)
 
         # Left Context Mask (T, T)
-        left_context_mask = 1 - x.new_ones(seq_len, seq_len).triu(
-            diagonal=-self.left_context
-        )
+        left_context_mask = 1 - x.new_ones(seq_len, seq_len).triu(diagonal=-self.left_context)
 
         # Streaming Mask (T, T)
         streaming_mask = right_context_mask.max(left_context_mask)

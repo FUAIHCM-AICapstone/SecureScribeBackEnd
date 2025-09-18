@@ -86,9 +86,7 @@ def get_projects_endpoint(
     member_id: Optional[str] = Query(None),
     created_at_gte: Optional[str] = Query(None),
     created_at_lte: Optional[str] = Query(None),
-    my_projects_only: bool = Query(
-        False, description="Only show projects where current user is a member"
-    ),
+    my_projects_only: bool = Query(False, description="Only show projects where current user is a member"),
 ):
     """
     Get projects with filtering and pagination
@@ -113,18 +111,14 @@ def get_projects_endpoint(
             try:
                 created_by_uuid = uuid.UUID(created_by)
             except ValueError:
-                raise HTTPException(
-                    status_code=400, detail="Invalid created_by UUID format"
-                )
+                raise HTTPException(status_code=400, detail="Invalid created_by UUID format")
 
         member_id_uuid = None
         if member_id:
             try:
                 member_id_uuid = uuid.UUID(member_id)
             except ValueError:
-                raise HTTPException(
-                    status_code=400, detail="Invalid member_id UUID format"
-                )
+                raise HTTPException(status_code=400, detail="Invalid member_id UUID format")
 
         # Override member_id if my_projects_only is True
         if my_projects_only:
@@ -270,9 +264,7 @@ def delete_project_endpoint(
 # ===== BULK OPERATIONS (must come before individual operations to avoid routing conflicts) =====
 
 
-@router.post(
-    "/projects/{project_id}/members/bulk", response_model=BulkUserProjectResponse
-)
+@router.post("/projects/{project_id}/members/bulk", response_model=BulkUserProjectResponse)
 def bulk_add_members_endpoint(
     project_id: uuid.UUID,
     bulk_data: BulkUserProjectCreate,
@@ -308,14 +300,10 @@ def bulk_add_members_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete(
-    "/projects/{project_id}/members/bulk", response_model=BulkUserProjectResponse
-)
+@router.delete("/projects/{project_id}/members/bulk", response_model=BulkUserProjectResponse)
 def bulk_remove_members_endpoint(
     project_id: uuid.UUID,
-    user_ids: str = Query(
-        ..., description="Comma-separated list of user IDs to remove"
-    ),
+    user_ids: str = Query(..., description="Comma-separated list of user IDs to remove"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -341,26 +329,16 @@ def bulk_remove_members_endpoint(
             )
 
         try:
-            user_id_list = [
-                uuid.UUID(uid.strip()) for uid in user_ids.split(",") if uid.strip()
-            ]
+            user_id_list = [uuid.UUID(uid.strip()) for uid in user_ids.split(",") if uid.strip()]
         except ValueError as e:
-            raise HTTPException(
-                status_code=422, detail=f"Invalid UUID format: {str(e)}"
-            )
+            raise HTTPException(status_code=422, detail=f"Invalid UUID format: {str(e)}")
 
         # Prevent removing yourself if you're the only admin
         if current_user.id in user_id_list:
             members = get_project_members(db, project_id)
-            admin_count = sum(
-                1
-                for m in members
-                if m.role in ["admin", "owner"] and m.user_id not in user_id_list
-            )
+            admin_count = sum(1 for m in members if m.role in ["admin", "owner"] and m.user_id not in user_id_list)
             if admin_count == 0:
-                raise HTTPException(
-                    status_code=400, detail="Cannot remove all admins from project"
-                )
+                raise HTTPException(status_code=400, detail="Cannot remove all admins from project")
 
         results = bulk_remove_users_from_project(db, project_id, user_id_list)
 
@@ -401,9 +379,7 @@ def add_member_to_project_endpoint(
         if not user_role or user_role not in ["admin", "owner"]:
             raise HTTPException(status_code=403, detail="Admin access required")
 
-        user_project = add_user_to_project(
-            db, project_id, member_data.user_id, member_data.role
-        )
+        user_project = add_user_to_project(db, project_id, member_data.user_id, member_data.role)
         if not user_project:
             raise HTTPException(status_code=400, detail="Failed to add user to project")
 
@@ -420,9 +396,7 @@ def add_member_to_project_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete(
-    "/projects/{project_id}/members/{user_id}", response_model=ApiResponse[dict]
-)
+@router.delete("/projects/{project_id}/members/{user_id}", response_model=ApiResponse[dict])
 def remove_member_from_project_endpoint(
     project_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -441,15 +415,9 @@ def remove_member_from_project_endpoint(
             user_role = get_user_role_in_project(db, project_id, current_user.id)
             if user_role in ["admin", "owner"]:
                 members = get_project_members(db, project_id)
-                admin_count = sum(
-                    1
-                    for m in members
-                    if m.role in ["admin", "owner"] and m.user_id != current_user.id
-                )
+                admin_count = sum(1 for m in members if m.role in ["admin", "owner"] and m.user_id != current_user.id)
                 if admin_count == 0:
-                    raise HTTPException(
-                        status_code=400, detail="Cannot leave project as the last admin"
-                    )
+                    raise HTTPException(status_code=400, detail="Cannot leave project as the last admin")
         else:
             # Require admin access for removing other users
             user_role = get_user_role_in_project(db, project_id, current_user.id)
@@ -464,11 +432,7 @@ def remove_member_from_project_endpoint(
             raise HTTPException(status_code=404, detail="User not found in project")
 
         # Different success messages for self-removal vs admin removal
-        message = (
-            "Successfully left project"
-            if is_self_removal
-            else "User removed from project successfully"
-        )
+        message = "Successfully left project" if is_self_removal else "User removed from project successfully"
 
         return ApiResponse(
             success=True,
@@ -481,9 +445,7 @@ def remove_member_from_project_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.put(
-    "/projects/{project_id}/members/{user_id}", response_model=UserProjectApiResponse
-)
+@router.put("/projects/{project_id}/members/{user_id}", response_model=UserProjectApiResponse)
 def update_member_role_endpoint(
     project_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -505,13 +467,9 @@ def update_member_role_endpoint(
             members = get_project_members(db, project_id)
             admin_count = sum(1 for m in members if m.role in ["admin", "owner"])
             if admin_count <= 1:
-                raise HTTPException(
-                    status_code=400, detail="Cannot change role of the last admin"
-                )
+                raise HTTPException(status_code=400, detail="Cannot change role of the last admin")
 
-        updated_user_project = update_user_role_in_project(
-            db, project_id, user_id, role_update.role
-        )
+        updated_user_project = update_user_role_in_project(db, project_id, user_id, role_update.role)
         if not updated_user_project:
             raise HTTPException(status_code=404, detail="User not found in project")
 
@@ -562,9 +520,7 @@ def request_role_change_endpoint(
     try:
         # Check if user is a member
         if not is_user_in_project(db, project_id, current_user.id):
-            raise HTTPException(
-                status_code=403, detail="You are not a member of this project"
-            )
+            raise HTTPException(status_code=403, detail="You are not a member of this project")
 
         # Get current role
         current_role = get_user_role_in_project(db, project_id, current_user.id)
@@ -573,9 +529,7 @@ def request_role_change_endpoint(
 
         # Prevent requesting same role
         if role_request.role == current_role:
-            raise HTTPException(
-                status_code=400, detail=f"You already have the '{current_role}' role"
-            )
+            raise HTTPException(status_code=400, detail=f"You already have the '{current_role}' role")
 
         # Get project details
         project = get_project(db, project_id)
@@ -586,12 +540,7 @@ def request_role_change_endpoint(
         try:
             # Find all admin users in the project
             members = get_project_members(db, project_id)
-            admin_user_ids = [
-                member.user_id
-                for member in members
-                if member.role in ["admin", "owner"]
-                and member.user_id != current_user.id
-            ]
+            admin_user_ids = [member.user_id for member in members if member.role in ["admin", "owner"] and member.user_id != current_user.id]
 
             if admin_user_ids:
                 # Create notification

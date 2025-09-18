@@ -55,19 +55,13 @@ def webhook_audio_upload(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    logger.info(
-        f"Webhook audio upload request: meeting_id={request.meeting_id}, url={request.file_url}"
-    )
+    logger.info(f"Webhook audio upload request: meeting_id={request.meeting_id}, url={request.file_url}")
 
     try:
         file_content, content_type = download_file_from_url(str(request.file_url))
-        logger.info(
-            f"Downloaded {len(file_content)} bytes, content_type={content_type}"
-        )
+        logger.info(f"Downloaded {len(file_content)} bytes, content_type={content_type}")
 
-        audio_data = AudioFileCreate(
-            meeting_id=request.meeting_id, uploaded_by=current_user.id
-        )
+        audio_data = AudioFileCreate(meeting_id=request.meeting_id, uploaded_by=current_user.id)
         audio_file = create_audio_file(db, audio_data, file_content, content_type)
 
         if not audio_file:
@@ -83,9 +77,7 @@ def webhook_audio_upload(
 
     except requests.RequestException as e:
         logger.error(f"Failed to download file from {request.file_url}: {e}")
-        raise HTTPException(
-            status_code=400, detail=f"Failed to download file: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=f"Failed to download file: {str(e)}")
     except ValueError as e:
         logger.error(f"File validation error: {e}")
         raise HTTPException(status_code=400, detail=str(e))

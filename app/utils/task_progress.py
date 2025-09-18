@@ -79,9 +79,7 @@ def update_task_progress(
 
         return True
     except Exception as e:
-        logger.exception(
-            "update_task_progress failed for task %s user %s: %s", task_id, user_id, e
-        )
+        logger.exception("update_task_progress failed for task %s user %s: %s", task_id, user_id, e)
         return False
 
 

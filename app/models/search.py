@@ -21,18 +21,12 @@ class SearchDocument(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
     owner_type: Optional[str] = Field(default=None, sa_column=Column(String))
     owner_id: Optional[str] = Field(default=None, sa_column=Column(String))
     content_text: Optional[str] = Field(default=None, sa_column=Column(Text))
     qdrant_vector_id: Optional[str] = Field(default=None, sa_column=Column(String))
-    indexed_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True))
-    )
+    indexed_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))

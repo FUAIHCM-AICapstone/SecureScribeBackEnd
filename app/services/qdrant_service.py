@@ -23,13 +23,9 @@ async def create_collection_if_not_exist(collection_name: str, dim: int) -> bool
 
         client.create_collection(
             collection_name=collection_name,
-            vectors_config=qmodels.VectorParams(
-                size=dim, distance=qmodels.Distance.COSINE
-            ),
+            vectors_config=qmodels.VectorParams(size=dim, distance=qmodels.Distance.COSINE),
         )
-        print(
-            f"🟢 \033[92mCreated collection '{collection_name}' with dimension {dim}\033[0m"
-        )
+        print(f"🟢 \033[92mCreated collection '{collection_name}' with dimension {dim}\033[0m")
         return True
 
     except Exception as e:
@@ -37,9 +33,7 @@ async def create_collection_if_not_exist(collection_name: str, dim: int) -> bool
         return False
 
 
-async def upsert_vectors(
-    collection: str, vectors: List[List[float]], payloads: List[Dict[str, Any]]
-) -> bool:
+async def upsert_vectors(collection: str, vectors: List[List[float]], payloads: List[Dict[str, Any]]) -> bool:
     """Upsert vectors to a collection"""
     if not vectors:
         return False
@@ -262,9 +256,7 @@ def _extract_text_from_docx(file_path: str) -> str:
         from docx import Document
 
         doc = Document(file_path)
-        content = "\n".join(
-            [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
-        )
+        content = "\n".join([paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()])
         print(f"🟢 \033[92mExtracted text from DOCX: {len(content)} characters\033[0m")
         return content
     except ImportError:
@@ -295,16 +287,12 @@ async def process_file(
         file_extension = os.path.splitext(file_path)[1].lower()
         mime_type, _ = mimetypes.guess_type(file_path)
 
-        print(
-            f"🟢 \033[92mProcessing file: {os.path.basename(file_path)} ({file_extension}, {mime_type})\033[0m"
-        )
+        print(f"🟢 \033[92mProcessing file: {os.path.basename(file_path)} ({file_extension}, {mime_type})\033[0m")
 
         # Handle different file types
         if file_extension in [".pdf"] or (mime_type and "pdf" in mime_type):
             content = _extract_text_from_pdf(file_path)
-        elif file_extension in [".docx"] or (
-            mime_type and "wordprocessingml" in mime_type
-        ):
+        elif file_extension in [".docx"] or (mime_type and "wordprocessingml" in mime_type):
             content = _extract_text_from_docx(file_path)
         elif file_extension in [
             ".txt",
@@ -317,24 +305,17 @@ async def process_file(
             ".ts",
             ".css",
             ".csv",
-        ] or (
-            mime_type
-            and ("text" in mime_type or "json" in mime_type or "xml" in mime_type)
-        ):
+        ] or (mime_type and ("text" in mime_type or "json" in mime_type or "xml" in mime_type)):
             content = _read_text_file(file_path)
         else:
             # Try to read as text anyway
             content = _read_text_file(file_path)
 
         if not content or not content.strip():
-            print(
-                f"🟡 \033[93mNo readable content found in: {os.path.basename(file_path)}\033[0m"
-            )
+            print(f"🟡 \033[93mNo readable content found in: {os.path.basename(file_path)}\033[0m")
             return False
 
-        print(
-            f"🟢 \033[92mExtracted {len(content)} characters from {os.path.basename(file_path)}\033[0m"
-        )
+        print(f"🟢 \033[92mExtracted {len(content)} characters from {os.path.basename(file_path)}\033[0m")
 
         # Default collection name from settings
         if not collection_name:
@@ -372,9 +353,7 @@ async def process_file(
             # Include file_id if provided (important for search filtering)
             if file_id:
                 payload["file_id"] = file_id
-                print(
-                    f"🟢 \033[92mIncluding file_id {file_id} in payload for chunk {i}\033[0m"
-                )
+                print(f"🟢 \033[92mIncluding file_id {file_id} in payload for chunk {i}\033[0m")
             else:
                 print(f"🟡 \033[93mWarning: No file_id provided for chunk {i}\033[0m")
 
@@ -387,9 +366,7 @@ async def process_file(
                 payload["uploaded_by"] = owner_user_id
             if file_type:
                 payload["file_type"] = file_type
-            payload["is_global"] = bool(
-                not project_id and not meeting_id and owner_user_id
-            )
+            payload["is_global"] = bool(not project_id and not meeting_id and owner_user_id)
 
             payloads.append(payload)
 
@@ -408,7 +385,6 @@ async def process_file(
         return False
 
 
-
 async def delete_file_vectors(file_id: str, collection_name: str | None = None) -> bool:
     """Delete all vectors for a specific file_id from the collection"""
     client = get_qdrant_client()
@@ -416,13 +392,7 @@ async def delete_file_vectors(file_id: str, collection_name: str | None = None) 
     try:
         if not collection_name:
             collection_name = settings.QDRANT_COLLECTION_NAME
-        filter_condition = qmodels.Filter(
-            must=[
-                qmodels.FieldCondition(
-                    key="file_id", match=qmodels.MatchValue(value=file_id)
-                )
-            ]
-        )
+        filter_condition = qmodels.Filter(must=[qmodels.FieldCondition(key="file_id", match=qmodels.MatchValue(value=file_id))])
 
         client.delete(
             collection_name=collection_name,

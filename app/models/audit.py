@@ -23,21 +23,15 @@ class AuditLog(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
     actor_user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     action: Optional[str] = Field(default=None, sa_column=Column(String))
     target_type: Optional[str] = Field(default=None, sa_column=Column(String))
     target_id: Optional[str] = Field(default=None, sa_column=Column(String))
-    audit_metadata: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSON)
-    )
+    audit_metadata: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
 
     # Relationships
     actor_user: "User" = Relationship(

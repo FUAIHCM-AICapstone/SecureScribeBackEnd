@@ -57,17 +57,10 @@ def get_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[AudioFile]:
 
 
 def get_audio_files_by_meeting(db: Session, meeting_id: uuid.UUID) -> List[AudioFile]:
-    return (
-        db.query(AudioFile)
-        .filter(AudioFile.meeting_id == meeting_id)
-        .order_by(AudioFile.seq_order, AudioFile.created_at)
-        .all()
-    )
+    return db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id).order_by(AudioFile.seq_order, AudioFile.created_at).all()
 
 
-def update_audio_file(
-    db: Session, audio_id: uuid.UUID, updates: AudioFileUpdate
-) -> Optional[AudioFile]:
+def update_audio_file(db: Session, audio_id: uuid.UUID, updates: AudioFileUpdate) -> Optional[AudioFile]:
     audio_file = db.query(AudioFile).filter(AudioFile.id == audio_id).first()
     if not audio_file:
         return None

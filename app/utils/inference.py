@@ -55,12 +55,8 @@ def create_model(config):
     return model
 
 
-model_config_path = os.getenv(
-    "MODEL_CONFIG_PATH", "./config/EfficientConformerCTCSmall.json"
-)
-checkpoint_path = os.getenv(
-    "MODEL_CHECKPOINT_PATH", "./checkpoints/checkpoints_56_90h_07.ckpt"
-)
+model_config_path = os.getenv("MODEL_CONFIG_PATH", "./config/EfficientConformerCTCSmall.json")
+checkpoint_path = os.getenv("MODEL_CHECKPOINT_PATH", "./checkpoints/checkpoints_56_90h_07.ckpt")
 
 
 # chỉnh đường dẫn
@@ -97,9 +93,7 @@ def transcriber_tensor(audio_tensor):
         audio_tensor = audio_tensor.mean(dim=0, keepdim=True)
 
     total_samples = audio_tensor.shape[1]
-    print(
-        f"   📊 Processing segment: {total_samples} samples ({total_samples / 16000:.1f}s)"
-    )
+    print(f"   📊 Processing segment: {total_samples} samples ({total_samples / 16000:.1f}s)")
 
     # Fix tensor shape for model compatibility
     target_divisor = 360  # 4 heads * 90 dim
@@ -108,12 +102,8 @@ def transcriber_tensor(audio_tensor):
     if remainder > 0:
         # Pad to make divisible by target_divisor
         pad_samples = target_divisor - remainder
-        audio_tensor = torch.nn.functional.pad(
-            audio_tensor, (0, pad_samples), "constant", 0
-        )
-        print(
-            f"   🔧 Padded from {total_samples} to {total_samples + pad_samples} samples"
-        )
+        audio_tensor = torch.nn.functional.pad(audio_tensor, (0, pad_samples), "constant", 0)
+        print(f"   🔧 Padded from {total_samples} to {total_samples + pad_samples} samples")
 
     # Ensure minimum length
     if audio_tensor.shape[1] < target_divisor:

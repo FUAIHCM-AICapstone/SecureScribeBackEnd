@@ -37,9 +37,7 @@ class Transducer(Model):
         decoding_params,
         name,
     ):
-        super(Transducer, self).__init__(
-            tokenizer_params, training_params, decoding_params, name
-        )
+        super(Transducer, self).__init__(tokenizer_params, training_params, decoding_params, name)
 
         # Encoder
         if encoder_params["arch"] == "Conformer":
@@ -59,9 +57,7 @@ class Transducer(Model):
 
         # Joint Network
         self.joint_network = JointNetwork(
-            encoder_params["dim_model"][-1]
-            if isinstance(encoder_params["dim_model"], list)
-            else encoder_params["dim_model"],
+            encoder_params["dim_model"][-1] if isinstance(encoder_params["dim_model"], list) else encoder_params["dim_model"],
             decoder_params["dim_model"],
             decoder_params["vocab_size"],
             joint_params,
@@ -102,16 +98,10 @@ class Transducer(Model):
         super(Transducer, self).distribute_strategy(rank)
 
         self.encoder = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.encoder)
-        self.encoder = torch.nn.parallel.DistributedDataParallel(
-            self.encoder, device_ids=[self.rank]
-        )
+        self.encoder = torch.nn.parallel.DistributedDataParallel(self.encoder, device_ids=[self.rank])
         self.decoder = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.decoder)
-        self.decoder = torch.nn.parallel.DistributedDataParallel(
-            self.decoder, device_ids=[self.rank]
-        )
-        self.joint_network = torch.nn.parallel.DistributedDataParallel(
-            self.joint_network, device_ids=[self.rank]
-        )
+        self.decoder = torch.nn.parallel.DistributedDataParallel(self.decoder, device_ids=[self.rank])
+        self.joint_network = torch.nn.parallel.DistributedDataParallel(self.joint_network, device_ids=[self.rank])
 
     def parallel_strategy(self):
         super(Transducer, self).parallel_strategy()
@@ -124,9 +114,7 @@ class Transducer(Model):
         print(self.name)
         print(
             "Model Parameters :",
-            self.num_params() - self.lm.num_params()
-            if isinstance(self.lm, LanguageModel)
-            else self.num_params(),
+            self.num_params() - self.lm.num_params() if isinstance(self.lm, LanguageModel) else self.num_params(),
         )
         print(
             " - Encoder Parameters :",

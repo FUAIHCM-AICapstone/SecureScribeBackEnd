@@ -71,9 +71,7 @@ def get_notifications_endpoint(
     )
 
 
-@router.get(
-    "/notifications/{notification_id}", response_model=ApiResponse[NotificationResponse]
-)
+@router.get("/notifications/{notification_id}", response_model=ApiResponse[NotificationResponse])
 def get_notification_endpoint(
     notification_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -87,9 +85,7 @@ def get_notification_endpoint(
     )
 
 
-@router.post(
-    "/notifications/send", response_model=ApiResponse[List[NotificationResponse]]
-)
+@router.post("/notifications/send", response_model=ApiResponse[List[NotificationResponse]])
 def send_notification_endpoint(
     notification_data: NotificationCreate,
     db: Session = Depends(get_db),
@@ -137,9 +133,7 @@ def send_notification_endpoint(
     if notification_data.payload:
         title = notification_data.payload.get("title", "Notification")
         body = notification_data.payload.get("body", "")
-        send_fcm_notification(
-            notification_data.user_ids, title, body, notification_data.payload
-        )
+        send_fcm_notification(notification_data.user_ids, title, body, notification_data.payload)
 
     return ApiResponse(
         success=True,
@@ -148,9 +142,7 @@ def send_notification_endpoint(
     )
 
 
-@router.post(
-    "/notifications/send-global", response_model=ApiResponse[List[NotificationResponse]]
-)
+@router.post("/notifications/send-global", response_model=ApiResponse[List[NotificationResponse]])
 def send_global_notification_endpoint(
     notification_data: NotificationGlobalCreate,
     db: Session = Depends(get_db),
@@ -190,13 +182,9 @@ def send_global_notification_endpoint(
             if success:
                 success_count += 1
             else:
-                print(
-                    f"Failed to publish global notification to user {user_id} after retries"
-                )
+                print(f"Failed to publish global notification to user {user_id} after retries")
 
-        print(
-            f"Published global notifications to {success_count}/{len(user_ids)} users"
-        )
+        print(f"Published global notifications to {success_count}/{len(user_ids)} users")
 
     # Run async publishing in background with error handling
     try:
@@ -258,13 +246,9 @@ def delete_notification_endpoint(
 @router.websocket("/notifications/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    authorization: str = Query(
-        None, description="Bearer token in format: Bearer <token>"
-    ),
+    authorization: str = Query(None, description="Bearer token in format: Bearer <token>"),
     token: str = Query(None, description="JWT token (legacy support)"),
-    sec_websocket_protocol: str = Query(
-        None, description="WebSocket subprotocols", alias="sec-websocket-protocol"
-    ),
+    sec_websocket_protocol: str = Query(None, description="WebSocket subprotocols", alias="sec-websocket-protocol"),
 ):
     """
     WebSocket endpoint for real-time notifications and task progress updates.
@@ -320,10 +304,7 @@ async def websocket_endpoint(
         websocket_manager.add_connection(user_id_str, websocket)
 
         # Start Redis listener if not already started
-        if (
-            websocket_manager._pubsub_task is None
-            or websocket_manager._pubsub_task.done()
-        ):
+        if websocket_manager._pubsub_task is None or websocket_manager._pubsub_task.done():
             asyncio.create_task(websocket_manager.start_redis_listener())
 
         # Send simple connection confirmation
@@ -339,9 +320,7 @@ async def websocket_endpoint(
         # Send capabilities info
         capabilities_message = {
             "type": "capabilities",
-            "data": {
-                "supported_message_types": ["task_progress", "notification", "system"]
-            },
+            "data": {"supported_message_types": ["task_progress", "notification", "system"]},
         }
         await websocket.send_json(capabilities_message)
 

@@ -66,12 +66,8 @@ class AudioPreprocessing(nn.Module):
         super(AudioPreprocessing, self).__init__()
         self.win_length = int(sample_rate * win_length_ms) // 1000
         self.hop_length = int(sample_rate * hop_length_ms) // 1000
-        self.Spectrogram = torchaudio.transforms.Spectrogram(
-            n_fft, self.win_length, self.hop_length
-        )
-        self.MelScale = torchaudio.transforms.MelScale(
-            n_mels, sample_rate, f_min=0, f_max=8000, n_stft=n_fft // 2 + 1
-        )
+        self.Spectrogram = torchaudio.transforms.Spectrogram(n_fft, self.win_length, self.hop_length)
+        self.MelScale = torchaudio.transforms.MelScale(n_mels, sample_rate, f_min=0, f_max=8000, n_stft=n_fft // 2 + 1)
         self.normalize = normalize
         self.mean = mean
         self.std = std
@@ -129,17 +125,13 @@ class SpecAugment(nn.Module):
         if self.spec_augment:
             # Frequency Masking
             for _ in range(self.mF):
-                x = torchaudio.transforms.FrequencyMasking(
-                    freq_mask_param=self.F, iid_masks=False
-                ).forward(x)
+                x = torchaudio.transforms.FrequencyMasking(freq_mask_param=self.F, iid_masks=False).forward(x)
 
             # Time Masking
             for b in range(x.size(0)):
                 T = int(self.pS * x_len[b])
                 for _ in range(self.mT):
-                    x[b : b + 1, :, : x_len[b]] = torchaudio.transforms.TimeMasking(
-                        time_mask_param=T
-                    ).forward(x[b : b + 1, :, : x_len[b]])
+                    x[b : b + 1, :, : x_len[b]] = torchaudio.transforms.TimeMasking(time_mask_param=T).forward(x[b : b + 1, :, : x_len[b]])
 
         return x
 
@@ -184,16 +176,8 @@ class Conv1dSubsampling(nn.Module):
                         stride=2,
                         padding=(kernel_size - 1) // 2,
                     ),
-                    nn.BatchNorm1d(filters[layer_id])
-                    if norm == "batch"
-                    else nn.LayerNorm(filters[layer_id])
-                    if norm == "layer"
-                    else nn.Identity(),
-                    nn.ReLU()
-                    if act == "relu"
-                    else Swish()
-                    if act == "swish"
-                    else nn.Identity(),
+                    nn.BatchNorm1d(filters[layer_id]) if norm == "batch" else nn.LayerNorm(filters[layer_id]) if norm == "layer" else nn.Identity(),
+                    nn.ReLU() if act == "relu" else Swish() if act == "swish" else nn.Identity(),
                 )
                 for layer_id in range(num_layers)
             ]
@@ -245,16 +229,8 @@ class Conv2dSubsampling(nn.Module):
                         stride=2,
                         padding=(kernel_size - 1) // 2,
                     ),
-                    nn.BatchNorm2d(filters[layer_id])
-                    if norm == "batch"
-                    else nn.LayerNorm(filters[layer_id])
-                    if norm == "layer"
-                    else nn.Identity(),
-                    nn.ReLU()
-                    if act == "relu"
-                    else Swish()
-                    if act == "swish"
-                    else nn.Identity(),
+                    nn.BatchNorm2d(filters[layer_id]) if norm == "batch" else nn.LayerNorm(filters[layer_id]) if norm == "layer" else nn.Identity(),
+                    nn.ReLU() if act == "relu" else Swish() if act == "swish" else nn.Identity(),
                 )
                 for layer_id in range(num_layers)
             ]
@@ -313,16 +289,8 @@ class Conv2dPoolSubsampling(nn.Module):
                         padding=(kernel_size - 1) // 2,
                     ),
                     nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)),
-                    nn.BatchNorm2d(filters[layer_id])
-                    if norm == "batch"
-                    else nn.LayerNorm(filters[layer_id])
-                    if norm == "layer"
-                    else nn.Identity(),
-                    nn.ReLU()
-                    if act == "relu"
-                    else Swish()
-                    if act == "swish"
-                    else nn.Identity(),
+                    nn.BatchNorm2d(filters[layer_id]) if norm == "batch" else nn.LayerNorm(filters[layer_id]) if norm == "layer" else nn.Identity(),
+                    nn.ReLU() if act == "relu" else Swish() if act == "swish" else nn.Identity(),
                 )
                 for layer_id in range(num_layers)
             ]
@@ -380,16 +348,8 @@ class VGGSubsampling(nn.Module):
                         kernel_size,
                         padding=(kernel_size - 1) // 2,
                     ),
-                    nn.BatchNorm2d(filters[layer_id])
-                    if norm == "batch"
-                    else nn.LayerNorm(filters[layer_id])
-                    if norm == "layer"
-                    else nn.Identity(),
-                    nn.ReLU()
-                    if act == "relu"
-                    else Swish()
-                    if act == "swish"
-                    else nn.Identity(),
+                    nn.BatchNorm2d(filters[layer_id]) if norm == "batch" else nn.LayerNorm(filters[layer_id]) if norm == "layer" else nn.Identity(),
+                    nn.ReLU() if act == "relu" else Swish() if act == "swish" else nn.Identity(),
                     # Conv 2
                     nn.Conv2d(
                         filters[layer_id],
@@ -397,16 +357,8 @@ class VGGSubsampling(nn.Module):
                         kernel_size,
                         padding=(kernel_size - 1) // 2,
                     ),
-                    nn.BatchNorm2d(filters[layer_id])
-                    if norm == "batch"
-                    else nn.LayerNorm(filters[layer_id])
-                    if norm == "layer"
-                    else nn.Identity(),
-                    nn.ReLU()
-                    if act == "relu"
-                    else Swish()
-                    if act == "swish"
-                    else nn.Identity(),
+                    nn.BatchNorm2d(filters[layer_id]) if norm == "batch" else nn.LayerNorm(filters[layer_id]) if norm == "layer" else nn.Identity(),
+                    nn.ReLU() if act == "relu" else Swish() if act == "swish" else nn.Identity(),
                     # Pooling
                     nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
                 )
@@ -506,15 +458,9 @@ class MultiHeadSelfAttentionModule(nn.Module):
         super(MultiHeadSelfAttentionModule, self).__init__()
 
         # Assert
-        assert not (group_size > 1 and kernel_size != None), (
-            "Local grouped attention not implemented"
-        )
-        assert not (group_size > 1 and stride > 1 != None), (
-            "Strided grouped attention not implemented"
-        )
-        assert not (linear_att and relative_pos_enc), (
-            "Linear attention requires absolute positional encodings"
-        )
+        assert not (group_size > 1 and kernel_size != None), "Local grouped attention not implemented"
+        assert not (group_size > 1 and stride > 1 != None), "Strided grouped attention not implemented"
+        assert not (linear_att and relative_pos_enc), "Linear attention requires absolute positional encodings"
 
         # Pre Norm
         self.norm = nn.LayerNorm(dim_model, eps=1e-6)
@@ -526,47 +472,35 @@ class MultiHeadSelfAttentionModule(nn.Module):
         # Grouped Multi-Head Self-Attention
         elif group_size > 1:
             if relative_pos_enc:
-                self.mhsa = GroupedRelPosMultiHeadSelfAttention(
-                    dim_model, num_heads, causal, max_pos_encoding, group_size
-                )
+                self.mhsa = GroupedRelPosMultiHeadSelfAttention(dim_model, num_heads, causal, max_pos_encoding, group_size)
             else:
                 self.mhsa = GroupedMultiHeadAttention(dim_model, num_heads, group_size)
 
         # Local Multi-Head Self-Attention
         elif kernel_size != None and stride == 1:
             if relative_pos_enc:
-                self.mhsa = LocalRelPosMultiHeadSelfAttention(
-                    dim_model, num_heads, causal, kernel_size
-                )
+                self.mhsa = LocalRelPosMultiHeadSelfAttention(dim_model, num_heads, causal, kernel_size)
             else:
                 self.mhsa = LocalMultiHeadAttention(dim_model, num_heads, kernel_size)
 
         # Strided Multi-Head Self-Attention
         elif kernel_size is None and stride > 1:
             if relative_pos_enc:
-                self.mhsa = StridedRelPosMultiHeadSelfAttention(
-                    dim_model, num_heads, causal, max_pos_encoding, stride
-                )
+                self.mhsa = StridedRelPosMultiHeadSelfAttention(dim_model, num_heads, causal, max_pos_encoding, stride)
             else:
                 self.mhsa = StridedMultiHeadAttention(dim_model, num_heads, stride)
 
         # Strided Local Multi-Head Self-Attention
         elif stride > 1 and kernel_size != None:
             if relative_pos_enc:
-                self.mhsa = StridedLocalRelPosMultiHeadSelfAttention(
-                    dim_model, num_heads, causal, kernel_size, stride
-                )
+                self.mhsa = StridedLocalRelPosMultiHeadSelfAttention(dim_model, num_heads, causal, kernel_size, stride)
             else:
-                self.mhsa = StridedLocalMultiHeadAttention(
-                    dim_model, num_heads, kernel_size, stride
-                )
+                self.mhsa = StridedLocalMultiHeadAttention(dim_model, num_heads, kernel_size, stride)
 
         # Multi-Head Self-Attention
         else:
             if relative_pos_enc:
-                self.mhsa = RelPosMultiHeadSelfAttention(
-                    dim_model, num_heads, causal, max_pos_encoding
-                )
+                self.mhsa = RelPosMultiHeadSelfAttention(dim_model, num_heads, causal, max_pos_encoding)
             else:
                 self.mhsa = MultiHeadAttention(dim_model, num_heads)
 
@@ -674,11 +608,7 @@ class ContextNetBlock(nn.Module):
         )
 
         # SE Module
-        self.se_module = (
-            SqueezeAndExcitationModule(dim_out, se_ratio, "swish")
-            if se_ratio != None
-            else None
-        )
+        self.se_module = SqueezeAndExcitationModule(dim_out, se_ratio, "swish") if se_ratio != None else None
 
         # Residual
         self.residual = (

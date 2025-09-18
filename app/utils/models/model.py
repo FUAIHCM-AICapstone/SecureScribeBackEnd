@@ -52,9 +52,7 @@ class Model(nn.Module):
         # Tokenizer
         try:
             print("Tokenizer path: ", tokenizer_params["tokenizer_path"])
-            self.tokenizer = spm.SentencePieceProcessor(
-                tokenizer_params["tokenizer_path"]
-            )
+            self.tokenizer = spm.SentencePieceProcessor(tokenizer_params["tokenizer_path"])
         except:
             self.tokenizer = None
             print("Tokenizer not found...")
@@ -120,9 +118,7 @@ class Model(nn.Module):
         # LR Schedulers
         if training_params["lr_schedule"] == "Constant":
             # Constant LR
-            self.scheduler = constant_learning_rate_scheduler(
-                optimizer=self.optimizer, lr_value=training_params["lr_value"]
-            )
+            self.scheduler = constant_learning_rate_scheduler(optimizer=self.optimizer, lr_value=training_params["lr_value"])
 
         elif training_params["lr_schedule"] == "ConstantWithDecay":
             # Constant With Decay LR
@@ -146,11 +142,7 @@ class Model(nn.Module):
             self.scheduler = exponential_decay_transformer_learning_rate_scheduler(
                 optimizer=self.optimizer,
                 warmup_steps=training_params["warmup_steps"],
-                lr_max=training_params["lr_max"]
-                if training_params.get("lr_max", None)
-                else training_params["K"]
-                * training_params["schedule_dim"] ** -0.5
-                * training_params["warmup_steps"] ** -0.5,
+                lr_max=training_params["lr_max"] if training_params.get("lr_max", None) else training_params["K"] * training_params["schedule_dim"] ** -0.5 * training_params["warmup_steps"] ** -0.5,
                 alpha=training_params["alpha"],
                 end_step=training_params["end_step"],
             )
@@ -160,11 +152,7 @@ class Model(nn.Module):
             self.scheduler = cosine_annealing_learning_rate_scheduler(
                 optimizer=self.optimizer,
                 warmup_steps=training_params["warmup_steps"],
-                lr_max=training_params["lr_max"]
-                if training_params.get("lr_max", None)
-                else training_params["K"]
-                * training_params["schedule_dim"] ** -0.5
-                * training_params["warmup_steps"] ** -0.5,
+                lr_max=training_params["lr_max"] if training_params.get("lr_max", None) else training_params["K"] * training_params["schedule_dim"] ** -0.5 * training_params["warmup_steps"] ** -0.5,
                 lr_min=training_params["lr_min"],
                 end_step=training_params["end_step"],
             )
@@ -237,9 +225,7 @@ class Model(nn.Module):
         # Sample Synaptic Noise
         if self.vn_start_step is not None:
             if self.scheduler.model_step >= self.vn_start_step:
-                self.decoder.apply(
-                    lambda m: sample_synaptic_noise(m, self.is_distributed)
-                )
+                self.decoder.apply(lambda m: sample_synaptic_noise(m, self.is_distributed))
 
         # Try Catch
         try:
@@ -254,9 +240,7 @@ class Model(nn.Module):
                     print("Epoch {}/{}".format(epoch + 1, epochs))
                     epoch_iterator = tqdm(
                         dataset_train,
-                        total=steps_per_epoch * accumulated_steps
-                        if steps_per_epoch
-                        else None,
+                        total=steps_per_epoch * accumulated_steps if steps_per_epoch else None,
                     )
                 else:
                     epoch_iterator = dataset_train
@@ -304,9 +288,7 @@ class Model(nn.Module):
                     # Sample Synaptic Noise
                     if self.vn_start_step is not None:
                         if self.scheduler.model_step >= self.vn_start_step:
-                            self.decoder.apply(
-                                lambda m: sample_synaptic_noise(m, self.is_distributed)
-                            )
+                            self.decoder.apply(lambda m: sample_synaptic_noise(m, self.is_distributed))
 
                     # Step Print
                     if self.rank == 0:
@@ -321,9 +303,7 @@ class Model(nn.Module):
 
                     # Logs Step
                     if self.rank == 0 and writer is not None and (step + 1) % 10 == 0:
-                        writer.add_scalar(
-                            "Training/Loss", loss_mini, self.scheduler.model_step
-                        )
+                        writer.add_scalar("Training/Loss", loss_mini, self.scheduler.model_step)
                         writer.add_scalar(
                             "Training/LearningRate",
                             self.optimizer.param_groups[0]["lr"],
@@ -345,12 +325,7 @@ class Model(nn.Module):
                 if self.rank == 0 and writer is not None:
                     writer.add_scalar(
                         "Training/MeanLoss",
-                        epoch_loss
-                        / (
-                            steps_per_epoch * accumulated_steps
-                            if steps_per_epoch is not None
-                            else dataset_train.__len__()
-                        ),
+                        epoch_loss / (steps_per_epoch * accumulated_steps if steps_per_epoch is not None else dataset_train.__len__()),
                         epoch + 1,
                     )
 
@@ -362,17 +337,11 @@ class Model(nn.Module):
                         if isinstance(dataset_val, dict):
                             for dataset_name, dataset in dataset_val.items():
                                 # Evaluate
-                                wer, truths, preds, val_loss = self.evaluate(
-                                    dataset, val_steps, verbose_val, eval_loss=True
-                                )
+                                wer, truths, preds, val_loss = self.evaluate(dataset, val_steps, verbose_val, eval_loss=True)
 
                                 # Print wer
                                 if self.rank == 0:
-                                    print(
-                                        "{} wer : {:.2f}% - loss : {:.4f}".format(
-                                            dataset_name, 100 * wer, val_loss
-                                        )
-                                    )
+                                    print("{} wer : {:.2f}% - loss : {:.4f}".format(dataset_name, 100 * wer, val_loss))
 
                                 # Logs Validation
                                 if self.rank == 0 and writer is not None:
@@ -387,53 +356,33 @@ class Model(nn.Module):
                                         epoch + 1,
                                     )
                                     writer.add_text(
-                                        "Validation/Predictions/{}".format(
-                                            dataset_name
-                                        ),
-                                        "GroundTruth : "
-                                        + truths[0]
-                                        + " / Prediction : "
-                                        + preds[0],
+                                        "Validation/Predictions/{}".format(dataset_name),
+                                        "GroundTruth : " + truths[0] + " / Prediction : " + preds[0],
                                         epoch + 1,
                                     )
 
                         else:
                             # Evaluate
-                            wer, truths, preds, val_loss = self.evaluate(
-                                dataset_val, val_steps, verbose_val, eval_loss=True
-                            )
+                            wer, truths, preds, val_loss = self.evaluate(dataset_val, val_steps, verbose_val, eval_loss=True)
 
                             # Print wer
                             if self.rank == 0:
-                                print(
-                                    "Val wer : {:.2f}% - Val loss : {:.4f}".format(
-                                        100 * wer, val_loss
-                                    )
-                                )
+                                print("Val wer : {:.2f}% - Val loss : {:.4f}".format(100 * wer, val_loss))
 
                             # Logs Validation
                             if self.rank == 0 and writer is not None:
-                                writer.add_scalar(
-                                    "Validation/WER", 100 * wer, epoch + 1
-                                )
-                                writer.add_scalar(
-                                    "Validation/MeanLoss", val_loss, epoch + 1
-                                )
+                                writer.add_scalar("Validation/WER", 100 * wer, epoch + 1)
+                                writer.add_scalar("Validation/MeanLoss", val_loss, epoch + 1)
                                 writer.add_text(
                                     "Validation/Predictions",
-                                    "GroundTruth : "
-                                    + truths[0]
-                                    + " / Prediction : "
-                                    + preds[0],
+                                    "GroundTruth : " + truths[0] + " / Prediction : " + preds[0],
                                     epoch + 1,
                                 )
 
                 # Saving Checkpoint
                 if (epoch + 1) % saving_period == 0:
                     if callback_path and self.rank == 0:
-                        self.save(
-                            callback_path + "checkpoints_" + str(epoch + 1) + ".ckpt"
-                        )
+                        self.save(callback_path + "checkpoints_" + str(epoch + 1) + ".ckpt")
 
         # Exception Handler
         except Exception as e:
@@ -451,9 +400,7 @@ class Model(nn.Module):
         torch.save(
             {
                 "model_state_dict": self.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict()
-                if save_optimizer
-                else None,
+                "optimizer_state_dict": self.optimizer.state_dict() if save_optimizer else None,
                 "model_step": self.scheduler.model_step,
                 "tokenizer": self.tokenizer,
                 "is_distributed": self.is_distributed or self.is_parallel,
@@ -463,11 +410,7 @@ class Model(nn.Module):
 
         # Print Model state
         if self.rank == 0:
-            print(
-                "model saved at step {} / lr {:.6f}".format(
-                    self.scheduler.model_step, self.optimizer.param_groups[0]["lr"]
-                )
-            )
+            print("model saved at step {} / lr {:.6f}".format(self.scheduler.model_step, self.optimizer.param_groups[0]["lr"]))
 
     def load(self, path):
         # Load Model Checkpoint
@@ -476,16 +419,9 @@ class Model(nn.Module):
 
         # Model State Dict
         if checkpoint["is_distributed"] and not self.is_distributed:
-            self.load_state_dict(
-                {
-                    key.replace(".module.", "."): value
-                    for key, value in checkpoint["model_state_dict"].items()
-                }
-            )
+            self.load_state_dict({key.replace(".module.", "."): value for key, value in checkpoint["model_state_dict"].items()})
         else:
-            self.load_state_dict(
-                {key: value for key, value in checkpoint["model_state_dict"].items()}
-            )
+            self.load_state_dict({key: value for key, value in checkpoint["model_state_dict"].items()})
 
         # Model Step
         self.scheduler.model_step = checkpoint["model_step"]
@@ -499,15 +435,9 @@ class Model(nn.Module):
 
         # Print Model state
         if self.rank == 0:
-            print(
-                "model loaded at step {} / lr {:.6f}".format(
-                    self.scheduler.model_step, self.optimizer.param_groups[0]["lr"]
-                )
-            )
+            print("model loaded at step {} / lr {:.6f}".format(self.scheduler.model_step, self.optimizer.param_groups[0]["lr"]))
 
-    def evaluate(
-        self, dataset_eval, eval_steps=None, verbose=False, beam_size=1, eval_loss=True
-    ):
+    def evaluate(self, dataset_eval, eval_steps=None, verbose=False, beam_size=1, eval_loss=True):
         # Evaluzation Mode
         self.eval()
 
@@ -535,9 +465,7 @@ class Model(nn.Module):
             # Sequence Prediction
             with torch.no_grad():
                 if beam_size > 1:
-                    outputs_pred = self.beam_search_decoding(
-                        batch[0], batch[2], beam_size
-                    )
+                    outputs_pred = self.beam_search_decoding(batch[0], batch[2], beam_size)
                 else:
                     outputs_pred = self.gready_search_decoding(batch[0], batch[2])
 
@@ -582,11 +510,7 @@ class Model(nn.Module):
                         )
                     )
                 else:
-                    eval_iterator.set_description(
-                        "mean batch wer {:.2f}% - batch wer: {:.2f}%".format(
-                            100 * total_wer / (step + 1), 100 * batch_wer
-                        )
-                    )
+                    eval_iterator.set_description("mean batch wer {:.2f}% - batch wer: {:.2f}%".format(100 * total_wer / (step + 1), 100 * batch_wer))
 
             # Evaluation Steps
             if eval_steps:
@@ -599,12 +523,8 @@ class Model(nn.Module):
             torch.distributed.barrier()
 
             # All Gather Speech Truths and Predictions
-            speech_true_gather = [
-                None for _ in range(torch.distributed.get_world_size())
-            ]
-            speech_pred_gather = [
-                None for _ in range(torch.distributed.get_world_size())
-            ]
+            speech_true_gather = [None for _ in range(torch.distributed.get_world_size())]
+            speech_pred_gather = [None for _ in range(torch.distributed.get_world_size())]
             torch.distributed.all_gather_object(speech_true_gather, speech_true)
             torch.distributed.all_gather_object(speech_pred_gather, speech_pred)
             speech_true = []
@@ -620,11 +540,7 @@ class Model(nn.Module):
                 total_loss /= torch.distributed.get_world_size()
 
         # Compute wer
-        if (
-            total_wer
-            / (eval_steps if eval_steps is not None else dataset_eval.__len__())
-            > 1
-        ):
+        if total_wer / (eval_steps if eval_steps is not None else dataset_eval.__len__()) > 1:
             wer = 1
         else:
             # wer = jiwer.wer(speech_true, speech_pred, standardize=True)
@@ -637,9 +553,7 @@ class Model(nn.Module):
 
         # Compute loss
         if eval_loss:
-            loss = total_loss / (
-                eval_steps if eval_steps is not None else dataset_eval.__len__()
-            )
+            loss = total_loss / (eval_steps if eval_steps is not None else dataset_eval.__len__())
 
         # Return word error rate, groundtruths and predictions
         return wer, speech_true, speech_pred, loss if eval_loss else None
@@ -664,26 +578,14 @@ class Model(nn.Module):
         elif swa_type == "exp":
             swa_model = torch.optim.swa_utils.AveragedModel(
                 self,
-                avg_fn=lambda averaged_model_parameter, model_parameter, num_averaged: (
-                    1 - swa_decay
-                )
-                * averaged_model_parameter
-                + swa_decay * model_parameter,
+                avg_fn=lambda averaged_model_parameter, model_parameter, num_averaged: (1 - swa_decay) * averaged_model_parameter + swa_decay * model_parameter,
             )
 
         if self.rank == 0:
             if epochs_list:
-                print(
-                    "Stochastic Weight Averaging on checkpoints : {}".format(
-                        epochs_list
-                    )
-                )
+                print("Stochastic Weight Averaging on checkpoints : {}".format(epochs_list))
             else:
-                print(
-                    "Stochastic Weight Averaging on checkpoints : {}-{}".format(
-                        start_epoch, end_epoch
-                    )
-                )
+                print("Stochastic Weight Averaging on checkpoints : {}-{}".format(start_epoch, end_epoch))
 
         # Update SWA Model Params
         if epochs_list:
@@ -703,13 +605,7 @@ class Model(nn.Module):
                 swa_model.update_parameters(self)
 
         # Load SWA Model Params
-        self.load_state_dict(
-            {
-                key[7:]: value
-                for key, value in swa_model.state_dict().items()
-                if key != "n_averaged"
-            }
-        )
+        self.load_state_dict({key[7:]: value for key, value in swa_model.state_dict().items() if key != "n_averaged"})
 
         if self.rank == 0:
             print("Updating Batch Normalization Statistics")
@@ -740,28 +636,12 @@ class Model(nn.Module):
         if self.rank == 0:
             if epochs_list:
                 self.save(
-                    callback_path
-                    + "checkpoints_swa-"
-                    + swa_type
-                    + "-"
-                    + "list"
-                    + "-"
-                    + epochs_list[0]
-                    + "-"
-                    + epochs_list[-1]
-                    + ".ckpt",
+                    callback_path + "checkpoints_swa-" + swa_type + "-" + "list" + "-" + epochs_list[0] + "-" + epochs_list[-1] + ".ckpt",
                     save_optimizer=False,
                 )
             else:
                 self.save(
-                    callback_path
-                    + "checkpoints_swa-"
-                    + swa_type
-                    + "-"
-                    + start_epoch
-                    + "-"
-                    + end_epoch
-                    + ".ckpt",
+                    callback_path + "checkpoints_swa-" + swa_type + "-" + start_epoch + "-" + end_epoch + ".ckpt",
                     save_optimizer=False,
                 )
 
@@ -788,18 +668,12 @@ class Model(nn.Module):
                 # Sequence Prediction
                 with torch.no_grad():
                     if beam_size > 1:
-                        outputs_pred = self.beam_search_decoding(
-                            batch[0], batch[2], beam_size
-                        )
+                        outputs_pred = self.beam_search_decoding(batch[0], batch[2], beam_size)
                     else:
                         if rnnt_max_consec_dec_steps is not None:
-                            outputs_pred = self.gready_search_decoding(
-                                batch[0], batch[2], rnnt_max_consec_dec_steps
-                            )
+                            outputs_pred = self.gready_search_decoding(batch[0], batch[2], rnnt_max_consec_dec_steps)
                         else:
-                            outputs_pred = self.gready_search_decoding(
-                                batch[0], batch[2]
-                            )
+                            outputs_pred = self.gready_search_decoding(batch[0], batch[2])
 
                 # Evaluation Steps
                 if eval_steps:

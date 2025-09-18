@@ -22,9 +22,7 @@ class WebSocketConnectionManager:
     """
 
     def __init__(self):
-        self.connections: Dict[
-            str, Set[WebSocket]
-        ] = {}  # user_id -> set of WebSocket connections
+        self.connections: Dict[str, Set[WebSocket]] = {}  # user_id -> set of WebSocket connections
         self._redis_client = None
         self._pubsub_task: Optional[asyncio.Task] = None
         self._stop = False
@@ -44,9 +42,7 @@ class WebSocketConnectionManager:
 
         self.connections[user_id].add(websocket)
         self._metrics["total_connections"] += 1
-        self._metrics["active_connections"] = sum(
-            len(conns) for conns in self.connections.values()
-        )
+        self._metrics["active_connections"] = sum(len(conns) for conns in self.connections.values())
 
         logger.info(
             "Added WebSocket connection for user %s (total users: %s, active connections: %s)",
@@ -63,9 +59,7 @@ class WebSocketConnectionManager:
             if not self.connections[user_id]:
                 del self.connections[user_id]
 
-            self._metrics["active_connections"] = sum(
-                len(conns) for conns in self.connections.values()
-            )
+            self._metrics["active_connections"] = sum(len(conns) for conns in self.connections.values())
             logger.info(
                 "Removed WebSocket connection for user %s (remaining connections: %s)",
                 user_id,
@@ -248,9 +242,7 @@ class WebSocketConnectionManager:
                     try:
                         await websocket.send_json(message)
                     except Exception as e:
-                        logger.exception(
-                            "Failed to replay message to user %s: %s", user_id, e
-                        )
+                        logger.exception("Failed to replay message to user %s: %s", user_id, e)
                         break
 
         except Exception as e:
@@ -261,10 +253,7 @@ class WebSocketConnectionManager:
         return {
             **self._metrics,
             "unique_users": len(self.connections),
-            "connections_per_user": {
-                user_id: len(connections)
-                for user_id, connections in self.connections.items()
-            },
+            "connections_per_user": {user_id: len(connections) for user_id, connections in self.connections.items()},
         }
 
     async def publish_user_message(self, user_id: str, message: dict) -> bool:

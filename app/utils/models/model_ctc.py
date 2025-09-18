@@ -30,12 +30,8 @@ from app.utils.models.losses import LossCTC, LossInterCTC
 
 
 class ModelCTC(Model):
-    def __init__(
-        self, encoder_params, tokenizer_params, training_params, decoding_params, name
-    ):
-        super(ModelCTC, self).__init__(
-            tokenizer_params, training_params, decoding_params, name
-        )
+    def __init__(self, encoder_params, tokenizer_params, training_params, decoding_params, name):
+        super(ModelCTC, self).__init__(tokenizer_params, training_params, decoding_params, name)
 
         # Encoder
         if encoder_params["arch"] == "Conformer":
@@ -45,9 +41,7 @@ class ModelCTC(Model):
 
         # FC Layer
         self.fc = nn.Linear(
-            encoder_params["dim_model"][-1]
-            if isinstance(encoder_params["dim_model"], list)
-            else encoder_params["dim_model"],
+            encoder_params["dim_model"][-1] if isinstance(encoder_params["dim_model"], list) else encoder_params["dim_model"],
             tokenizer_params["vocab_size"],
         )
 
@@ -73,40 +67,20 @@ class ModelCTC(Model):
         super(ModelCTC, self).distribute_strategy(rank)
 
         self.encoder = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.encoder)
-        self.encoder = torch.nn.parallel.DistributedDataParallel(
-            self.encoder, device_ids=[self.rank]
-        )
-        self.fc = torch.nn.parallel.DistributedDataParallel(
-            self.fc, device_ids=[self.rank]
-        )
+        self.encoder = torch.nn.parallel.DistributedDataParallel(self.encoder, device_ids=[self.rank])
+        self.fc = torch.nn.parallel.DistributedDataParallel(self.fc, device_ids=[self.rank])
 
     def load_encoder(self, path):
         # Load Encoder Params
         checkpoint = torch.load(path, map_location=next(self.parameters()).device)
         if checkpoint["is_distributed"] and not self.is_distributed:
-            self.encoder.load_state_dict(
-                {
-                    key.replace(".module.", ".").replace("encoder.", ""): value
-                    for key, value in checkpoint["model_state_dict"].items()
-                    if key[: len("encoder")] == "encoder"
-                }
-            )
+            self.encoder.load_state_dict({key.replace(".module.", ".").replace("encoder.", ""): value for key, value in checkpoint["model_state_dict"].items() if key[: len("encoder")] == "encoder"})
         else:
-            self.encoder.load_state_dict(
-                {
-                    key.replace("encoder.", ""): value
-                    for key, value in checkpoint["model_state_dict"].items()
-                    if key[: len("encoder")] == "encoder"
-                }
-            )
+            self.encoder.load_state_dict({key.replace("encoder.", ""): value for key, value in checkpoint["model_state_dict"].items() if key[: len("encoder")] == "encoder"})
 
         # Print Encoder state
         if self.rank == 0:
-            print(
-                "Model encoder loaded at step {} from {}".format(
-                    checkpoint["model_step"], path
-                )
-            )
+            print("Model encoder loaded at step {} from {}".format(checkpoint["model_step"], path))
 
     def gready_search_decoding(self, x, x_len):
         # Forward Encoder (B, Taud) -> (B, T, Denc)
@@ -200,9 +174,7 @@ class ModelCTC(Model):
 
 
 class InterCTC(ModelCTC):
-    def __init__(
-        self, encoder_params, tokenizer_params, training_params, decoding_params, name
-    ):
+    def __init__(self, encoder_params, tokenizer_params, training_params, decoding_params, name):
         super(ModelCTC, self).__init__(tokenizer_params, training_params, name)
 
         # Update Encoder Params
@@ -214,9 +186,7 @@ class InterCTC(ModelCTC):
 
         # FC Layer
         self.fc = nn.Linear(
-            encoder_params["dim_model"][-1]
-            if isinstance(encoder_params["dim_model"], list)
-            else encoder_params["dim_model"],
+            encoder_params["dim_model"][-1] if isinstance(encoder_params["dim_model"], list) else encoder_params["dim_model"],
             tokenizer_params["vocab_size"],
         )
 

@@ -39,15 +39,13 @@ class Settings(BaseSettings):
 
     # Database Configuration
     POSTGRES_SERVER: str = "db"  # Use "db" for Docker, "160.191.88.194" for external
-    POSTGRES_PORT: int = 5432   # Use 5432 for Docker, 5400 for external
+    POSTGRES_PORT: int = 5432  # Use 5432 for Docker, 5400 for external
     POSTGRES_USER: str = "admin"
     POSTGRES_PASSWORD: str = "admin123"
     POSTGRES_DB: str = "securescribe"
 
     # Firebase Configuration
-    FIREBASE_SERVICE_ACCOUNT_KEY_PATH: str = (
-        "config/keys/scribe-c7f13-firebase-adminsdk-fbsvc-1ab2f55755.json"
-    )
+    FIREBASE_SERVICE_ACCOUNT_KEY_PATH: str = "config/keys/scribe-c7f13-firebase-adminsdk-fbsvc-1ab2f55755.json"
 
     # Redis Configuration
     REDIS_HOST: str = "redis"

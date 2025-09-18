@@ -114,9 +114,7 @@ class ConformerBlock(nn.Module):
         x = x + 1 / 2 * self.feed_forward_module1(x)
 
         # MHSA Module
-        x_att, attention, hidden = self.multi_head_self_attention_module(
-            x, mask, hidden
-        )
+        x_att, attention, hidden = self.multi_head_self_attention_module(x, mask, hidden)
         x = self.att_res(x) + x_att
 
         # Conv Module
@@ -169,9 +167,7 @@ class TransformerBlock(nn.Module):
 
     def forward(self, x, mask=None, hidden=None):
         # Muti-Head Self-Attention Module
-        x_att, attention, hidden = self.multi_head_self_attention_module(
-            x, mask, hidden
-        )
+        x_att, attention, hidden = self.multi_head_self_attention_module(x, mask, hidden)
         x = x + x_att
 
         # Feed Forward Module

@@ -72,4 +72,3 @@ class BulkTaskResponse(BaseModel):
     total_processed: int
     total_success: int
     total_failed: int
-

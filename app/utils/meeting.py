@@ -53,9 +53,7 @@ def get_meeting_projects(db: Session, meeting_id: uuid.UUID) -> List[uuid.UUID]:
     """Get list of project IDs linked to meeting"""
     from app.models.meeting import ProjectMeeting
 
-    project_meetings = (
-        db.query(ProjectMeeting).filter(ProjectMeeting.meeting_id == meeting_id).all()
-    )
+    project_meetings = db.query(ProjectMeeting).filter(ProjectMeeting.meeting_id == meeting_id).all()
     return [pm.project_id for pm in project_meetings]
 
 
@@ -83,9 +81,7 @@ def can_delete_meeting(db: Session, meeting: Meeting, user_id: uuid.UUID) -> boo
     return False
 
 
-def notify_meeting_members(
-    db: Session, meeting: Meeting, action: str, user_id: uuid.UUID
-):
+def notify_meeting_members(db: Session, meeting: Meeting, action: str, user_id: uuid.UUID):
     """Send notifications to meeting members"""
     try:
         linked_projects = get_meeting_projects(db, meeting.id)
@@ -93,9 +89,7 @@ def notify_meeting_members(
         # Get all users from linked projects
         member_ids = []
         for project_id in linked_projects:
-            user_projects = (
-                db.query(UserProject).filter(UserProject.project_id == project_id).all()
-            )
+            user_projects = db.query(UserProject).filter(UserProject.project_id == project_id).all()
             member_ids.extend([up.user_id for up in user_projects])
 
         # Remove duplicates and current user

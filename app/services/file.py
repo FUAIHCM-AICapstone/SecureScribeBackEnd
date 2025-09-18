@@ -16,16 +16,12 @@ from app.utils.minio import (
 )
 
 
-def create_file(
-    db: Session, file_data: FileCreate, uploaded_by: uuid.UUID, file_bytes: bytes
-) -> Optional[File]:
+def create_file(db: Session, file_data: FileCreate, uploaded_by: uuid.UUID, file_bytes: bytes) -> Optional[File]:
     file = File(**file_data.model_dump(), uploaded_by=uploaded_by)
     db.add(file)
     db.commit()
     db.refresh(file)
-    upload_result = upload_bytes_to_minio(
-        file_bytes, settings.MINIO_BUCKET_NAME, str(file.id), file_data.mime_type
-    )
+    upload_result = upload_bytes_to_minio(file_bytes, settings.MINIO_BUCKET_NAME, str(file.id), file_data.mime_type)
     if upload_result:
         # Generate and store presigned URL
         storage_url = generate_presigned_url(settings.MINIO_BUCKET_NAME, str(file.id))
@@ -70,23 +66,11 @@ def get_files(
             query = query.filter(File.uploaded_by == filters.uploaded_by)
     if user_id:
         # Get all projects the user has access to
-        user_projects = (
-            db.query(Project.id)
-            .join(Project.users)
-            .filter(Project.users.any(user_id=user_id))
-            .subquery()
-        )
+        user_projects = db.query(Project.id).join(Project.users).filter(Project.users.any(user_id=user_id)).subquery()
         # Get all meetings the user has access to (through projects)
         from app.models.meeting import Meeting, ProjectMeeting
 
-        user_meetings = (
-            db.query(Meeting.id)
-            .join(ProjectMeeting, Meeting.id == ProjectMeeting.meeting_id)
-            .join(Project, ProjectMeeting.project_id == Project.id)
-            .join(Project.users)
-            .filter(Project.users.any(user_id=user_id), Meeting.is_deleted == False)
-            .subquery()
-        )
+        user_meetings = db.query(Meeting.id).join(ProjectMeeting, Meeting.id == ProjectMeeting.meeting_id).join(Project, ProjectMeeting.project_id == Project.id).join(Project.users).filter(Project.users.any(user_id=user_id), Meeting.is_deleted == False).subquery()
         # Filter files to only include those the user has access to
         query = query.filter(
             # Files uploaded by the user (personal files)
@@ -125,22 +109,16 @@ def delete_file(db: Session, file_id: uuid.UUID) -> bool:
     return True
 
 
-def bulk_delete_files(
-    db: Session, file_ids: List[uuid.UUID], user_id: Optional[uuid.UUID] = None
-) -> List[dict]:
+def bulk_delete_files(db: Session, file_ids: List[uuid.UUID], user_id: Optional[uuid.UUID] = None) -> List[dict]:
     results = []
     for file_id in file_ids:
         file = db.query(File).filter(File.id == file_id).first()
         if not file:
-            results.append(
-                {"success": False, "file_id": str(file_id), "error": "File not found"}
-            )
+            results.append({"success": False, "file_id": str(file_id), "error": "File not found"})
             continue
         # Check user access if user_id is provided
         if user_id and not check_file_access(db, file, user_id):
-            results.append(
-                {"success": False, "file_id": str(file_id), "error": "Access denied"}
-            )
+            results.append({"success": False, "file_id": str(file_id), "error": "Access denied"})
             continue
         delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
         db.delete(file)
@@ -160,15 +138,11 @@ def bulk_move_files(
     for file_id in file_ids:
         file = db.query(File).filter(File.id == file_id).first()
         if not file:
-            results.append(
-                {"success": False, "file_id": str(file_id), "error": "File not found"}
-            )
+            results.append({"success": False, "file_id": str(file_id), "error": "File not found"})
             continue
         # Check user access if user_id is provided
         if user_id and not check_file_access(db, file, user_id):
-            results.append(
-                {"success": False, "file_id": str(file_id), "error": "Access denied"}
-            )
+            results.append({"success": False, "file_id": str(file_id), "error": "Access denied"})
             continue
         # Check if user has access to target project/meeting
         if target_project_id:
@@ -184,14 +158,8 @@ def bulk_move_files(
                 )
                 continue
         if target_meeting_id:
-            target_meeting = (
-                db.query(Meeting)
-                .filter(Meeting.id == target_meeting_id, Meeting.is_deleted == False)
-                .first()
-            )
-            if not target_meeting or not check_meeting_access_utils(
-                db, target_meeting, user_id
-            ):
+            target_meeting = db.query(Meeting).filter(Meeting.id == target_meeting_id, Meeting.is_deleted == False).first()
+            if not target_meeting or not check_meeting_access_utils(db, target_meeting, user_id):
                 results.append(
                     {
                         "success": False,
@@ -216,13 +184,7 @@ def check_file_access(db: Session, file: File, user_id: uuid.UUID) -> bool:
         return True
     # File belongs to a project - check project membership
     if file.project_id:
-        return (
-            db.query(Project)
-            .join(Project.users)
-            .filter(Project.id == file.project_id, Project.users.any(user_id=user_id))
-            .first()
-            is not None
-        )
+        return db.query(Project).join(Project.users).filter(Project.id == file.project_id, Project.users.any(user_id=user_id)).first() is not None
     return False
 
 
@@ -281,9 +243,7 @@ def get_meeting_files_with_info(
     return files, meeting_title, total
 
 
-def get_file_with_project_info(
-    db: Session, file_id: uuid.UUID, user_id: uuid.UUID
-) -> Tuple[Optional[File], Optional[str]]:
+def get_file_with_project_info(db: Session, file_id: uuid.UUID, user_id: uuid.UUID) -> Tuple[Optional[File], Optional[str]]:
     """Get a file with its project information"""
     from app.services.project import get_project
 
@@ -297,9 +257,7 @@ def get_file_with_project_info(
     return file, project_name
 
 
-def get_file_with_meeting_info(
-    db: Session, file_id: uuid.UUID, user_id: uuid.UUID
-) -> Tuple[Optional[File], Optional[str]]:
+def get_file_with_meeting_info(db: Session, file_id: uuid.UUID, user_id: uuid.UUID) -> Tuple[Optional[File], Optional[str]]:
     """Get a file with its meeting information"""
     from app.services.meeting import get_meeting
 

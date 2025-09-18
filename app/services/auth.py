@@ -13,18 +13,10 @@ from app.utils.auth import (
 
 def firebase_login(db: Session, id_token: str):
     try:
-        # Log token info for debugging (remove in production)
-        print(
-            f"Received token type: {type(id_token)}, length: {len(id_token) if id_token else 0}"
-        )
-        print(f"Token preview: {id_token[:50] if id_token else 'None'}...")
-
         user_info = get_firebase_user_info(id_token)
         email = user_info.get("email")
         if not email:
-            raise HTTPException(
-                status_code=400, detail="Email not found in Firebase token"
-            )
+            raise HTTPException(status_code=400, detail="Email not found in Firebase token")
 
         user = db.query(User).filter(User.email == email).first()
         if not user:
@@ -50,13 +42,7 @@ def firebase_login(db: Session, id_token: str):
             # Check if UserIdentity already exists for this user
             from app.models.user import UserIdentity
 
-            existing_identity = (
-                db.query(UserIdentity)
-                .filter(
-                    UserIdentity.user_id == user.id, UserIdentity.provider == "google"
-                )
-                .first()
-            )
+            existing_identity = db.query(UserIdentity).filter(UserIdentity.user_id == user.id, UserIdentity.provider == "google").first()
             if not existing_identity:
                 identity = UserIdentity(
                     user_id=user.id,
@@ -82,7 +68,6 @@ def firebase_login(db: Session, id_token: str):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Google login error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Google login service temporarily unavailable",

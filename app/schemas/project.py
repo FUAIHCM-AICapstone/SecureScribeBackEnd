@@ -31,9 +31,7 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     """Schema for updating a project"""
 
-    name: Optional[str] = Field(
-        None, min_length=1, max_length=255, description="Project name"
-    )
+    name: Optional[str] = Field(None, min_length=1, max_length=255, description="Project name")
     description: Optional[str] = Field(None, description="Project description")
     is_archived: Optional[bool] = Field(None, description="Whether project is archived")
 

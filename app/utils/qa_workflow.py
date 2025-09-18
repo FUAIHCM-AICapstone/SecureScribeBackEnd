@@ -27,19 +27,13 @@ async def run_rag(
                 FieldCondition(key="meeting_id", match=MatchValue(value=meeting_id)),
                 FieldCondition(key="is_global", match=MatchValue(value=True)),
             ],
-            must=[
-                FieldCondition(
-                    key="uploaded_by", match=MatchValue(value=current_user_id or "")
-                )
-            ],
+            must=[FieldCondition(key="uploaded_by", match=MatchValue(value=current_user_id or ""))],
         )
     elif project_id:
         qfilter = Filter(
             should=[
                 FieldCondition(key="project_id", match=MatchValue(value=project_id)),
-                FieldCondition(
-                    key="uploaded_by", match=MatchValue(value=current_user_id or "")
-                ),
+                FieldCondition(key="uploaded_by", match=MatchValue(value=current_user_id or "")),
             ]
         )
 
@@ -68,11 +62,7 @@ async def run_rag(
         if project_id:
             if payload.get("project_id") == project_id:
                 should_include = True
-            elif (
-                payload.get("uploaded_by") == current_user_id
-                and not payload.get("project_id")
-                and not payload.get("meeting_id")
-            ):
+            elif payload.get("uploaded_by") == current_user_id and not payload.get("project_id") and not payload.get("meeting_id"):
                 should_include = True
             else:
                 should_include = False
@@ -87,7 +77,4 @@ async def run_rag(
 
     answer = await chat_complete(system_prompt, user_prompt)
 
-    return {
-        "answer": answer,
-        "contexts": contexts[:5]
-    }
+    return {"answer": answer, "contexts": contexts[:5]}

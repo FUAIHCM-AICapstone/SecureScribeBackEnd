@@ -15,9 +15,7 @@ from app.utils.models.activations import Swish
 
 class Linear(nn.Linear):
     def __init__(self, in_features, out_features, bias=True):
-        super(Linear, self).__init__(
-            in_features=in_features, out_features=out_features, bias=bias
-        )
+        super(Linear, self).__init__(in_features=in_features, out_features=out_features, bias=bias)
 
         # Variational Noise
         self.noise = None
@@ -84,9 +82,7 @@ class Conv1d(nn.Conv1d):
         if padding == "valid":
             self.pre_padding = None
         elif padding == "same":
-            self.pre_padding = nn.ConstantPad1d(
-                padding=((kernel_size - 1) // 2, (kernel_size - 1) // 2), value=0
-            )
+            self.pre_padding = nn.ConstantPad1d(padding=((kernel_size - 1) // 2, (kernel_size - 1) // 2), value=0)
         elif padding == "causal":
             self.pre_padding = nn.ConstantPad1d(padding=(kernel_size - 1, 0), value=0)
 
@@ -194,9 +190,7 @@ class Conv2d(nn.Conv2d):
         # Apply Weight
         if self.padding_mode != "zeros":
             return F.conv2d(
-                F.pad(
-                    input, self._reversed_padding_repeated_twice, mode=self.padding_mode
-                ),
+                F.pad(input, self._reversed_padding_repeated_twice, mode=self.padding_mode),
                 weight,
                 self.bias,
                 self.stride,
@@ -294,9 +288,7 @@ class LSTM(nn.LSTM):
             weight = []
             for i in range(0, len(self.noises), 2):
                 weight.append(self._flat_weights[2 * i] + self.vn_std * self.noises[i])
-                weight.append(
-                    self._flat_weights[2 * i + 1] + self.vn_std * self.noises[i + 1]
-                )
+                weight.append(self._flat_weights[2 * i + 1] + self.vn_std * self.noises[i + 1])
                 weight.append(self._flat_weights[2 * i + 2])
                 weight.append(self._flat_weights[2 * i + 3])
         else:
@@ -331,9 +323,7 @@ class LSTM(nn.LSTM):
         hidden = result[1:]
         # xxx: isinstance check needs to be in conditional for TorchScript to compile
         if isinstance(orig_input, nn.utils.rnn.PackedSequence):
-            output_packed = nn.utils.rnn.PackedSequence(
-                output, batch_sizes, sorted_indices, unsorted_indices
-            )
+            output_packed = nn.utils.rnn.PackedSequence(output, batch_sizes, sorted_indices, unsorted_indices)
             return output_packed, self.permute_hidden(hidden, unsorted_indices)
         else:
             return output, self.permute_hidden(hidden, unsorted_indices)

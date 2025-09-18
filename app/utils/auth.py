@@ -28,17 +28,13 @@ def verify_firebase_token(id_token: str) -> dict:
 
         token_parts = id_token.split(".")
         if len(token_parts) != 3:
-            raise ValueError(
-                f"Invalid JWT format: expected 3 parts, got {len(token_parts)}"
-            )
+            raise ValueError(f"Invalid JWT format: expected 3 parts, got {len(token_parts)}")
 
         # Verify the token with Firebase
         decoded_token = firebase_auth.verify_id_token(id_token)
         return decoded_token
     except ValueError as e:
-        raise HTTPException(
-            status_code=401, detail=f"Invalid Google token format: {str(e)}"
-        )
+        raise HTTPException(status_code=401, detail=f"Invalid Google token format: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
 
@@ -58,18 +54,14 @@ def get_firebase_user_info(id_token: str) -> dict:
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
-        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire, "type": "access"})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
 
 
 def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
-        expires_delta or timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
-    )
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire, "type": "refresh"})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
 
@@ -109,9 +101,7 @@ class JWTBearer(HTTPBearer):
         credentials = await super().__call__(request)
         if credentials:
             if not credentials.scheme.lower() == "bearer":
-                raise HTTPException(
-                    status_code=401, detail="Invalid authentication scheme"
-                )
+                raise HTTPException(status_code=401, detail="Invalid authentication scheme")
             if not self.verify_jwt(credentials.credentials):
                 raise HTTPException(status_code=401, detail="Invalid token")
             return credentials.credentials

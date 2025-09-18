@@ -41,14 +41,8 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
         os.unlink(temp_path)
 
 
-def create_transcript(
-    db: Session, transcript_data: TranscriptCreate
-) -> Optional[Transcript]:
-    existing = (
-        db.query(Transcript)
-        .filter(Transcript.meeting_id == transcript_data.meeting_id)
-        .first()
-    )
+def create_transcript(db: Session, transcript_data: TranscriptCreate) -> Optional[Transcript]:
+    existing = db.query(Transcript).filter(Transcript.meeting_id == transcript_data.meeting_id).first()
     if existing:
         existing.content = transcript_data.content
         existing.audio_concat_file_id = transcript_data.audio_concat_file_id
@@ -63,7 +57,5 @@ def create_transcript(
     return transcript
 
 
-def get_transcript_by_meeting(
-    db: Session, meeting_id: uuid.UUID
-) -> Optional[Transcript]:
+def get_transcript_by_meeting(db: Session, meeting_id: uuid.UUID) -> Optional[Transcript]:
     return db.query(Transcript).filter(Transcript.meeting_id == meeting_id).first()

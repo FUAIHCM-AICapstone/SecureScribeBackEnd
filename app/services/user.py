@@ -81,9 +81,7 @@ def check_email_exists(db: Session, email: str) -> bool:
 def update_user(db: Session, user_id: uuid.UUID, **updates) -> User:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     for key, value in updates.items():
         if hasattr(user, key):
             setattr(user, key, value)
@@ -136,25 +134,19 @@ def create_user(db: Session, **user_data) -> User:
 def delete_user(db: Session, user_id: uuid.UUID) -> bool:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     try:
         db.query(UserProject).filter(UserProject.user_id == user_id).delete()
 
         # 2. Delete user's meetings (soft delete) - only update meetings that are not already deleted
-        db.query(Meeting).filter(
-            Meeting.created_by == user_id, Meeting.is_deleted == False
-        ).update({"is_deleted": True})
+        db.query(Meeting).filter(Meeting.created_by == user_id, Meeting.is_deleted == False).update({"is_deleted": True})
 
         # 3. Delete user's files (hard delete from database, keep in MinIO)
         user_files = db.query(File).filter(File.uploaded_by == user_id).all()
         for file in user_files:
             # Delete from MinIO if needed
-            try:
-                delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
-            except Exception as e:
-                print(f"Failed to delete file {file.id} from MinIO: {e}")
+            delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
+
             # Delete from database
             db.delete(file)
 
@@ -168,9 +160,7 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
             db.query(UserProject).filter(UserProject.project_id == project_id).delete()
 
             # Delete ProjectMeeting relationships
-            db.query(ProjectMeeting).filter(
-                ProjectMeeting.project_id == project_id
-            ).delete()
+            db.query(ProjectMeeting).filter(ProjectMeeting.project_id == project_id).delete()
 
             # Delete TaskProject relationships
             db.query(TaskProject).filter(TaskProject.project_id == project_id).delete()
@@ -179,9 +169,7 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
             db.query(Integration).filter(Integration.project_id == project_id).delete()
 
             # Update Files - set project_id to NULL
-            db.query(File).filter(File.project_id == project_id).update(
-                {"project_id": None}
-            )
+            db.query(File).filter(File.project_id == project_id).update({"project_id": None})
 
             # Finally delete the project
             db.delete(project)
@@ -198,11 +186,7 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
         # 7. Delete user's integrations
         from app.models.integration import Integration
 
-        db.query(Integration).filter(
-            Integration.project_id.in_(
-                db.query(Project.id).filter(Project.created_by == user_id)
-            )
-        ).delete()
+        db.query(Integration).filter(Integration.project_id.in_(db.query(Project.id).filter(Project.created_by == user_id))).delete()
 
         # 8. Finally delete the user
         db.delete(user)
@@ -213,7 +197,7 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"User deletion failed: {str(e)}",
+            detail=f"User deletion failed: {e}",
         )
 
 
@@ -260,9 +244,7 @@ def bulk_update_users(db: Session, updates: List[dict]) -> List[dict]:
         try:
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
-                results.append(
-                    {"success": False, "id": user_id, "error": "User not found"}
-                )
+                results.append({"success": False, "id": user_id, "error": "User not found"})
                 continue
 
             for key, value in update_data.items():
@@ -294,9 +276,7 @@ def bulk_delete_users(db: Session, user_ids: List[uuid.UUID]) -> List[dict]:
         try:
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
-                results.append(
-                    {"success": False, "id": user_id, "error": "User not found"}
-                )
+                results.append({"success": False, "id": user_id, "error": "User not found"})
                 continue
 
             db.delete(user)
@@ -327,20 +307,13 @@ def get_user_projects_stats(db: Session, user_id: uuid.UUID) -> dict:
     from app.models.project import Project, UserProject
 
     # Get user's projects directly
-    user_projects = (
-        db.query(UserProject)
-        .options(selectinload(UserProject.project))
-        .filter(UserProject.user_id == user_id)
-        .all()
-    )
+    user_projects = db.query(UserProject).options(selectinload(UserProject.project)).filter(UserProject.user_id == user_id).all()
 
     # Calculate statistics
     total_projects = len(user_projects)
     admin_projects = sum(1 for up in user_projects if up.role in ["admin", "owner"])
     member_projects = total_projects - admin_projects
-    active_projects = sum(
-        1 for up in user_projects if up.project and not up.project.is_archived
-    )
+    active_projects = sum(1 for up in user_projects if up.project and not up.project.is_archived)
 
     return {
         "total_projects": total_projects,
@@ -351,9 +324,7 @@ def get_user_projects_stats(db: Session, user_id: uuid.UUID) -> dict:
     }
 
 
-def get_or_create_user_device(
-    db: Session, user_id: uuid.UUID, device_name: str, device_type: str, fcm_token: str
-):
+def get_or_create_user_device(db: Session, user_id: uuid.UUID, device_name: str, device_type: str, fcm_token: str):
     """Get or create user device and update FCM token"""
     from datetime import datetime
 

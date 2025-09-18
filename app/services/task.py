@@ -23,18 +23,22 @@ def check_task_access(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bo
 
     # Check if user has access to the meeting linked to the task
     if task.meeting_id:
-        meeting_access = db.query(ProjectMeeting).join(Project, ProjectMeeting.project_id == Project.id).join(Project.users).filter(
-            ProjectMeeting.meeting_id == task.meeting_id,
-            Project.users.any(user_id=user_id)
-        ).first() is not None
+        meeting_access = (
+            db.query(ProjectMeeting)
+            .join(Project, ProjectMeeting.project_id == Project.id)
+            .join(Project.users)
+            .filter(
+                ProjectMeeting.meeting_id == task.meeting_id,
+                Project.users.any(user_id=user_id),
+            )
+            .first()
+            is not None
+        )
         if meeting_access:
             return True
 
     # Check project access
-    project_access = db.query(TaskProject).filter(
-        TaskProject.task_id == task_id,
-        TaskProject.project_id.in_(user_projects)
-    ).first() is not None
+    project_access = db.query(TaskProject).filter(TaskProject.task_id == task_id, TaskProject.project_id.in_(user_projects)).first() is not None
 
     return project_access
 
@@ -43,24 +47,21 @@ def create_task(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> Ta
     if task_data.meeting_id:
         # Check if user has access to the meeting
         meeting_projects = db.query(ProjectMeeting.project_id).filter(ProjectMeeting.meeting_id == task_data.meeting_id).subquery()
-        user_access = db.query(Project).join(Project.users).filter(
-            Project.id.in_(meeting_projects),
-            Project.users.any(user_id=creator_id)
-        ).first()
+        user_access = db.query(Project).join(Project.users).filter(Project.id.in_(meeting_projects), Project.users.any(user_id=creator_id)).first()
         if not user_access:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to meeting")
 
     if task_data.project_ids:
         # Check if user has access to all specified projects
         for project_id in task_data.project_ids:
-            user_project = db.query(Project).join(Project.users).filter(
-                Project.id == project_id,
-                Project.users.any(user_id=creator_id)
-            ).first()
+            user_project = db.query(Project).join(Project.users).filter(Project.id == project_id, Project.users.any(user_id=creator_id)).first()
             if not user_project:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"No access to project {project_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"No access to project {project_id}",
+                )
 
-    task = Task(**task_data.model_dump(exclude={'project_ids'}), creator_id=creator_id)
+    task = Task(**task_data.model_dump(exclude={"project_ids"}), creator_id=creator_id)
     db.add(task)
     db.commit()
     db.refresh(task)
@@ -81,14 +82,14 @@ def create_task(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> Ta
                 payload={
                     "task_id": str(task.id),
                     "task_title": task.title,
-                    "assigned_by": str(creator_id)
-                }
+                    "assigned_by": str(creator_id),
+                },
             )
             send_fcm_notification(
                 [task_data.assignee_id],
                 "Task Assigned",
                 f"You have been assigned to task: {task.title}",
-                {"task_id": str(task.id), "type": "task_assigned"}
+                {"task_id": str(task.id), "type": "task_assigned"},
             )
         except Exception as e:
             print(f"Failed to send task assignment notification: {e}")
@@ -127,31 +128,28 @@ def get_tasks(
         query = query.filter(Task.assignee_id == assignee_id)
     if due_date_gte:
         from datetime import datetime
+
         query = query.filter(Task.due_date >= datetime.fromisoformat(due_date_gte))
     if due_date_lte:
         from datetime import datetime
+
         query = query.filter(Task.due_date <= datetime.fromisoformat(due_date_lte))
     if created_at_gte:
         from datetime import datetime
+
         query = query.filter(Task.created_at >= datetime.fromisoformat(created_at_gte))
     if created_at_lte:
         from datetime import datetime
+
         query = query.filter(Task.created_at <= datetime.fromisoformat(created_at_lte))
 
     # Filter by user access (projects/meetings user has access to)
     user_projects = db.query(Project.id).join(Project.users).filter(Project.users.any(user_id=user_id)).subquery()
-    user_meetings = db.query(Meeting.id).join(ProjectMeeting, Meeting.id == ProjectMeeting.meeting_id).join(Project, ProjectMeeting.project_id == Project.id).join(Project.users).filter(
-        Project.users.any(user_id=user_id)
-    ).subquery()
+    user_meetings = db.query(Meeting.id).join(ProjectMeeting, Meeting.id == ProjectMeeting.meeting_id).join(Project, ProjectMeeting.project_id == Project.id).join(Project.users).filter(Project.users.any(user_id=user_id)).subquery()
 
     task_projects_subquery = db.query(TaskProject.task_id).filter(TaskProject.project_id.in_(user_projects)).subquery()
 
-    query = query.filter(
-        (Task.creator_id == user_id) |
-        (Task.assignee_id == user_id) |
-        (Task.id.in_(task_projects_subquery)) |
-        (Task.meeting_id.in_(user_meetings))
-    )
+    query = query.filter((Task.creator_id == user_id) | (Task.assignee_id == user_id) | (Task.id.in_(task_projects_subquery)) | (Task.meeting_id.in_(user_meetings)))
 
     total = query.count()
     offset = (page - 1) * limit
@@ -164,11 +162,16 @@ def get_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Ta
     if not check_task_access(db, task_id, user_id):
         return None
 
-    return db.query(Task).options(
-        selectinload(Task.creator),
-        selectinload(Task.assignee),
-        selectinload(Task.projects).selectinload(TaskProject.project),
-    ).filter(Task.id == task_id).first()
+    return (
+        db.query(Task)
+        .options(
+            selectinload(Task.creator),
+            selectinload(Task.assignee),
+            selectinload(Task.projects).selectinload(TaskProject.project),
+        )
+        .filter(Task.id == task_id)
+        .first()
+    )
 
 
 def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id: uuid.UUID) -> Task:
@@ -201,14 +204,14 @@ def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id:
                 payload={
                     "task_id": str(task.id),
                     "task_title": task.title,
-                    "assigned_by": str(user_id)
-                }
+                    "assigned_by": str(user_id),
+                },
             )
             send_fcm_notification(
                 [updates["assignee_id"]],
                 "Task Assigned",
                 f"You have been assigned to task: {task.title}",
-                {"task_id": str(task.id), "type": "task_assigned"}
+                {"task_id": str(task.id), "type": "task_assigned"},
             )
 
         # Notify when status changes
@@ -248,14 +251,14 @@ def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id:
                         "task_title": task.title,
                         "old_status": old_status,
                         "new_status": updates["status"],
-                        "updated_by": str(user_id)
-                    }
+                        "updated_by": str(user_id),
+                    },
                 )
                 send_fcm_notification(
                     list(notify_user_ids),
                     "Task Updated",
                     f"Task '{task.title}' status changed to {updates['status']}",
-                    {"task_id": str(task.id), "type": "task_updated"}
+                    {"task_id": str(task.id), "type": "task_updated"},
                 )
     except Exception as e:
         print(f"Failed to send task update notification: {e}")

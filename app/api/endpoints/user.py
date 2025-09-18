@@ -73,15 +73,11 @@ def get_users_endpoint(
 @router.post("/users", response_model=ApiResponse[UserResponse])
 def create_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
     created_user = create_user(db, **user.model_dump())
-    return ApiResponse(
-        success=True, message="User created successfully", data=created_user
-    )
+    return ApiResponse(success=True, message="User created successfully", data=created_user)
 
 
 @router.post("/users/bulk", response_model=BulkUserResponse)
-def bulk_create_users_endpoint(
-    bulk_request: BulkUserCreate, db: Session = Depends(get_db)
-):
+def bulk_create_users_endpoint(bulk_request: BulkUserCreate, db: Session = Depends(get_db)):
     users_data = [user.model_dump() for user in bulk_request.users]
     results = bulk_create_users(db, users_data)
 
@@ -100,13 +96,8 @@ def bulk_create_users_endpoint(
 
 
 @router.put("/users/bulk", response_model=BulkUserResponse)
-def bulk_update_users_endpoint(
-    bulk_request: BulkUserUpdate, db: Session = Depends(get_db)
-):
-    updates = [
-        {"id": item.id, "updates": item.updates.model_dump(exclude_unset=True)}
-        for item in bulk_request.users
-    ]
+def bulk_update_users_endpoint(bulk_request: BulkUserUpdate, db: Session = Depends(get_db)):
+    updates = [{"id": item.id, "updates": item.updates.model_dump(exclude_unset=True)} for item in bulk_request.users]
     results = bulk_update_users(db, updates)
 
     total_processed = len(results)
@@ -125,16 +116,12 @@ def bulk_update_users_endpoint(
 
 @router.delete("/users/bulk", response_model=BulkUserResponse)
 def bulk_delete_users_endpoint(
-    user_ids: str = Query(
-        ..., description="Comma-separated list of user IDs to delete"
-    ),
+    user_ids: str = Query(..., description="Comma-separated list of user IDs to delete"),
     db: Session = Depends(get_db),
 ):
     # Parse comma-separated user IDs
     try:
-        user_id_list = [
-            uuid.UUID(uid.strip()) for uid in user_ids.split(",") if uid.strip()
-        ]
+        user_id_list = [uuid.UUID(uid.strip()) for uid in user_ids.split(",") if uid.strip()]
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid UUID format: {e}")
 
@@ -155,15 +142,9 @@ def bulk_delete_users_endpoint(
 
 
 @router.put("/users/{user_id}", response_model=ApiResponse[UserResponse])
-def update_user_endpoint(
-    user_id: uuid.UUID, user: UserUpdate, db: Session = Depends(get_db)
-):
-    updated_user = update_user(
-        db, user_id=user_id, **user.model_dump(exclude_unset=True)
-    )
-    return ApiResponse(
-        success=True, message="User updated successfully", data=updated_user
-    )
+def update_user_endpoint(user_id: uuid.UUID, user: UserUpdate, db: Session = Depends(get_db)):
+    updated_user = update_user(db, user_id=user_id, **user.model_dump(exclude_unset=True))
+    return ApiResponse(success=True, message="User updated successfully", data=updated_user)
 
 
 @router.delete("/users/{user_id}", response_model=ApiResponse[dict])
@@ -221,9 +202,7 @@ def get_websocket_status(current_user: User = Depends(get_current_user)):
         data={
             "user_id": user_id_str,
             "is_connected": user_id_str in websocket_manager.connections,
-            "user_connections": stats.get("connections_per_user", {}).get(
-                user_id_str, 0
-            ),
+            "user_connections": stats.get("connections_per_user", {}).get(user_id_str, 0),
             "total_active_connections": stats.get("active_connections", 0),
             "total_unique_users": stats.get("unique_users", 0),
             "metrics": {

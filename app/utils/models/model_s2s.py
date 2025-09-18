@@ -26,9 +26,7 @@ class ModelS2S(Model):
         decoding_params,
         name,
     ):
-        super(ModelS2S, self).__init__(
-            tokenizer_params, training_params, decoding_params, name
-        )
+        super(ModelS2S, self).__init__(tokenizer_params, training_params, decoding_params, name)
 
         # Not Implemented
         raise Exception("Sequence-to-sequence model not implemented")
@@ -49,9 +47,7 @@ class ModelS2S(Model):
 
         # Joint Network
         self.fc = nn.Linear(
-            encoder_params["dim_model"][-1]
-            if isinstance(encoder_params["dim_model"], list)
-            else encoder_params["dim_model"],
+            encoder_params["dim_model"][-1] if isinstance(encoder_params["dim_model"], list) else encoder_params["dim_model"],
             tokenizer_params["vocab_size"],
         )
 
@@ -83,15 +79,9 @@ class ModelS2S(Model):
         super(ModelS2S, self).distribute_strategy(rank)
 
         self.encoder = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.encoder)
-        self.encoder = torch.nn.parallel.DistributedDataParallel(
-            self.encoder, device_ids=[self.rank]
-        )
-        self.decoder = torch.nn.parallel.DistributedDataParallel(
-            self.decoder, device_ids=[self.rank]
-        )
-        self.fc = torch.nn.parallel.DistributedDataParallel(
-            self.fc, device_ids=[self.rank]
-        )
+        self.encoder = torch.nn.parallel.DistributedDataParallel(self.encoder, device_ids=[self.rank])
+        self.decoder = torch.nn.parallel.DistributedDataParallel(self.decoder, device_ids=[self.rank])
+        self.fc = torch.nn.parallel.DistributedDataParallel(self.fc, device_ids=[self.rank])
 
     def parallel_strategy(self):
         super(ModelS2S, self).parallel_strategy()

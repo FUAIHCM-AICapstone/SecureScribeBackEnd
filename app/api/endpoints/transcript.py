@@ -25,9 +25,7 @@ def transcribe_audio_endpoint(
 
     transcript = transcribe_audio_file(db, audio_id)
     if not transcript:
-        raise HTTPException(
-            status_code=404, detail="Audio file not found or transcription failed"
-        )
+        raise HTTPException(status_code=404, detail="Audio file not found or transcription failed")
 
     logger.info(f"Transcription completed: {transcript.id}")
     return ApiResponse(

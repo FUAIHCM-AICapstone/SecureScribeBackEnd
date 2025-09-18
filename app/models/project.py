@@ -29,13 +29,9 @@ class Project(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
     name: str = Field(sa_column=Column(String, nullable=False))
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
@@ -62,9 +58,7 @@ class UserProject(SQLModel, table=True):
     user_id: uuid.UUID = Field(foreign_key="users.id", primary_key=True)
     project_id: uuid.UUID = Field(foreign_key="projects.id", primary_key=True)
     role: str = Field(default="member", sa_column=Column(String))
-    joined_at: datetime = Field(
-        default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=True))
-    )
+    joined_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=True)))
 
     # Relationships
     user: "User" = Relationship(

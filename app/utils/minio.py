@@ -161,13 +161,9 @@ def generate_presigned_url(bucket_name: str, object_name: str) -> Optional[str]:
 
         # Tạo URL public trực tiếp (bucket đã có public policy)
         if hasattr(settings, "MINIO_PUBLIC_URL") and settings.MINIO_PUBLIC_URL:
-            public_url = (
-                f"{settings.MINIO_PUBLIC_URL.rstrip('/')}/{bucket_name}/{object_name}"
-            )
+            public_url = f"{settings.MINIO_PUBLIC_URL.rstrip('/')}/{bucket_name}/{object_name}"
         else:
-            public_url = (
-                f"http://{settings.MINIO_PUBLIC_URL}/{bucket_name}/{object_name}"
-            )
+            public_url = f"http://{settings.MINIO_PUBLIC_URL}/{bucket_name}/{object_name}"
 
         return public_url
 

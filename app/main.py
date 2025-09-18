@@ -91,17 +91,16 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup_event():
     """Application startup event"""
-    print("🚀 Application started successfully")
 
     # Initialize database and create tables if needed
     from app.db import init_database
+
     init_database()
 
     # Start WebSocket manager Redis listener
     from app.services.websocket_manager import websocket_manager
 
     await websocket_manager.start_redis_listener()
-    print("🔌 WebSocket Redis listener started")
 
 
 @app.on_event("shutdown")
@@ -111,9 +110,6 @@ async def shutdown_event():
     from app.services.websocket_manager import websocket_manager
 
     await websocket_manager.stop_redis_listener()
-    print("🔌 WebSocket Redis listener stopped")
-
-    print("🛑 Application shutdown")
 
 
 # Add middleware to log all requests
@@ -131,11 +127,7 @@ app.openapi = custom_openapi
 # Configure CORS for cross-origin requests with Authorization headers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=(
-        [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
-        if settings.BACKEND_CORS_ORIGINS
-        else ["*"]
-    ),
+    allow_origins=([str(origin) for origin in settings.BACKEND_CORS_ORIGINS] if settings.BACKEND_CORS_ORIGINS else ["*"]),
     allow_credentials=True,
     allow_methods=[
         "GET",
@@ -166,9 +158,7 @@ def get_firebase_service_worker():
 
 
 # Mount service worker at root for Firebase
-app.mount(
-    "/firebase-messaging-sw.js", StaticFiles(directory="app/static"), name="firebase-sw"
-)
+app.mount("/firebase-messaging-sw.js", StaticFiles(directory="app/static"), name="firebase-sw")
 
 # Initialize Firebase SDK
 initialize_firebase()
@@ -192,11 +182,7 @@ def test_auth_endpoint(request: Request) -> Dict[str, Any]:
             "example": "Authorization: Bearer <your_jwt_token>",
         }
 
-    token = (
-        auth_header[len("bearer ") :]
-        if auth_header.lower().startswith("bearer ")
-        else auth_header[len("Bearer ") :]
-    )
+    token = auth_header[len("bearer ") :] if auth_header.lower().startswith("bearer ") else auth_header[len("Bearer ") :]
     user_id = get_current_user_from_token(token)
 
     if not user_id:
@@ -283,9 +269,7 @@ def health(db: Session = Depends(get_db)) -> Dict[str, Any]:
                 "host": settings.QDRANT_HOST,
                 "port": settings.QDRANT_PORT,
                 "collection": settings.QDRANT_COLLECTION_NAME,
-                "vectors_count": collection_info.get("points_count", 0)
-                if collection_info
-                else 0,
+                "vectors_count": collection_info.get("points_count", 0) if collection_info else 0,
             }
         else:
             health_data["services"]["qdrant"] = {"status": "disconnected"}
@@ -418,15 +402,9 @@ def health_qdrant() -> Dict[str, Any]:
             "host": settings.QDRANT_HOST,
             "port": settings.QDRANT_PORT,
             "collection": settings.QDRANT_COLLECTION_NAME,
-            "vectors_count": collection_info.get("points_count", 0)
-            if collection_info
-            else 0,
-            "collection_status": collection_info.get("status", "unknown")
-            if collection_info
-            else "not_found",
-            "collection_size": collection_info.get("disk_size", 0)
-            if collection_info
-            else 0,
+            "vectors_count": collection_info.get("points_count", 0) if collection_info else 0,
+            "collection_status": collection_info.get("status", "unknown") if collection_info else "not_found",
+            "collection_size": collection_info.get("disk_size", 0) if collection_info else 0,
         }
     except Exception as e:
         raise HTTPException(
@@ -540,7 +518,5 @@ def health_services(db: Session = Depends(get_db)) -> Dict[str, Any]:
     return {
         "timestamp": "2025-09-10T12:00:00Z",
         "services": services_status,
-        "overall_status": "healthy"
-        if all("✅" in status for status in services_status.values())
-        else "degraded",
+        "overall_status": "healthy" if all("✅" in status for status in services_status.values()) else "degraded",
     }

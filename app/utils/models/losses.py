@@ -18,9 +18,7 @@ class LossCTC(nn.Module):
 
         # Compute Loss
         loss = self.loss(
-            log_probs=torch.nn.functional.log_softmax(outputs_pred, dim=-1).transpose(
-                0, 1
-            ),
+            log_probs=torch.nn.functional.log_softmax(outputs_pred, dim=-1).transpose(0, 1),
             targets=y,
             input_lengths=f_len,
             target_lengths=y_len,
@@ -48,9 +46,7 @@ class LossInterCTC(nn.Module):
 
         # Compute CTC Loss
         loss_ctc = self.loss(
-            log_probs=torch.nn.functional.log_softmax(outputs_pred, dim=-1).transpose(
-                0, 1
-            ),
+            log_probs=torch.nn.functional.log_softmax(outputs_pred, dim=-1).transpose(0, 1),
             targets=y,
             input_lengths=f_len,
             target_lengths=y_len,

@@ -20,9 +20,7 @@ class RnnDecoder(nn.Module):
     def __init__(self, params):
         super(RnnDecoder, self).__init__()
 
-        self.embedding = Embedding(
-            params["vocab_size"], params["dim_model"], padding_idx=0
-        )
+        self.embedding = Embedding(params["vocab_size"], params["dim_model"], padding_idx=0)
         self.rnn = LSTM(
             input_size=params["dim_model"],
             hidden_size=params["dim_model"],
@@ -37,9 +35,7 @@ class RnnDecoder(nn.Module):
 
         # Pack padded batch sequences
         if y_len is not None:
-            y = nn.utils.rnn.pack_padded_sequence(
-                y, y_len.cpu(), batch_first=True, enforce_sorted=False
-            )
+            y = nn.utils.rnn.pack_padded_sequence(y, y_len.cpu(), batch_first=True, enforce_sorted=False)
 
         # Hidden state provided
         if hidden is not None:
@@ -67,21 +63,13 @@ class TransformerDecoder(nn.Module):
         )
 
         # Embedding Layer
-        self.embedding = nn.Embedding(
-            params["vocab_size"], params["dim_model"], padding_idx=0
-        )
+        self.embedding = nn.Embedding(params["vocab_size"], params["dim_model"], padding_idx=0)
 
         # Dropout
         self.dropout = nn.Dropout(p=params["Pdrop"])
 
         # Sinusoidal Positional Encodings
-        self.pos_enc = (
-            None
-            if params["relative_pos_enc"]
-            else SinusoidalPositionalEncoding(
-                params["max_pos_encoding"], params["dim_model"]
-            )
-        )
+        self.pos_enc = None if params["relative_pos_enc"] else SinusoidalPositionalEncoding(params["max_pos_encoding"], params["dim_model"])
 
         # Transformer Blocks
         self.blocks = nn.ModuleList(
@@ -145,21 +133,13 @@ class ConformerDecoder(nn.Module):
         )
 
         # Embedding Layer
-        self.embedding = nn.Embedding(
-            params["vocab_size"], params["dim"], padding_idx=0
-        )
+        self.embedding = nn.Embedding(params["vocab_size"], params["dim"], padding_idx=0)
 
         # Dropout
         self.dropout = nn.Dropout(p=params["Pdrop"])
 
         # Sinusoidal Positional Encodings
-        self.pos_enc = (
-            None
-            if params["relative_pos_enc"]
-            else SinusoidalPositionalEncoding(
-                params["max_pos_encoding"], params["dim_model"]
-            )
-        )
+        self.pos_enc = None if params["relative_pos_enc"] else SinusoidalPositionalEncoding(params["max_pos_encoding"], params["dim_model"])
 
         # Conformer Layers
         self.blocks = nn.ModuleList(

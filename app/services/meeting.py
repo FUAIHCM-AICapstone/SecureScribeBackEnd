@@ -18,9 +18,7 @@ from app.utils.meeting import (
 from app.utils.minio import generate_presigned_url, get_minio_client
 
 
-def create_meeting(
-    db: Session, meeting_data: MeetingCreate, created_by: uuid.UUID
-) -> Meeting:
+def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UUID) -> Meeting:
     """Create new meeting"""
     meeting = Meeting(
         title=meeting_data.title,
@@ -40,9 +38,7 @@ def create_meeting(
     # Link to projects if not personal
     if not meeting_data.is_personal and meeting_data.project_ids:
         for project_id in meeting_data.project_ids:
-            project_meeting = ProjectMeeting(
-                project_id=project_id, meeting_id=meeting.id
-            )
+            project_meeting = ProjectMeeting(project_id=project_id, meeting_id=meeting.id)
             db.add(project_meeting)
         db.commit()
 
@@ -52,9 +48,7 @@ def create_meeting(
     return meeting
 
 
-def get_meeting(
-    db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, raise_404: bool = False
-) -> Optional[Meeting]:
+def get_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, raise_404: bool = False) -> Optional[Meeting]:
     """Get meeting by ID with access control"""
     meeting = (
         db.query(Meeting)
@@ -97,11 +91,7 @@ def get_meetings(
     )
 
     # Access control filter
-    personal_meetings = (
-        db.query(Meeting.id)
-        .filter(Meeting.is_personal == True, Meeting.created_by == user_id)
-        .subquery()
-    )
+    personal_meetings = db.query(Meeting.id).filter(Meeting.is_personal == True, Meeting.created_by == user_id).subquery()
 
     accessible_projects = (
         db.query(ProjectMeeting.meeting_id)
@@ -116,14 +106,7 @@ def get_meetings(
     )
 
     # Meetings with no linked projects (accessible to everyone)
-    meetings_no_projects = (
-        db.query(Meeting.id)
-        .filter(Meeting.is_personal == False)
-        .outerjoin(ProjectMeeting)
-        .group_by(Meeting.id)
-        .having(func.count(ProjectMeeting.project_id) == 0)
-        .subquery()
-    )
+    meetings_no_projects = db.query(Meeting.id).filter(Meeting.is_personal == False).outerjoin(ProjectMeeting).group_by(Meeting.id).having(func.count(ProjectMeeting.project_id) == 0).subquery()
 
     query = query.filter(
         or_(
@@ -152,17 +135,13 @@ def get_meetings(
 
         # Project filter
         if filters.project_id:
-            query = query.join(ProjectMeeting).filter(
-                ProjectMeeting.project_id == filters.project_id
-            )
+            query = query.join(ProjectMeeting).filter(ProjectMeeting.project_id == filters.project_id)
 
         # Tag filter
         if filters.tag_ids:
             from app.models.meeting import MeetingTag
 
-            query = query.join(MeetingTag).filter(
-                MeetingTag.tag_id.in_(filters.tag_ids)
-            )
+            query = query.join(MeetingTag).filter(MeetingTag.tag_id.in_(filters.tag_ids))
 
     # Additional filtering can be added here if needed
 
@@ -172,9 +151,7 @@ def get_meetings(
     return meetings, total
 
 
-def update_meeting(
-    db: Session, meeting_id: uuid.UUID, updates: MeetingUpdate, user_id: uuid.UUID
-) -> Optional[Meeting]:
+def update_meeting(db: Session, meeting_id: uuid.UUID, updates: MeetingUpdate, user_id: uuid.UUID) -> Optional[Meeting]:
     """Update meeting"""
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
@@ -201,11 +178,7 @@ def update_meeting(
 
 def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """Soft delete meeting and hard delete associated files"""
-    meeting = (
-        db.query(Meeting)
-        .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
-        .first()
-    )
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.is_deleted == False).first()
 
     if not meeting:
         return False
@@ -232,9 +205,7 @@ def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bo
     return True
 
 
-def add_meeting_to_project(
-    db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID, user_id: uuid.UUID
-) -> bool:
+def add_meeting_to_project(db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """Add meeting to project"""
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
@@ -264,9 +235,7 @@ def add_meeting_to_project(
     return True
 
 
-def remove_meeting_from_project(
-    db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID, user_id: uuid.UUID
-) -> bool:
+def remove_meeting_from_project(db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """Remove meeting from project"""
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
@@ -290,15 +259,9 @@ def remove_meeting_from_project(
     return True
 
 
-def validate_meeting_for_audio_operations(
-    db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID
-) -> Meeting:
+def validate_meeting_for_audio_operations(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Meeting:
     """Validate meeting exists and user has access for audio operations"""
-    meeting = (
-        db.query(Meeting)
-        .filter(Meeting.id == meeting_id, Meeting.is_deleted == False)
-        .first()
-    )
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.is_deleted == False).first()
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
@@ -308,24 +271,15 @@ def validate_meeting_for_audio_operations(
     return meeting
 
 
-def check_delete_permissions(
-    db: Session, meeting: Meeting, current_user_id: uuid.UUID
-) -> Meeting:
+def check_delete_permissions(db: Session, meeting: Meeting, current_user_id: uuid.UUID) -> Meeting:
     """Check if user can delete meeting and raise HTTPException if not"""
     if not can_delete_meeting(db, meeting, current_user_id):
-        raise HTTPException(
-            status_code=403, detail="You don't have permission to delete this meeting"
-        )
+        raise HTTPException(status_code=403, detail="You don't have permission to delete this meeting")
     return meeting
 
 
 def _get_next_seq_order(db: Session, meeting_id: uuid.UUID) -> int:
-    last = (
-        db.query(AudioFile)
-        .filter(AudioFile.meeting_id == meeting_id)
-        .order_by(AudioFile.seq_order.desc().nullslast(), AudioFile.created_at.desc())
-        .first()
-    )
+    last = db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id).order_by(AudioFile.seq_order.desc().nullslast(), AudioFile.created_at.desc()).first()
     if not last or last.seq_order is None:
         return 1
     return int(last.seq_order) + 1
@@ -345,9 +299,7 @@ def create_audio_file(
     audio = AudioFile(
         meeting_id=meeting_id,
         uploaded_by=uploaded_by,
-        seq_order=seq_order
-        if seq_order is not None
-        else _get_next_seq_order(db, meeting_id),
+        seq_order=seq_order if seq_order is not None else _get_next_seq_order(db, meeting_id),
     )
     db.add(audio)
     db.commit()
@@ -388,9 +340,7 @@ def create_audio_file(
         return None
 
 
-def get_meeting_audio_files(
-    db: Session, meeting_id: uuid.UUID, page: int = 1, limit: int = 20
-) -> Tuple[List[AudioFile], int]:
+def get_meeting_audio_files(db: Session, meeting_id: uuid.UUID, page: int = 1, limit: int = 20) -> Tuple[List[AudioFile], int]:
     q = db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id)
     # Order by seq_order ASC (NULLS LAST), then created_at ASC
     q = q.order_by(AudioFile.seq_order.asc().nullslast(), AudioFile.created_at.asc())

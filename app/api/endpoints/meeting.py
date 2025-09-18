@@ -93,16 +93,12 @@ def get_meetings_endpoint(
             try:
                 created_by_uuid = uuid.UUID(created_by)
             except ValueError:
-                raise HTTPException(
-                    status_code=400, detail="Invalid created_by UUID format"
-                )
+                raise HTTPException(status_code=400, detail="Invalid created_by UUID format")
 
         # Parse tag IDs
         tag_id_list = []
         if tag_ids.strip():
-            tag_id_list = [
-                uuid.UUID(tid.strip()) for tid in tag_ids.split(",") if tid.strip()
-            ]
+            tag_id_list = [uuid.UUID(tid.strip()) for tid in tag_ids.split(",") if tid.strip()]
 
         # Create filter object
         filters = MeetingFilter(
@@ -113,9 +109,7 @@ def get_meetings_endpoint(
             tag_ids=tag_id_list,
         )
 
-        meetings, total = get_meetings(
-            db=db, user_id=current_user.id, filters=filters, page=page, limit=limit
-        )
+        meetings, total = get_meetings(db=db, user_id=current_user.id, filters=filters, page=page, limit=limit)
 
         # Format response data
         meetings_data = []
@@ -258,9 +252,7 @@ def delete_meeting_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post(
-    "/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict]
-)
+@router.post("/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict])
 def add_meeting_to_project_endpoint(
     project_id: uuid.UUID,
     meeting_id: uuid.UUID,
@@ -271,9 +263,7 @@ def add_meeting_to_project_endpoint(
     try:
         success = add_meeting_to_project(db, meeting_id, project_id, current_user.id)
         if not success:
-            raise HTTPException(
-                status_code=400, detail="Failed to add meeting to project"
-            )
+            raise HTTPException(status_code=400, detail="Failed to add meeting to project")
 
         return ApiResponse(
             success=True,
@@ -286,9 +276,7 @@ def add_meeting_to_project_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete(
-    "/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict]
-)
+@router.delete("/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict])
 def remove_meeting_from_project_endpoint(
     project_id: uuid.UUID,
     meeting_id: uuid.UUID,
@@ -297,13 +285,9 @@ def remove_meeting_from_project_endpoint(
 ):
     """Remove meeting from project"""
     try:
-        success = remove_meeting_from_project(
-            db, meeting_id, project_id, current_user.id
-        )
+        success = remove_meeting_from_project(db, meeting_id, project_id, current_user.id)
         if not success:
-            raise HTTPException(
-                status_code=400, detail="Failed to remove meeting from project"
-            )
+            raise HTTPException(status_code=400, detail="Failed to remove meeting from project")
 
         return ApiResponse(
             success=True,

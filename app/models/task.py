@@ -21,13 +21,9 @@ class Task(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
     title: str = Field(sa_column=Column(String, nullable=False))
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
@@ -35,12 +31,8 @@ class Task(SQLModel, table=True):
     assignee_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     status: str = Field(default="todo", sa_column=Column(String))
     meeting_id: Optional[uuid.UUID] = Field(default=None, foreign_key="meetings.id")
-    due_date: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True))
-    )
-    reminder_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True))
-    )
+    due_date: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    reminder_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
 
     # Relationships
     creator: "User" = Relationship(

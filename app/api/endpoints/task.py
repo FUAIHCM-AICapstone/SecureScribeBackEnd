@@ -159,10 +159,7 @@ def bulk_update_tasks_endpoint(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    updates = [
-        {"id": item.id, "updates": item.updates}
-        for item in bulk_request.tasks
-    ]
+    updates = [{"id": item.id, "updates": item.updates} for item in bulk_request.tasks]
     results = bulk_update_tasks(db, updates, current_user["id"])
 
     total_processed = len(results)
@@ -199,4 +196,3 @@ def bulk_delete_tasks_endpoint(
         total_success=total_success,
         total_failed=total_failed,
     )
-

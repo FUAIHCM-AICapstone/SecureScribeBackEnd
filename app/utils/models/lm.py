@@ -13,12 +13,8 @@ from app.utils.models.model import Model
 
 
 class LanguageModel(Model):
-    def __init__(
-        self, lm_params, tokenizer_params, training_params, decoding_params, name
-    ):
-        super(LanguageModel, self).__init__(
-            tokenizer_params, training_params, decoding_params, name
-        )
+    def __init__(self, lm_params, tokenizer_params, training_params, decoding_params, name):
+        super(LanguageModel, self).__init__(tokenizer_params, training_params, decoding_params, name)
 
         # Language Model
         if lm_params["arch"] == "RNN":

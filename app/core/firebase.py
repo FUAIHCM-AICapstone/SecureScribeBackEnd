@@ -15,9 +15,7 @@ def initialize_firebase():
             key_path = settings.FIREBASE_SERVICE_ACCOUNT_KEY_PATH
             if not os.path.exists(key_path):
                 logger.error(f"Firebase service account key file not found: {key_path}")
-                raise FileNotFoundError(
-                    f"Service account key file not found: {key_path}"
-                )
+                raise FileNotFoundError(f"Service account key file not found: {key_path}")
 
             logger.info(f"Initializing Firebase with service account key: {key_path}")
             cred = credentials.Certificate(key_path)
@@ -27,9 +25,7 @@ def initialize_firebase():
 
         except Exception as e:
             logger.error(f"Failed to initialize Firebase: {str(e)}")
-            logger.error(
-                f"Firebase apps before error: {list(firebase_admin._apps.keys())}"
-            )
+            logger.error(f"Firebase apps before error: {list(firebase_admin._apps.keys())}")
             raise
     else:
         logger.info("Firebase already initialized")

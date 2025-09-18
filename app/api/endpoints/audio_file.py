@@ -34,9 +34,7 @@ def upload_audio_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    logger.info(
-        f"Audio upload attempt: filename={file.filename}, content_type={file.content_type}, size={file.size}"
-    )
+    logger.info(f"Audio upload attempt: filename={file.filename}, content_type={file.content_type}, size={file.size}")
 
     # Expanded list of supported audio formats including webm
     supported_formats = [
@@ -63,9 +61,7 @@ def upload_audio_file(
             logger.error(error_msg)
             raise HTTPException(status_code=400, detail=error_msg)
 
-        audio_data = AudioFileCreate(
-            meeting_id=meeting_id or uuid.uuid4(), uploaded_by=current_user.id
-        )
+        audio_data = AudioFileCreate(meeting_id=meeting_id or uuid.uuid4(), uploaded_by=current_user.id)
         audio_file = create_audio_file(db, audio_data, file_content, file.content_type)
 
         if not audio_file:

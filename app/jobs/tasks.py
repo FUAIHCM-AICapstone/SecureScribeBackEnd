@@ -41,9 +41,7 @@ async def _perform_async_indexing(
         file_content = minio_client.get_object(settings.MINIO_BUCKET_NAME, file_id)
 
         # Create temporary file
-        with tempfile.NamedTemporaryFile(
-            delete=False, suffix=f"_{filename}"
-        ) as temp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{filename}") as temp_file:
             temp_file.write(file_content.data)
             temp_file_path = temp_file.name
 
@@ -78,21 +76,15 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
     try:
         # Step 1: Started
         update_task_progress(task_id, user_id, 0, "started", task_type="file_indexing")
-        publish_task_progress_sync(
-            user_id, 0, "started", "60s", "file_indexing", task_id
-        )
+        publish_task_progress_sync(user_id, 0, "started", "60s", "file_indexing", task_id)
         print(f"\033[93m📋 Task {task_id}: Indexing started for file {file_id}\033[0m")
 
         # Create database session
         db = SessionLocal()
 
         # Step 2: Validating file
-        update_task_progress(
-            task_id, user_id, 10, "validating", task_type="file_indexing"
-        )
-        publish_task_progress_sync(
-            user_id, 10, "validating", "55s", "file_indexing", task_id
-        )
+        update_task_progress(task_id, user_id, 10, "validating", task_type="file_indexing")
+        publish_task_progress_sync(user_id, 10, "validating", "55s", "file_indexing", task_id)
         print(f"\033[95m🔍 Validating file {file_id}\033[0m")
 
         # Get file info
@@ -103,48 +95,28 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         print(f"\033[92m✅ File validated: {file.filename} ({file.mime_type})\033[0m")
 
         # Step 3: Extracting text
-        update_task_progress(
-            task_id, user_id, 25, "extracting_text", task_type="file_indexing"
-        )
-        publish_task_progress_sync(
-            user_id, 25, "extracting_text", "45s", "file_indexing", task_id
-        )
+        update_task_progress(task_id, user_id, 25, "extracting_text", task_type="file_indexing")
+        publish_task_progress_sync(user_id, 25, "extracting_text", "45s", "file_indexing", task_id)
         print(f"\033[96m📄 Extracting text from {file.filename}\033[0m")
 
         # Step 4: Chunking text
-        update_task_progress(
-            task_id, user_id, 40, "chunking_text", task_type="file_indexing"
-        )
-        publish_task_progress_sync(
-            user_id, 40, "chunking_text", "35s", "file_indexing", task_id
-        )
+        update_task_progress(task_id, user_id, 40, "chunking_text", task_type="file_indexing")
+        publish_task_progress_sync(user_id, 40, "chunking_text", "35s", "file_indexing", task_id)
         print("\033[94m✂️ Preparing to chunk text\033[0m")
 
         # Step 5: Generating embeddings
-        update_task_progress(
-            task_id, user_id, 60, "generating_embeddings", task_type="file_indexing"
-        )
-        publish_task_progress_sync(
-            user_id, 60, "generating_embeddings", "25s", "file_indexing", task_id
-        )
+        update_task_progress(task_id, user_id, 60, "generating_embeddings", task_type="file_indexing")
+        publish_task_progress_sync(user_id, 60, "generating_embeddings", "25s", "file_indexing", task_id)
         print("\033[95m🧠 Generating embeddings\033[0m")
 
         # Step 6: Storing vectors
-        update_task_progress(
-            task_id, user_id, 80, "storing_vectors", task_type="file_indexing"
-        )
-        publish_task_progress_sync(
-            user_id, 80, "storing_vectors", "15s", "file_indexing", task_id
-        )
+        update_task_progress(task_id, user_id, 80, "storing_vectors", task_type="file_indexing")
+        publish_task_progress_sync(user_id, 80, "storing_vectors", "15s", "file_indexing", task_id)
         print("\033[93m💾 Storing vectors in Qdrant\033[0m")
 
         # Step 7: Update database
-        update_task_progress(
-            task_id, user_id, 95, "updating_database", task_type="file_indexing"
-        )
-        publish_task_progress_sync(
-            user_id, 95, "updating_database", "5s", "file_indexing", task_id
-        )
+        update_task_progress(task_id, user_id, 95, "updating_database", task_type="file_indexing")
+        publish_task_progress_sync(user_id, 95, "updating_database", "5s", "file_indexing", task_id)
 
         # Perform the actual indexing
         print(f"\033[94m🚀 Starting actual indexing process for file {file_id}\033[0m")
@@ -177,12 +149,8 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         print(f"\033[92m✅ Database updated: file {file_id} marked as indexed\033[0m")
 
         # Step 8: Completed
-        update_task_progress(
-            task_id, user_id, 100, "completed", task_type="file_indexing"
-        )
-        publish_task_progress_sync(
-            user_id, 100, "completed", "0s", "file_indexing", task_id
-        )
+        update_task_progress(task_id, user_id, 100, "completed", task_type="file_indexing")
+        publish_task_progress_sync(user_id, 100, "completed", "0s", "file_indexing", task_id)
 
         # Get filename before closing session
         filename = file.filename
@@ -226,11 +194,7 @@ def _get_meeting_member_ids(db, meeting_id: uuid.UUID, include_creator: bool = T
 
     project_ids = get_meeting_projects(db, meeting_id)
     if project_ids:
-        rows = (
-            db.query(UserProject.user_id)
-            .filter(UserProject.project_id.in_(project_ids))
-            .all()
-        )
+        rows = db.query(UserProject.user_id).filter(UserProject.project_id.in_(project_ids)).all()
         members.extend([r[0] for r in rows])
     return list(set(members))
 
@@ -240,9 +204,7 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
     task_id = self.request.id or f"process_audio_{audio_file_id}_{int(time.time())}"
     db = SessionLocal()
     try:
-        audio = (
-            db.query(AudioFile).filter(AudioFile.id == uuid.UUID(audio_file_id)).first()
-        )
+        audio = db.query(AudioFile).filter(AudioFile.id == uuid.UUID(audio_file_id)).first()
         if not audio:
             raise Exception(f"AudioFile {audio_file_id} not found")
 
@@ -251,34 +213,21 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
 
         def _broadcast(progress: int, status: str, eta: str = ""):
             for uid in target_user_ids:
-                publish_task_progress_sync(
-                    str(uid), progress, status, eta, "audio_asr", task_id
-                )
+                publish_task_progress_sync(str(uid), progress, status, eta, "audio_asr", task_id)
 
-        update_task_progress(
-            task_id, actor_user_id, 0, "started", task_type="audio_asr"
-        )
+        update_task_progress(task_id, actor_user_id, 0, "started", task_type="audio_asr")
         _broadcast(0, "started", "60s")
 
-        update_task_progress(
-            task_id, actor_user_id, 25, "processing", task_type="audio_asr"
-        )
+        update_task_progress(task_id, actor_user_id, 25, "processing", task_type="audio_asr")
         _broadcast(25, "processing", "45s")
 
-        update_task_progress(
-            task_id, actor_user_id, 75, "transcribing", task_type="audio_asr"
-        )
+        update_task_progress(task_id, actor_user_id, 75, "transcribing", task_type="audio_asr")
         _broadcast(75, "transcribing", "20s")
 
         now_iso = datetime.utcnow().isoformat() + "Z"
-        mock_content = (
-            f"Mock transcript generated at {now_iso} for meeting {meeting_id}.\n"
-            f"This is placeholder content for ASR processing of audio {audio_file_id}."
-        )
+        mock_content = f"Mock transcript generated at {now_iso} for meeting {meeting_id}.\nThis is placeholder content for ASR processing of audio {audio_file_id}."
 
-        transcript = (
-            db.query(Transcript).filter(Transcript.meeting_id == meeting_id).first()
-        )
+        transcript = db.query(Transcript).filter(Transcript.meeting_id == meeting_id).first()
         if not transcript:
             transcript = Transcript(meeting_id=meeting_id, content=mock_content)
             db.add(transcript)
@@ -296,9 +245,7 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
             )
             from app.utils.llm import embed_documents
 
-            asyncio.run(
-                create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, 3072)
-            )
+            asyncio.run(create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, 3072))
             chunks = chunk_text(transcript.content or "")
             if chunks:
                 vectors = asyncio.run(embed_documents(chunks))
@@ -312,17 +259,13 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
                     }
                     for i, ch in enumerate(chunks)
                 ]
-                asyncio.run(
-                    upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads)
-                )
+                asyncio.run(upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads))
                 transcript.qdrant_vector_id = str(transcript.id)
                 db.commit()
         except Exception:
             pass
 
-        update_task_progress(
-            task_id, actor_user_id, 100, "completed", task_type="audio_asr"
-        )
+        update_task_progress(task_id, actor_user_id, 100, "completed", task_type="audio_asr")
         _broadcast(100, "completed", "0s")
 
         return {
@@ -333,18 +276,10 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
     except Exception:
         update_task_progress(task_id, actor_user_id, 0, "failed", task_type="audio_asr")
         try:
-            audio = (
-                db.query(AudioFile)
-                .filter(AudioFile.id == uuid.UUID(audio_file_id))
-                .first()
-            )
+            audio = db.query(AudioFile).filter(AudioFile.id == uuid.UUID(audio_file_id)).first()
             if audio:
-                for uid in _get_meeting_member_ids(
-                    db, audio.meeting_id, include_creator=True
-                ):
-                    publish_task_progress_sync(
-                        str(uid), 0, "failed", "", "audio_asr", task_id
-                    )
+                for uid in _get_meeting_member_ids(db, audio.meeting_id, include_creator=True):
+                    publish_task_progress_sync(str(uid), 0, "failed", "", "audio_asr", task_id)
         except Exception:
             pass
         raise

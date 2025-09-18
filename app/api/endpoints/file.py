@@ -80,18 +80,14 @@ def upload_file_endpoint(
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         ]
         if file.content_type in supported_mimes:
-            print(
-                f"\033[94m🚀 Queuing indexing task for file {new_file.id} ({new_file.filename})\033[0m"
-            )
+            print(f"\033[94m🚀 Queuing indexing task for file {new_file.id} ({new_file.filename})\033[0m")
             try:
                 index_file_task.delay(str(new_file.id), str(current_user.id))
                 print("\033[92m✅ Indexing task queued successfully\033[0m")
             except Exception as e:
                 print(f"\033[91m❌ Failed to queue indexing task: {e}\033[0m")
         else:
-            print(
-                f"\033[93m⚠️ Skipping indexing for unsupported file type: {file.content_type}\033[0m"
-            )
+            print(f"\033[93m⚠️ Skipping indexing for unsupported file type: {file.content_type}\033[0m")
 
         return ApiResponse(
             success=True,
@@ -269,16 +265,8 @@ def move_file_endpoint(
                 check_meeting_access as check_meeting_access_utils,
             )
 
-            target_meeting = (
-                db.query(Meeting)
-                .filter(
-                    Meeting.id == move_request.meeting_id, Meeting.is_deleted == False
-                )
-                .first()
-            )
-            if not target_meeting or not check_meeting_access_utils(
-                db, target_meeting, current_user.id
-            ):
+            target_meeting = db.query(Meeting).filter(Meeting.id == move_request.meeting_id, Meeting.is_deleted == False).first()
+            if not target_meeting or not check_meeting_access_utils(db, target_meeting, current_user.id):
                 raise HTTPException(status_code=403, detail="Access denied to meeting")
 
         # Update file associations
@@ -377,9 +365,7 @@ def bulk_files_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get(
-    "/projects/{project_id}/files", response_model=FilesWithProjectPaginatedResponse
-)
+@router.get("/projects/{project_id}/files", response_model=FilesWithProjectPaginatedResponse)
 def get_project_files_endpoint(
     project_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -389,9 +375,7 @@ def get_project_files_endpoint(
 ):
     """Get files for a specific project with project info"""
     try:
-        files, project_name, total = get_project_files_with_info(
-            db, project_id, current_user.id, page, limit
-        )
+        files, project_name, total = get_project_files_with_info(db, project_id, current_user.id, page, limit)
 
         if files is None:
             raise HTTPException(status_code=403, detail="Access denied")
@@ -417,9 +401,7 @@ def get_project_files_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get(
-    "/meetings/{meeting_id}/files", response_model=FilesWithMeetingPaginatedResponse
-)
+@router.get("/meetings/{meeting_id}/files", response_model=FilesWithMeetingPaginatedResponse)
 def get_meeting_files_endpoint(
     meeting_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -429,14 +411,10 @@ def get_meeting_files_endpoint(
 ):
     """Get files for a specific meeting with meeting info"""
     try:
-        files, meeting_title, total = get_meeting_files_with_info(
-            db, meeting_id, current_user.id, page, limit
-        )
+        files, meeting_title, total = get_meeting_files_with_info(db, meeting_id, current_user.id, page, limit)
 
         if files is None:
-            raise HTTPException(
-                status_code=404, detail="Meeting not found or access denied"
-            )
+            raise HTTPException(status_code=404, detail="Meeting not found or access denied")
 
         pagination_meta = create_pagination_meta(page, limit, total)
 

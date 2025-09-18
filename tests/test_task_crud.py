@@ -7,20 +7,22 @@ from app.models.project import Project
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate
 from app.services.task import (
-    create_task, get_tasks, get_task, update_task, delete_task,
-    bulk_create_tasks, bulk_update_tasks, bulk_delete_tasks,
-    check_task_access
+    create_task,
+    get_tasks,
+    get_task,
+    update_task,
+    delete_task,
+    bulk_create_tasks,
+    bulk_update_tasks,
+    bulk_delete_tasks,
+    check_task_access,
 )
 
 
 @pytest.fixture
 def test_user(db: Session):
     """Create a test user"""
-    user = User(
-        email="test@example.com",
-        name="Test User",
-        password_hash="hashed_password"
-    )
+    user = User(email="test@example.com", name="Test User", password_hash="hashed_password")
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -33,7 +35,7 @@ def test_project(db: Session, test_user: User):
     project = Project(
         name="Test Project",
         description="Test project description",
-        created_by=test_user.id
+        created_by=test_user.id,
     )
     db.add(project)
     db.commit()
@@ -41,6 +43,7 @@ def test_project(db: Session, test_user: User):
 
     # Add user to project
     from app.models.project import UserProject
+
     user_project = UserProject(user_id=test_user.id, project_id=project.id, role="admin")
     db.add(user_project)
     db.commit()
@@ -54,7 +57,7 @@ def test_task(db: Session, test_user: User, test_project: Project):
     task_data = TaskCreate(
         title="Test Task",
         description="Test task description",
-        project_ids=[test_project.id]
+        project_ids=[test_project.id],
     )
     task = create_task(db, task_data, test_user.id)
     return task
@@ -68,7 +71,7 @@ class TestTaskCRUD:
         task_data = TaskCreate(
             title="New Task",
             description="Task description",
-            project_ids=[test_project.id]
+            project_ids=[test_project.id],
         )
 
         task = create_task(db, task_data, test_user.id)
@@ -79,10 +82,14 @@ class TestTaskCRUD:
         assert task.status == "todo"
 
         # Check project link created
-        task_project = db.query(TaskProject).filter(
-            TaskProject.task_id == task.id,
-            TaskProject.project_id == test_project.id
-        ).first()
+        task_project = (
+            db.query(TaskProject)
+            .filter(
+                TaskProject.task_id == task.id,
+                TaskProject.project_id == test_project.id,
+            )
+            .first()
+        )
         assert task_project is not None
 
     def test_create_task_with_assignee(self, db: Session, test_user: User, test_project: Project):
@@ -90,7 +97,7 @@ class TestTaskCRUD:
         task_data = TaskCreate(
             title="Assigned Task",
             assignee_id=test_user.id,
-            project_ids=[test_project.id]
+            project_ids=[test_project.id],
         )
 
         task = create_task(db, task_data, test_user.id)
@@ -129,10 +136,7 @@ class TestTaskCRUD:
 
     def test_update_task(self, db: Session, test_user: User, test_task: Task):
         """Test updating a task"""
-        update_data = TaskUpdate(
-            title="Updated Task",
-            status="in_progress"
-        )
+        update_data = TaskUpdate(title="Updated Task", status="in_progress")
 
         updated_task = update_task(db, test_task.id, update_data, test_user.id)
 
@@ -167,10 +171,7 @@ class TestTaskCRUD:
 
     def test_bulk_create_tasks(self, db: Session, test_user: User, test_project: Project):
         """Test bulk creating tasks"""
-        task_data_list = [
-            TaskCreate(title=f"Task {i}", project_ids=[test_project.id])
-            for i in range(3)
-        ]
+        task_data_list = [TaskCreate(title=f"Task {i}", project_ids=[test_project.id]) for i in range(3)]
 
         results = bulk_create_tasks(db, task_data_list, test_user.id)
 
@@ -181,17 +182,14 @@ class TestTaskCRUD:
     def test_bulk_update_tasks(self, db: Session, test_user: User, test_project: Project):
         """Test bulk updating tasks"""
         # Create test tasks
-        task_data_list = [
-            TaskCreate(title=f"Task {i}", project_ids=[test_project.id])
-            for i in range(2)
-        ]
+        task_data_list = [TaskCreate(title=f"Task {i}", project_ids=[test_project.id]) for i in range(2)]
         results = bulk_create_tasks(db, task_data_list, test_user.id)
         task_ids = [r["id"] for r in results if r["success"]]
 
         # Update tasks
         updates = [
             {"id": task_ids[0], "updates": TaskUpdate(status="in_progress")},
-            {"id": task_ids[1], "updates": TaskUpdate(status="done")}
+            {"id": task_ids[1], "updates": TaskUpdate(status="done")},
         ]
 
         update_results = bulk_update_tasks(db, updates, test_user.id)
@@ -203,10 +201,7 @@ class TestTaskCRUD:
     def test_bulk_delete_tasks(self, db: Session, test_user: User, test_project: Project):
         """Test bulk deleting tasks"""
         # Create test tasks
-        task_data_list = [
-            TaskCreate(title=f"Task {i}", project_ids=[test_project.id])
-            for i in range(2)
-        ]
+        task_data_list = [TaskCreate(title=f"Task {i}", project_ids=[test_project.id]) for i in range(2)]
         results = bulk_create_tasks(db, task_data_list, test_user.id)
         task_ids = [r["id"] for r in results if r["success"]]
 
@@ -222,8 +217,12 @@ class TestTaskCRUD:
         # Create tasks with different statuses
         tasks_data = [
             TaskCreate(title="Todo Task", status="todo", project_ids=[test_project.id]),
-            TaskCreate(title="In Progress Task", status="in_progress", project_ids=[test_project.id]),
-            TaskCreate(title="Done Task", status="done", project_ids=[test_project.id])
+            TaskCreate(
+                title="In Progress Task",
+                status="in_progress",
+                project_ids=[test_project.id],
+            ),
+            TaskCreate(title="Done Task", status="done", project_ids=[test_project.id]),
         ]
 
         for task_data in tasks_data:
@@ -238,4 +237,3 @@ class TestTaskCRUD:
         search_tasks, _ = get_tasks(db, test_user.id, title="Progress")
         assert len(search_tasks) >= 1
         assert all("Progress" in t.title for t in search_tasks)
-

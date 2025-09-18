@@ -22,9 +22,7 @@ from app.schemas.project import (
 from app.utils.minio import delete_file_from_minio
 
 
-def create_project(
-    db: Session, project_data: ProjectCreate, created_by: uuid.UUID
-) -> Project:
+def create_project(db: Session, project_data: ProjectCreate, created_by: uuid.UUID) -> Project:
     """
     Create a new project
     """
@@ -44,9 +42,7 @@ def create_project(
     return project
 
 
-def get_project(
-    db: Session, project_id: uuid.UUID, include_members: bool = False
-) -> Optional[Project]:
+def get_project(db: Session, project_id: uuid.UUID, include_members: bool = False) -> Optional[Project]:
     """
     Get a project by ID
     """
@@ -92,9 +88,7 @@ def get_projects(
 
         # Filter by member
         if filters.member_id:
-            query = query.join(UserProject).filter(
-                UserProject.user_id == filters.member_id
-            )
+            query = query.join(UserProject).filter(UserProject.user_id == filters.member_id)
 
     # Apply ordering
     if hasattr(Project, order_by):
@@ -113,9 +107,7 @@ def get_projects(
     return projects, total
 
 
-def update_project(
-    db: Session, project_id: uuid.UUID, updates: ProjectUpdate
-) -> Optional[Project]:
+def update_project(db: Session, project_id: uuid.UUID, updates: ProjectUpdate) -> Optional[Project]:
     """
     Update a project
     """
@@ -149,9 +141,7 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
             db.query(File)
             .filter(
                 File.project_id == project_id,
-                File.meeting_id.is_(
-                    None
-                ),  # Only files directly associated with project
+                File.meeting_id.is_(None),  # Only files directly associated with project
             )
             .all()
         )
@@ -165,19 +155,11 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
         # 2. Delete meetings associated with project and their files
 
         # Get all meeting IDs associated with this project
-        project_meetings = (
-            db.query(ProjectMeeting)
-            .filter(ProjectMeeting.project_id == project_id)
-            .all()
-        )
+        project_meetings = db.query(ProjectMeeting).filter(ProjectMeeting.project_id == project_id).all()
 
         for project_meeting in project_meetings:
             # Delete files associated with this meeting
-            meeting_files = (
-                db.query(File)
-                .filter(File.meeting_id == project_meeting.meeting_id)
-                .all()
-            )
+            meeting_files = db.query(File).filter(File.meeting_id == project_meeting.meeting_id).all()
 
             for file in meeting_files:
                 # Delete from MinIO storage
@@ -186,18 +168,12 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
                 db.delete(file)
 
             # Soft delete the meeting
-            meeting = (
-                db.query(Meeting)
-                .filter(Meeting.id == project_meeting.meeting_id)
-                .first()
-            )
+            meeting = db.query(Meeting).filter(Meeting.id == project_meeting.meeting_id).first()
             if meeting:
                 meeting.is_deleted = True
 
         # 3. Delete ProjectMeeting relationships (projects_meetings table)
-        db.query(ProjectMeeting).filter(
-            ProjectMeeting.project_id == project_id
-        ).delete()
+        db.query(ProjectMeeting).filter(ProjectMeeting.project_id == project_id).delete()
 
         # 4. Delete UserProject relationships (users_projects table)
         db.query(UserProject).filter(UserProject.project_id == project_id).delete()
@@ -224,20 +200,12 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
 
 
 # User-Project relationship management
-def add_user_to_project(
-    db: Session, project_id: uuid.UUID, user_id: uuid.UUID, role: str = "member"
-) -> Optional[UserProject]:
+def add_user_to_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, role: str = "member") -> Optional[UserProject]:
     """
     Add a user to a project
     """
     # Check if user is already in project
-    existing = (
-        db.query(UserProject)
-        .filter(
-            and_(UserProject.project_id == project_id, UserProject.user_id == user_id)
-        )
-        .first()
-    )
+    existing = db.query(UserProject).filter(and_(UserProject.project_id == project_id, UserProject.user_id == user_id)).first()
 
     if existing:
         return existing
@@ -265,19 +233,11 @@ def add_user_to_project(
     return user_project
 
 
-def remove_user_from_project(
-    db: Session, project_id: uuid.UUID, user_id: uuid.UUID
-) -> bool:
+def remove_user_from_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """
     Remove a user from a project
     """
-    user_project = (
-        db.query(UserProject)
-        .filter(
-            and_(UserProject.project_id == project_id, UserProject.user_id == user_id)
-        )
-        .first()
-    )
+    user_project = db.query(UserProject).filter(and_(UserProject.project_id == project_id, UserProject.user_id == user_id)).first()
 
     if not user_project:
         return False
@@ -287,19 +247,11 @@ def remove_user_from_project(
     return True
 
 
-def update_user_role_in_project(
-    db: Session, project_id: uuid.UUID, user_id: uuid.UUID, new_role: str
-) -> Optional[UserProject]:
+def update_user_role_in_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, new_role: str) -> Optional[UserProject]:
     """
     Update a user's role in a project
     """
-    user_project = (
-        db.query(UserProject)
-        .filter(
-            and_(UserProject.project_id == project_id, UserProject.user_id == user_id)
-        )
-        .first()
-    )
+    user_project = db.query(UserProject).filter(and_(UserProject.project_id == project_id, UserProject.user_id == user_id)).first()
 
     if not user_project:
         return None
@@ -315,48 +267,27 @@ def get_project_members(db: Session, project_id: uuid.UUID) -> List[UserProject]
     """
     Get all members of a project
     """
-    return (
-        db.query(UserProject)
-        .options(joinedload(UserProject.user))
-        .filter(UserProject.project_id == project_id)
-        .all()
-    )
+    return db.query(UserProject).options(joinedload(UserProject.user)).filter(UserProject.project_id == project_id).all()
 
 
 def is_user_in_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """
     Check if a user is a member of a project
     """
-    count = (
-        db.query(UserProject)
-        .filter(
-            and_(UserProject.project_id == project_id, UserProject.user_id == user_id)
-        )
-        .count()
-    )
+    count = db.query(UserProject).filter(and_(UserProject.project_id == project_id, UserProject.user_id == user_id)).count()
     return count > 0
 
 
-def get_user_role_in_project(
-    db: Session, project_id: uuid.UUID, user_id: uuid.UUID
-) -> Optional[str]:
+def get_user_role_in_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> Optional[str]:
     """
     Get a user's role in a project
     """
-    user_project = (
-        db.query(UserProject)
-        .filter(
-            and_(UserProject.project_id == project_id, UserProject.user_id == user_id)
-        )
-        .first()
-    )
+    user_project = db.query(UserProject).filter(and_(UserProject.project_id == project_id, UserProject.user_id == user_id)).first()
     return user_project.role if user_project else None
 
 
 # Bulk operations
-def bulk_add_users_to_project(
-    db: Session, project_id: uuid.UUID, users_data: List[UserProjectCreate]
-) -> List[Dict[str, Any]]:
+def bulk_add_users_to_project(db: Session, project_id: uuid.UUID, users_data: List[UserProjectCreate]) -> List[Dict[str, Any]]:
     """
     Bulk add users to a project
     """
@@ -364,9 +295,7 @@ def bulk_add_users_to_project(
 
     for user_data in users_data:
         try:
-            user_project = add_user_to_project(
-                db, project_id, user_data.user_id, user_data.role
-            )
+            user_project = add_user_to_project(db, project_id, user_data.user_id, user_data.role)
             if user_project:
                 results.append(
                     {
@@ -395,9 +324,7 @@ def bulk_add_users_to_project(
     return results
 
 
-def bulk_remove_users_from_project(
-    db: Session, project_id: uuid.UUID, user_ids: List[uuid.UUID]
-) -> List[Dict[str, Any]]:
+def bulk_remove_users_from_project(db: Session, project_id: uuid.UUID, user_ids: List[uuid.UUID]) -> List[Dict[str, Any]]:
     """
     Bulk remove users from a project
     """

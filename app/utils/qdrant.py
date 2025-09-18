@@ -12,9 +12,7 @@ class QdrantClientManager:
     def get_client(self) -> QdrantClient:
         """Get or create Qdrant client instance"""
         if self._client is None:
-            self._client = QdrantClient(
-                host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=30.0
-            )
+            self._client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=30.0)
             print("🟢 \033[92mQdrant client connected\033[0m")
         return self._client
 

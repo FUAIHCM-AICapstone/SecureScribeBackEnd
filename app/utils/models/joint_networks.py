@@ -71,9 +71,7 @@ class JointNetwork(nn.Module):
 
         # Joint Encoder and Decoder
         if self.joint_mode == "concat":
-            joint = torch.cat(
-                [f, g], dim=-1
-            )  # Training : (B, T, U + 1, 2D) / Decoding : (B, 2D)
+            joint = torch.cat([f, g], dim=-1)  # Training : (B, T, U + 1, 2D) / Decoding : (B, 2D)
         elif self.joint_mode == "sum":
             joint = f + g  # Training : (B, T, U + 1, D) / Decoding : (B, D)
 
@@ -81,8 +79,6 @@ class JointNetwork(nn.Module):
         joint = self.act(joint)
 
         # Output Linear Projection
-        outputs = self.linear_joint(
-            joint
-        )  # Training : (B, T, U + 1, V) / Decoding : (B, V)
+        outputs = self.linear_joint(joint)  # Training : (B, T, U + 1, V) / Decoding : (B, V)
 
         return outputs

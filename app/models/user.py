@@ -34,13 +34,9 @@ class User(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
     email: str = Field(sa_column=Column(String, unique=True, nullable=False))
     name: Optional[str] = Field(default=None, sa_column=Column(String))
@@ -100,21 +96,15 @@ class UserIdentity(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
     user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     provider: str = Field(sa_column=Column(String, nullable=False))
     provider_user_id: str = Field(sa_column=Column(String, nullable=False))
     provider_email: Optional[str] = Field(default=None, sa_column=Column(String))
-    provider_profile: Optional[Dict[str, Any]] = Field(
-        default=None, sa_column=Column(JSON)
-    )
+    provider_profile: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     tenant_id: Optional[str] = Field(default=None, sa_column=Column(String))
 
     # Relationships
@@ -124,9 +114,7 @@ class UserIdentity(SQLModel, table=True):
     )
 
     # Constraints
-    __table_args__ = (
-        UniqueConstraint("provider", "provider_user_id", name="unique_provider_user"),
-    )
+    __table_args__ = (UniqueConstraint("provider", "provider_user_id", name="unique_provider_user"),)
 
 
 class UserDevice(SQLModel, table=True):
@@ -140,21 +128,15 @@ class UserDevice(SQLModel, table=True):
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(
-            DateTime(timezone=True), server_default=func.now(), nullable=False
-        ),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
-    updated_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now())
-    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
     user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     device_name: Optional[str] = Field(default=None, sa_column=Column(String))
     device_type: Optional[str] = Field(default=None, sa_column=Column(String))
     fcm_token: str = Field(sa_column=Column(Text, nullable=False))
-    last_active_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime(timezone=True))
-    )
+    last_active_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     is_active: bool = Field(default=True, sa_column=Column(Boolean))
 
     # Relationships

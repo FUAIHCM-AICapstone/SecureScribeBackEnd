@@ -71,14 +71,7 @@ class cosine_annealing_learning_rate_scheduler:
         if s <= self.warmup_steps:  # Warmup phase
             lr = s / self.warmup_steps * self.lr_max
         else:  # Annealing phase
-            lr = (self.lr_max - self.lr_min) * 0.5 * (
-                1
-                + math.cos(
-                    math.pi
-                    * (s - self.warmup_steps)
-                    / (self.end_step - self.warmup_steps)
-                )
-            ) + self.lr_min
+            lr = (self.lr_max - self.lr_min) * 0.5 * (1 + math.cos(math.pi * (s - self.warmup_steps) / (self.end_step - self.warmup_steps))) + self.lr_min
 
         # Update LR
         self.optimizer.param_groups[0]["lr"] = lr
@@ -105,9 +98,7 @@ class transformer_learning_rate_scheduler:
         # Update LR
         arg1 = s**-0.5
         arg2 = s * (self.warmup_steps**-1.5)
-        self.optimizer.param_groups[0]["lr"] = (
-            self.K * self.dim_model**-0.5 * min(arg1, arg2)
-        )
+        self.optimizer.param_groups[0]["lr"] = self.K * self.dim_model**-0.5 * min(arg1, arg2)
 
 
 class exponential_decay_transformer_learning_rate_scheduler:
@@ -131,7 +122,5 @@ class exponential_decay_transformer_learning_rate_scheduler:
 
         # Update LR
         arg1 = s / self.warmup_steps * self.lr_max  # Warmup phase
-        arg2 = self.lr_max * self.alpha ** (
-            (s - self.warmup_steps) / (self.end_step - self.warmup_steps)
-        )  # Decay phase
+        arg2 = self.lr_max * self.alpha ** ((s - self.warmup_steps) / (self.end_step - self.warmup_steps))  # Decay phase
         self.optimizer.param_groups[0]["lr"] = min(arg1, arg2)
