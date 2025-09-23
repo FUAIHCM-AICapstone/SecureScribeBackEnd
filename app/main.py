@@ -127,7 +127,7 @@ app.openapi = custom_openapi
 # Configure CORS for cross-origin requests with Authorization headers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=([str(origin) for origin in settings.BACKEND_CORS_ORIGINS] if settings.BACKEND_CORS_ORIGINS else ["*"]),
+    allow_origins=(["*"]),
     allow_credentials=True,
     allow_methods=[
         "GET",

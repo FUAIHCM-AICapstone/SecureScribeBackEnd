@@ -206,7 +206,7 @@ def send_global_notification_endpoint(
     )
 
 
-@router.patch(
+@router.put(
     "/notifications/{notification_id}/read",
     response_model=ApiResponse[NotificationResponse],
 )
