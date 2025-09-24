@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException
@@ -18,7 +19,7 @@ from app.utils.meeting import (
 from app.utils.minio import generate_presigned_url, get_minio_client
 
 
-def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UUID) -> Meeting:
+def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UUID, bearer_token: Optional[str] = None) -> Meeting:
     """Create new meeting"""
     meeting = Meeting(
         title=meeting_data.title,
@@ -27,8 +28,8 @@ def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UU
         start_time=meeting_data.start_time,
         is_personal=meeting_data.is_personal,
         created_by=created_by,
-        status="active",  # Set default status explicitly
-        is_deleted=False,  # Set default is_deleted explicitly
+        status="active",
+        is_deleted=False,
     )
 
     db.add(meeting)
@@ -41,6 +42,14 @@ def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UU
             project_meeting = ProjectMeeting(project_id=project_id, meeting_id=meeting.id)
             db.add(project_meeting)
         db.commit()
+
+    # Schedule bot task if meeting has start_time, url, and bearer_token (and start_time is in the future)
+    if meeting.start_time and meeting.url and bearer_token and meeting.start_time > datetime.now(timezone.utc):
+        from app.jobs.tasks import schedule_meeting_bot_task
+        schedule_meeting_bot_task.apply_async(
+            args=[str(meeting.id), str(created_by), bearer_token, meeting.url],
+            eta=meeting.start_time
+        )
 
     # Send notifications
     notify_meeting_members(db, meeting, "created", created_by)

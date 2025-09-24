@@ -33,7 +33,7 @@ from app.services.meeting import (
     update_meeting,
     validate_meeting_for_audio_operations,
 )
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, jwt_bearer
 from app.utils.meeting import check_meeting_access, get_meeting_projects
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting"])
@@ -44,10 +44,11 @@ def create_meeting_endpoint(
     meeting: MeetingCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    token: str = Depends(jwt_bearer),
 ):
     """Create a new meeting"""
     try:
-        new_meeting = create_meeting(db, meeting, current_user.id)
+        new_meeting = create_meeting(db, meeting, current_user.id, token)
         response_data = {
             "id": new_meeting.id,
             "title": new_meeting.title,

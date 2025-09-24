@@ -1,0 +1,7 @@
+Đã thử qua:
+- http://localhost:3000
+- http://127.0.0.1:3000
+- http://0.0.0.0:3000
+- http://host.docker.internal:3000
+
+Và 1 số cách như thêm services, blah blah nhưng vẫn lỏ,....

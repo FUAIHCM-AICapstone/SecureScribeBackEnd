@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str = "AIzaSyDKJL5HLh3syVxysfjFkBdqrJaY9dLXc_A"
     GOOGLE_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
 
+    # Bot Service Configuration
+    BOT_SERVICE_URL: str = "http://host.docker.internal:3000"
+
     # Indexing Configuration
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
