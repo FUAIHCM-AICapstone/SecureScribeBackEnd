@@ -1,9 +1,11 @@
 import asyncio
+import random
 import time
 import uuid
 from datetime import datetime
 from typing import Any, Dict
 
+import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -294,34 +296,23 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
 @celery_app.task(bind=True)
 def schedule_meeting_bot_task(self, meeting_id: str, user_id: str, bearer_token: str, meeting_url: str):
     """Schedule bot to join meeting at specified time"""
-    import random
-    import requests
-    from app.core.config import settings
-    
+
     try:
         bot_id = f"Bot{random.randint(100, 999)}"
-        
-        payload = {
-            "bearerToken": bearer_token,
-            "url": meeting_url,
-            "name": "Meeting Notetaker",
-            "teamId": meeting_id,
-            "timezone": "UTC", 
-            "userId": user_id,
-            "botId": bot_id
-        }
-        
+
+        payload = {"bearerToken": bearer_token, "url": meeting_url, "name": "Meeting Notetaker", "teamId": meeting_id, "timezone": "UTC", "userId": user_id, "botId": bot_id}
+
         headers = {"Content-Type": "application/json"}
         bot_service_url = f"{settings.BOT_SERVICE_URL}/google/join"
         response = requests.post(bot_service_url, json=payload, headers=headers, timeout=30)
-        
+
         if response.status_code == 200:
             print(f"Bot {bot_id} successfully scheduled for meeting {meeting_id}")
             return {"success": True, "bot_id": bot_id, "meeting_id": meeting_id}
         else:
             print(f"Failed to schedule bot for meeting {meeting_id}: {response.status_code}")
             return {"success": False, "error": f"HTTP {response.status_code}", "meeting_id": meeting_id}
-            
+
     except Exception as e:
         print(f"Error scheduling bot for meeting {meeting_id}: {str(e)}")
         return {"success": False, "error": str(e), "meeting_id": meeting_id}

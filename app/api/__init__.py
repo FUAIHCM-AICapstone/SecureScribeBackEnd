@@ -9,6 +9,7 @@ from app.api.endpoints.notificaiton import router as notification_router
 from app.api.endpoints.project import router as project_router
 from app.api.endpoints.search import router as search_router
 from app.api.endpoints.task import router as task_router
+from app.api.endpoints.test import router as test_router
 from app.api.endpoints.transcript import router as transcript_router
 from app.api.endpoints.user import router as user_router
 from app.api.endpoints.webhook import router as webhook_router
@@ -26,3 +27,4 @@ api_router.include_router(webhook_router)
 api_router.include_router(search_router)
 api_router.include_router(notification_router)
 api_router.include_router(task_router)
+api_router.include_router(test_router)

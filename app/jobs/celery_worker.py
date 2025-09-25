@@ -13,7 +13,7 @@ celery_app = Celery(
     "worker",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.jobs.tasks"],  # Explicitly include tasks module
+    include=["app.jobs.tasks", "app.jobs.test"],  # Explicitly include tasks module
 )
 
 # Configure Celery settings for better timeout handling

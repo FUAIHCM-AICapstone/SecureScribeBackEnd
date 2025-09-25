@@ -187,6 +187,7 @@ def update_meeting(db: Session, meeting_id: uuid.UUID, updates: MeetingUpdate, u
 
 def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """Soft delete meeting and hard delete associated files"""
+    # check user access
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.is_deleted == False).first()
 
     if not meeting:
