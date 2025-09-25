@@ -5,7 +5,7 @@ from app.api.endpoints.auth import router as auth_router
 from app.api.endpoints.chat import router as chat_router
 from app.api.endpoints.file import router as file_router
 from app.api.endpoints.meeting import router as meeting_router
-from app.api.endpoints.notificaiton import router as notification_router
+from app.api.endpoints.notification import router as notification_router
 from app.api.endpoints.project import router as project_router
 from app.api.endpoints.search import router as search_router
 from app.api.endpoints.task import router as task_router

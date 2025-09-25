@@ -10,7 +10,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 class ChatMessageType(str, Enum):
     user = "user"
-    agent = "agent" 
+    agent = "agent"
     system = "system"
 
 
@@ -20,9 +20,9 @@ if TYPE_CHECKING:
 
 class ChatSession(SQLModel, table=True):
     """Chat session model for meeting-based conversations"""
-    
+
     __tablename__ = "chat_sessions"
-    
+
     id: uuid.UUID = Field(
         default_factory=uuid.uuid4,
         sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
@@ -32,13 +32,13 @@ class ChatSession(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
-    
+
     meeting_id: uuid.UUID = Field(foreign_key="meetings.id", nullable=False)
     user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     agno_session_id: str = Field(sa_column=Column(String, nullable=False))
     title: Optional[str] = Field(default=None, sa_column=Column(String))
     is_active: bool = Field(default=True, sa_column=Column(Boolean))
-    
+
     # Relationships
     meeting: "Meeting" = Relationship()
     user: "User" = Relationship()
@@ -47,9 +47,9 @@ class ChatSession(SQLModel, table=True):
 
 class ChatMessage(SQLModel, table=True):
     """Chat message model for storing conversation history"""
-    
+
     __tablename__ = "chat_messages"
-    
+
     id: uuid.UUID = Field(
         default_factory=uuid.uuid4,
         sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
@@ -58,11 +58,11 @@ class ChatMessage(SQLModel, table=True):
         default_factory=datetime.utcnow,
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
-    
+
     chat_session_id: uuid.UUID = Field(foreign_key="chat_sessions.id", nullable=False)
     message_type: str = Field(default=ChatMessageType.user, sa_column=Column(String))
     content: str = Field(sa_column=Column(Text, nullable=False))
-    metadata: Optional[dict] = Field(default=None, sa_column=Column(JSON))
-    
+    message_metadata: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+
     # Relationships
     chat_session: ChatSession = Relationship(back_populates="messages")

@@ -292,10 +292,7 @@ class TestTaskCRUD:
     def test_tasks_pagination(self, db: Session, test_user: User, test_project: Project):
         """Ensure pagination works and returns expected counts"""
         # Create 7 tasks
-        payloads = [
-            TaskCreate(title=f"PTask {i} {faker.word()}", project_ids=[test_project.id])
-            for i in range(7)
-        ]
+        payloads = [TaskCreate(title=f"PTask {i} {faker.word()}", project_ids=[test_project.id]) for i in range(7)]
         for p in payloads:
             create_task(db, p, test_user.id)
 
@@ -348,6 +345,7 @@ class TestTaskCRUD:
 
         # Add owner as member to satisfy creator access for create_task validation
         from app.models.project import UserProject
+
         db.add(UserProject(user_id=owner.id, project_id=project.id, role="admin"))
         db.commit()
 

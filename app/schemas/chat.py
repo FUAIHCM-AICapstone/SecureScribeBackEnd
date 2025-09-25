@@ -39,7 +39,7 @@ class ChatMessageResponse(BaseModel):
     chat_session_id: UUID
     message_type: str
     content: str
-    metadata: Optional[dict] = None
+    message_metadata: Optional[dict] = None
     created_at: datetime
 
     class Config:
