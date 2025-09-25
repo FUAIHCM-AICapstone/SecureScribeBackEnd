@@ -84,7 +84,7 @@ class Settings(BaseSettings):
     GOOGLE_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
 
     # Bot Service Configuration
-    BOT_SERVICE_URL: str = "http://host.docker.internal:3000"
+    BOT_SERVICE_URL: str = "https://bot.wc504.io.vn/"
 
     # Indexing Configuration
     CHUNK_SIZE: int = 1000
