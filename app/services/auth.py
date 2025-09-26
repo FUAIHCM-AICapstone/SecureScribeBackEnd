@@ -68,6 +68,7 @@ def firebase_login(db: Session, id_token: str):
         # Initiate Google Calendar OAuth flow after successful Firebase login
         try:
             from app.services.google_calendar_service import GoogleCalendarService
+
             service = GoogleCalendarService()
             oauth_result = service.initiate_oauth_flow(user.id)
             result["oauth_url"] = oauth_result["auth_url"]
@@ -78,6 +79,7 @@ def firebase_login(db: Session, id_token: str):
     except HTTPException:
         raise
     except Exception as e:
+        print(f"\033[91mError in firebase_login: {e}\033[0m")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Google login service temporarily unavailable",

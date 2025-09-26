@@ -10,6 +10,7 @@ services:
       - ENV=development
       - POSTGRES_SERVER=160.191.88.194
       - POSTGRES_PORT=5400
+      - MODEL_CHECKPOINT_PATH=./checkpoints/checkpoints_56_90h.ckpt
     volumes:
       - .:/app
       - /app/__pycache__
@@ -46,6 +47,7 @@ services:
       - ENV=development
       - POSTGRES_SERVER=160.191.88.194
       - POSTGRES_PORT=5400
+      - MODEL_CHECKPOINT_PATH=./checkpoints/checkpoints_56_90h.ckpt
     volumes:
       - .:/app
       - /app/__pycache__

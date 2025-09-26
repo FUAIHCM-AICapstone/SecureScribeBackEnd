@@ -11,6 +11,7 @@ if TYPE_CHECKING:
         AudioFile,
         AuditLog,
         File,
+        Integration,
         Meeting,
         MeetingBot,
         MeetingNote,
@@ -47,6 +48,7 @@ class User(SQLModel, table=True):
     # Relationships
     identities: list["UserIdentity"] = Relationship(back_populates="user")
     devices: list["UserDevice"] = Relationship(back_populates="user")
+    integrations: list["Integration"] = Relationship(back_populates="user")  # type: ignore
     projects: list["UserProject"] = Relationship(back_populates="user")  # type: ignore
     created_projects: list["Project"] = Relationship(back_populates="created_by_user")  # type: ignore
     created_meetings: list["Meeting"] = Relationship(back_populates="created_by_user")  # type: ignore

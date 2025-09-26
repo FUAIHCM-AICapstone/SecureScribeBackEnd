@@ -329,11 +329,7 @@ def serialize_task(task: Task) -> TaskResponse:
     """
     projects: list[ProjectResponse] = []
     try:
-        projects = [
-            ProjectResponse.model_validate(tp.project, from_attributes=True)
-            for tp in (task.projects or [])
-            if getattr(tp, "project", None) is not None
-        ]
+        projects = [ProjectResponse.model_validate(tp.project, from_attributes=True) for tp in (task.projects or []) if getattr(tp, "project", None) is not None]
     except Exception:
         projects = []
 
