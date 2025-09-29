@@ -11,6 +11,7 @@ from app.api.endpoints.task import router as task_router
 from app.api.endpoints.transcript import router as transcript_router
 from app.api.endpoints.user import router as user_router
 from app.api.endpoints.webhook import router as webhook_router
+from app.api.endpoints.meeting_summary import router as meeting_summary_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -24,3 +25,4 @@ api_router.include_router(webhook_router)
 api_router.include_router(search_router)
 api_router.include_router(notification_router)
 api_router.include_router(task_router)
+api_router.include_router(meeting_summary_router)
