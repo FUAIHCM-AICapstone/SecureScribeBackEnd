@@ -1,13 +1,8 @@
-import re
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.core.config import settings
+from app.models.user import User
 from app.schemas.common import ApiResponse
-from app.schemas.google_calendar import (
-    GoogleCalendarConnectResponse,
-)
 from app.services.google_calendar_service import GoogleCalendarService
 from app.utils.auth import get_current_user
 
@@ -15,20 +10,24 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["Google Calendar"])
 
 
 @router.get(
-    "/auth/google/connect", response_model=ApiResponse[GoogleCalendarConnectResponse]
+    "/auth/google/connect", response_model=ApiResponse
 )
-def connect_google_calendar(user_id: UUID = Depends(get_current_user)):
+def connect_google_calendar(current_user: User = Depends(get_current_user)):
     """Initiate Google Calendar OAuth connection"""
     service = GoogleCalendarService()
     try:
-        result = service.initiate_oauth_flow(user_id)
-        return ApiResponse(success=True, message="OAuth flow initiated", data=result)
+        result = service.initiate_oauth_flow(current_user.id)
+        result_response = {
+            "auth_url": result.auth_url,
+            "state": result.state,
+        }
+        return ApiResponse(success=True, message="OAuth flow initiated", data=result_response)
     except Exception as e:
         print(f"\033[91mError initiating Google Calendar OAuth: {e}\033[0m")
         raise HTTPException(status_code=500, detail="Failed to initiate OAuth flow")
 
 
-@router.get("/auth/google/callback", response_model=ApiResponse[dict])
+@router.get("/auth/google/callback", response_model=ApiResponse)
 def google_calendar_callback(request: Request):
     """Handle Google Calendar OAuth callback"""
 
@@ -37,6 +36,9 @@ def google_calendar_callback(request: Request):
     state = params.get("state")
     code = params.get("code")
     error = params.get("error")
+    print(f"\033[91mOAuth error received: {error}\033[0m")
+    print(f"\033[91mOAuth code received: {code}\033[0m")
+    print(f"\033[91mOAuth state received: {state}\033[0m")
 
     if error:
         print(f"\033[91mOAuth error received: {error}\033[0m")
@@ -46,16 +48,17 @@ def google_calendar_callback(request: Request):
         print("\033[91mNo authorization code received\033[0m")
         raise HTTPException(status_code=400, detail="No authorization code received")
 
-    # Try to extract UUID from the state string
-    user_id = None
-    if state:
-        match = re.search(r"id=UUID\('([a-f0-9\-]+)'\)", state)
-        if match:
-            user_id = UUID(match.group(1))
+    if not state:
+        print("\033[91mNo state parameter received\033[0m")
+        raise HTTPException(status_code=400, detail="No state parameter received")
+
+    # Get user_id from Redis using the state as key
+    from app.utils.google_calendar import get_user_id_from_state
+    user_id = get_user_id_from_state(state)
 
     if not user_id:
-        print("\033[91mNo user ID found in state parameter\033[0m")
-        raise HTTPException(status_code=400, detail="Invalid state parameter")
+        print(f"\033[91mNo user ID found for state: {state}\033[0m")
+        raise HTTPException(status_code=400, detail="Invalid or expired state parameter")
 
     service = GoogleCalendarService()
     try:
@@ -71,12 +74,12 @@ def google_calendar_callback(request: Request):
         raise HTTPException(status_code=500, detail="OAuth callback failed")
 
 
-@router.get("/calendar/events", response_model=ApiResponse[list])
-def get_calendar_events(user_id: UUID = Depends(get_current_user)):
+@router.get("/calendar/events", response_model=ApiResponse)
+def get_calendar_events(current_user: User = Depends(get_current_user)):
     """Get Google Calendar events for user"""
     service = GoogleCalendarService()
     try:
-        events = service.fetch_events(user_id)
+        events = service.fetch_events(current_user.id)
         return ApiResponse(
             success=True, message="Events retrieved successfully", data=events
         )

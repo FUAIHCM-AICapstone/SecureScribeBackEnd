@@ -71,7 +71,7 @@ def firebase_login(db: Session, id_token: str):
 
             service = GoogleCalendarService()
             oauth_result = service.initiate_oauth_flow(user.id)
-            result["oauth_url"] = oauth_result["auth_url"]
+            result["oauth_url"] = oauth_result.auth_url
         except Exception as e:
             print(f"\033[91mError initiating Google Calendar OAuth: {e}\033[0m")
             pass

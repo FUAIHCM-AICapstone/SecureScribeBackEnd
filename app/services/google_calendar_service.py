@@ -9,6 +9,7 @@ from app.utils.google_calendar import (
     exchange_code_for_token,
     fetch_calendar_events,
     get_refresh_token,
+    store_oauth_state,
     store_refresh_token,
 )
 
@@ -20,8 +21,14 @@ class GoogleCalendarService:
         """Create OAuth flow for Google Calendar connection"""
         flow = create_oauth_flow()
         auth_url, state = flow.authorization_url(
-            access_type="offline", include_granted_scopes="true"
+            access_type="offline",
+            prompt="consent",
+            include_granted_scopes="true"
         )
+
+        # Store the user_id in Redis keyed by the OAuth state for later retrieval
+        store_oauth_state(state, user_id)
+
         return GoogleCalendarConnectResponse(auth_url=auth_url, state=state)
 
     def handle_oauth_callback(self, code: str, user_id: uuid.UUID) -> bool:
@@ -47,6 +54,7 @@ class GoogleCalendarService:
     def fetch_events(self, user_id: uuid.UUID) -> List[Dict[str, Any]]:
         """Get calendar events for user"""
         refresh_token_value = get_refresh_token(user_id)
+        print(f"\033[93m[GoogleCalendarService] Fetched refresh token for user_id: {user_id}, refresh_token_value: {refresh_token_value}\033[0m")
         if not refresh_token_value:
             raise HTTPException(status_code=400, detail="Google Calendar not connected")
 
