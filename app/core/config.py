@@ -45,10 +45,10 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "securescribe"
 
     # Firebase Configuration
-    FIREBASE_SERVICE_ACCOUNT_KEY_PATH: str = "config/keys/scribe-c7f13-firebase-adminsdk-fbsvc-1ab2f55755.json"
+    FIREBASE_SERVICE_ACCOUNT_KEY_PATH: str = "/app/config/keys/scribe-c7f13-firebase-adminsdk-fbsvc-1ab2f55755.json"
 
     # Google Calendar Configuration
-    GOOGLE_CLIENT_SECRET_PATH: str = "config/client_secret_104601458005-sjh4civm6hitd2sdkgrnlpqonch5uchj.apps.googleusercontent.com.json"
+    GOOGLE_CLIENT_SECRET_PATH: str = "/app/config/client_secret_104601458005-sjh4civm6hitd2sdkgrnlpqonch5uchj.apps.googleusercontent.com.json"
 
     # Redis Configuration
     REDIS_HOST: str = "redis"
