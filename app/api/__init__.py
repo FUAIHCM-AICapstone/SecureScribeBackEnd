@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.endpoints.audio_file import router as audio_file_router
 from app.api.endpoints.auth import router as auth_router
+from app.api.endpoints.chat import router as chat_router
 from app.api.endpoints.file import router as file_router
 from app.api.endpoints.meeting import router as meeting_router
 from app.api.endpoints.notification import router as notification_router
@@ -19,6 +20,7 @@ api_router.include_router(user_router)
 api_router.include_router(chat_router)
 api_router.include_router(project_router)
 api_router.include_router(meeting_router)
+api_router.include_router(chat_router)
 api_router.include_router(file_router)
 api_router.include_router(audio_file_router)
 api_router.include_router(transcript_router)

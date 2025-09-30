@@ -137,7 +137,7 @@ def chunk_text(text: str, chunk_size: int = 1000) -> List[str]:
     last = 0
     for m in placeholder_pattern.finditer(text_no_code):
         if m.start() > last:
-            segments.append(text_no_code[last:m.start()])
+            segments.append(text_no_code[last : m.start()])
         segments.append(m.group(0))
         last = m.end()
     if last < len(text_no_code):
