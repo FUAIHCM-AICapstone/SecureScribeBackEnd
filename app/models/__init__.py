@@ -18,7 +18,7 @@ from .project import Project, UserProject
 from .search import SearchDocument
 from .tag import MeetingTag, Tag
 from .task import Task, TaskProject
-
+from .chat import ChatMessage, ChatSession
 # Import models in dependency order (from least dependent to most dependent)
 from .user import User, UserDevice, UserIdentity
 
@@ -46,4 +46,6 @@ __all__ = [
     "AuditLog",
     "SearchDocument",
     "Integration",
+    "ChatSession",
+    "ChatMessage",
 ]

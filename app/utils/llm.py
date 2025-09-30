@@ -1,5 +1,8 @@
+import textwrap
 from typing import List
 
+from agno.agent import Agent
+from agno.db.postgres import PostgresDb
 from agno.models.google import Gemini
 from agno.models.message import Message
 from chonkie import GeminiEmbeddings
@@ -41,3 +44,57 @@ async def chat_complete(system_prompt: str, user_prompt: str) -> str:
     assistant_message = Message(role="assistant", content="")
     response = await model.ainvoke(messages, assistant_message)
     return response.content
+
+# def get_agno_postgres_db() -> PostgresDb:
+#     """Get agno PostgresDb instance for session management"""
+#     return PostgresDb(db_url=str(settings.SQLALCHEMY_DATABASE_URI), session_table="agno_sessions", user_memory_table="agno_user_memories")
+
+def get_agno_postgres_db() -> PostgresDb:
+    """Get agno PostgresDb instance for session management"""
+    kwargs = {
+        "db_url": str(settings.SQLALCHEMY_DATABASE_URI),
+        "session_table": "agno_sessions",
+    }
+    try:
+        return PostgresDb(**kwargs, user_memory_table="agno_user_memories")
+    except TypeError:
+        # Fallback nếu version không hỗ trợ user_memory_table
+        return PostgresDb(**kwargs)
+
+def create_meeting_chat_agent(agno_db: PostgresDb, session_id: str, user_id: str, meeting_id: str, meeting_title: str, tools: List, agent_name: str = "Meeting Assistant") -> Agent:
+    """Create a meeting chat agent with proper configuration"""
+    return Agent(
+        name=agent_name,
+        model=_get_model(),
+        db=agno_db,
+        session_id=session_id,
+        user_id=user_id,
+        tools=tools,
+        enable_user_memories=True,
+        enable_session_summaries=True,
+        add_history_to_context=True,
+        num_history_runs=5,
+        markdown=True,
+        description=textwrap.dedent(f"""\
+            You are a helpful AI assistant for discussing meeting content.
+
+            Current meeting context:
+            - Meeting: {meeting_title or "Unknown"}
+            - Meeting ID: {meeting_id}
+
+            You have access to these tools:
+            - meeting_transcript_tool: Get meeting transcript from audio recordings
+            - meeting_notes_tool: Get user-editable meeting notes
+            - meeting_metadata_tool: Get meeting details and metadata
+
+            Guidelines:
+            - Help users understand and analyze meeting content
+            - Answer questions about what was discussed
+            - Identify key points, decisions, and action items
+            - Be conversational and helpful
+            - Always base your responses on the actual meeting content
+            - Use the appropriate tool to retrieve meeting information when needed
+            - Be clear about what information comes from transcripts vs. notes vs. metadata
+            - For the current meeting, use meeting ID: {meeting_id}
+        """),
+    )
