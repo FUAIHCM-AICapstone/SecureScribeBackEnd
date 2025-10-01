@@ -1,13 +1,12 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
 from app.models.chat import ChatMessage, ChatMessageType, ChatSession
 from app.models.meeting import Meeting
-from app.models.user import User
 from app.schemas.chat import ChatSessionCreate, ChatSessionUpdate
 from app.services.meeting import get_meeting
 
@@ -147,6 +146,26 @@ def get_chat_messages(db: Session, session_id: uuid.UUID, user_id: uuid.UUID, pa
     messages = db.exec(query.offset(offset).limit(limit)).all()
 
     return list(messages), total
+
+
+def get_chat_history(db: Session, session_id: uuid.UUID, user_id: uuid.UUID, limit: int = 50, exclude_message_ids: Optional[Set[uuid.UUID]] = None) -> List[ChatMessage]:
+    """Get ordered chat history limited to recent messages"""
+    session = get_chat_session(db, session_id, user_id)
+    if not session:
+        return []
+
+    limit = max(limit, 1)
+    query = select(ChatMessage).where(ChatMessage.chat_session_id == session_id).order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc()).limit(limit)
+    messages = list(db.exec(query).all())[::-1]
+
+    if not messages:
+        return []
+
+    if exclude_message_ids:
+        excluded = set(exclude_message_ids)
+        messages = [message for message in messages if message.id not in excluded]
+
+    return messages
 
 
 def get_chat_session_with_messages(db: Session, session_id: uuid.UUID, user_id: uuid.UUID, message_limit: int = 50) -> Optional[dict]:

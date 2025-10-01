@@ -1,9 +1,11 @@
 import uuid
-from typing import List, Optional
+from typing import Iterable, List, Set
 
+from agno.models.message import Message
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
+from app.models.chat import ChatMessage, ChatMessageType
 from app.models.meeting import MeetingNote, Transcript
 from app.models.user import User
 from app.services.meeting import get_meeting
@@ -120,3 +122,80 @@ def get_meeting_chat_agent(
     except Exception as e:
         print(f"Error creating meeting chat agent: {e}")
         return None
+
+
+def _resolve_message_role(message_type: str) -> str:
+    if isinstance(message_type, ChatMessageType):
+        value = message_type.value
+    else:
+        value = str(message_type)
+    if value == ChatMessageType.agent.value:
+        return "assistant"
+    if value == ChatMessageType.system.value:
+        return "system"
+    return "user"
+
+
+def prime_agent_with_history(agent, history: Iterable[ChatMessage]) -> None:
+    if not agent:
+        return
+    buffered = list(history)
+    if not buffered:
+        return
+    seen: Set[str] = set(getattr(agent, "_secure_scribe_seen_message_ids", set()))
+    fresh = [message for message in buffered if str(message.id) not in seen and message.content]
+    if not fresh:
+        return
+    agno_messages = [Message(role=_resolve_message_role(message.message_type), content=message.content) for message in fresh]
+    if not agno_messages:
+        return
+    updated = False
+    memory = getattr(agent, "memory", None)
+    if memory:
+        if hasattr(memory, "add_messages"):
+            try:
+                memory.add_messages(agno_messages)
+                updated = True
+            except Exception:
+                pass
+        elif hasattr(memory, "add"):
+            try:
+                for msg in agno_messages:
+                    memory.add(msg)
+                updated = True
+            except Exception:
+                pass
+    if not updated:
+        if hasattr(agent, "add_messages"):
+            try:
+                agent.add_messages(agno_messages)
+                updated = True
+            except Exception:
+                pass
+        elif hasattr(agent, "add_message"):
+            try:
+                for msg in agno_messages:
+                    agent.add_message(msg)
+                updated = True
+            except Exception:
+                pass
+    if not updated and hasattr(agent, "db") and hasattr(agent, "session_id"):
+        db = getattr(agent, "db", None)
+        session_id = getattr(agent, "session_id", None)
+        if db and session_id:
+            if hasattr(db, "add_messages"):
+                try:
+                    db.add_messages(session_id, agno_messages)
+                    updated = True
+                except Exception:
+                    pass
+            elif hasattr(db, "add_message"):
+                try:
+                    for msg in agno_messages:
+                        db.add_message(session_id, msg)
+                    updated = True
+                except Exception:
+                    pass
+    if updated:
+        seen.update(str(message.id) for message in fresh)
+        setattr(agent, "_secure_scribe_seen_message_ids", seen)

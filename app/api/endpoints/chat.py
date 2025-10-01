@@ -22,12 +22,13 @@ from app.services.chat import (
     create_chat_message,
     create_chat_session,
     delete_chat_session,
+    get_chat_history,
     get_chat_session,
     get_chat_session_with_messages,
     get_chat_sessions_for_meeting,
     update_chat_session,
 )
-from app.services.chat_agent import get_meeting_chat_agent
+from app.services.chat_agent import get_meeting_chat_agent, prime_agent_with_history
 from app.services.user import get_user_by_id
 from app.services.websocket_manager import websocket_manager
 from app.utils.auth import get_current_user, get_current_user_from_token
@@ -148,6 +149,14 @@ async def send_chat_message_endpoint(
     if not agent:
         raise HTTPException(status_code=500, detail="Failed to create chat agent")
 
+    history_messages = get_chat_history(
+        db,
+        session_id,
+        current_user.id,
+        exclude_message_ids={user_message.id},
+    )
+    prime_agent_with_history(agent, history_messages)
+
     try:
         # Get agent response (arun is async version)
         agent_response_obj = await agent.arun(message_data.content)
@@ -207,6 +216,7 @@ async def chat_websocket_endpoint(
     """WebSocket endpoint for real-time chat"""
 
     user_id = None
+    user_uuid: Optional[uuid.UUID] = None
     db = None
 
     try:
@@ -229,10 +239,16 @@ async def chat_websocket_endpoint(
             await websocket.close(code=4001, reason="Invalid token")
             return
 
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except ValueError:
+            await websocket.close(code=4001, reason="Invalid token")
+            return
+
         # Validate user exists
         db = SessionLocal()
         try:
-            user = get_user_by_id(db, uuid.UUID(user_id))
+            user = get_user_by_id(db, user_uuid)
             if not user:
                 await websocket.close(code=4002, reason="User not found")
                 return
@@ -245,7 +261,7 @@ async def chat_websocket_endpoint(
         db = SessionLocal()
 
         # Verify session access
-        session = get_chat_session(db, session_id, uuid.UUID(user_id))
+        session = get_chat_session(db, session_id, user_uuid)
         if not session:
             await websocket.close(code=4002, reason="Chat session not found")
             return
@@ -259,8 +275,12 @@ async def chat_websocket_endpoint(
 
         # Create agent
         agent = get_meeting_chat_agent(
-            db, uuid.UUID(user_id), session.meeting_id, session.agno_session_id
+            db, user_uuid, session.meeting_id, session.agno_session_id
         )
+
+        if agent:
+            history_messages = get_chat_history(db, session_id, user_uuid)
+            prime_agent_with_history(agent, history_messages)
 
         # Main message loop
         while True:
@@ -273,19 +293,31 @@ async def chat_websocket_endpoint(
                     continue
 
                 # Create user message
-                create_chat_message(
+                user_message = create_chat_message(
                     db,
                     session_id,
-                    uuid.UUID(user_id),
+                    user_uuid,
                     message_content,
                     ChatMessageType.user,
                 )
+
+                if not user_message:
+                    await websocket.send_json({"type": "chat_error", "error": "Chat session unavailable"})
+                    continue
 
                 # Send typing indicator
                 await websocket.send_json({"type": "chat_status", "status": "processing"})
 
                 # Get agent response
                 if agent:
+                    history_messages = get_chat_history(
+                        db,
+                        session_id,
+                        user_uuid,
+                        exclude_message_ids={user_message.id},
+                    )
+                    prime_agent_with_history(agent, history_messages)
+
                     agent_response_obj = await agent.arun(message_content)
                     agent_response = (
                         agent_response_obj.content
@@ -297,7 +329,7 @@ async def chat_websocket_endpoint(
                     agent_message = create_chat_message(
                         db,
                         session_id,
-                        uuid.UUID(user_id),
+                        user_uuid,
                         agent_response,
                         ChatMessageType.agent,
                     )
@@ -314,6 +346,8 @@ async def chat_websocket_endpoint(
                             },
                         }
                     )
+                else:
+                    await websocket.send_json({"type": "chat_error", "error": "Agent unavailable"})
 
             except WebSocketDisconnect:
                 break
