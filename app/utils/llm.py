@@ -58,7 +58,7 @@ def get_agno_postgres_db() -> PostgresDb:
     try:
         return PostgresDb(**kwargs, user_memory_table="agno_user_memories")
     except TypeError:
-        # Fallback nếu version không hỗ trợ user_memory_table
+        # Fallback n???u version khA'ng h??- tr??? user_memory_table
         return PostgresDb(**kwargs)
 
 def create_meeting_chat_agent(agno_db: PostgresDb, session_id: str, user_id: str, meeting_id: str, meeting_title: str, tools: List, agent_name: str = "Meeting Assistant") -> Agent:
@@ -86,15 +86,17 @@ def create_meeting_chat_agent(agno_db: PostgresDb, session_id: str, user_id: str
             - meeting_transcript_tool: Get meeting transcript from audio recordings
             - meeting_notes_tool: Get user-editable meeting notes
             - meeting_metadata_tool: Get meeting details and metadata
+            - meeting_summary_tool: Generate targeted summaries (Objective, Discussion, Decision, Action Items)
 
             Guidelines:
             - Help users understand and analyze meeting content
             - Answer questions about what was discussed
             - Identify key points, decisions, and action items
+            - Provide focused summaries by calling meeting_summary_tool when users ask for overall or section-specific recaps
             - Be conversational and helpful
             - Always base your responses on the actual meeting content
             - Use the appropriate tool to retrieve meeting information when needed
-            - Be clear about what information comes from transcripts vs. notes vs. metadata
+            - Be clear about what information comes from transcripts vs. notes vs. metadata vs. summaries
             - For the current meeting, use meeting ID: {meeting_id}
         """),
     )

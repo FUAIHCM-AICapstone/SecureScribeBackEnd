@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from typing import Iterable, List, Set
 
@@ -9,6 +10,7 @@ from app.models.chat import ChatMessage, ChatMessageType
 from app.models.meeting import MeetingNote, Transcript
 from app.models.user import User
 from app.services.meeting import get_meeting
+from app.services.meeting_summary import summarize_meeting_sections_for_chat
 from app.utils.llm import get_agno_postgres_db, create_meeting_chat_agent
 
 
@@ -105,10 +107,37 @@ def get_meeting_chat_agent(
         def meeting_metadata_tool(mid: str = str(meeting_id)) -> str:
             return get_meeting_metadata(mid, db, user_id)
 
+        def meeting_summary_tool(sections: str = "all") -> str:
+            targets = None
+            if sections:
+                parts = [part.strip() for part in sections.split(",") if part.strip()]
+                lowered = {part.lower() for part in parts}
+                if parts and not lowered.intersection({"all", "full", "everything"}):
+                    targets = parts
+            coro = summarize_meeting_sections_for_chat(meeting_id, db, user_id, targets)
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop and loop.is_running():
+                future = asyncio.run_coroutine_threadsafe(coro, loop)
+                result = future.result()
+            else:
+                result = asyncio.run(coro)
+            order: List[str] = result.get("sections", [])  # type: ignore
+            summaries: dict = result.get("summaries", {})  # type: ignore
+            pieces: List[str] = []
+            for section in order:
+                text = str(summaries.get(section, "")).strip()
+                if text:
+                    pieces.append(f"{section}:\n{text}".strip())
+            return "\n\n".join(pieces) if pieces else "No summary available."
+
         tools: List = [
             meeting_transcript_tool,
             meeting_notes_tool,
             meeting_metadata_tool,
+            meeting_summary_tool,
         ]
 
         return create_meeting_chat_agent(
