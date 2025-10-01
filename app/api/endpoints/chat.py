@@ -118,6 +118,44 @@ def delete_chat_session_endpoint(
     return ApiResponse(success=True, message="Chat session deleted successfully", data=None)
 
 
+@router.get("/meetings/{meeting_id}/chat/{session_id}/history")
+def get_chat_history_endpoint(
+    meeting_id: uuid.UUID,
+    session_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get full chat history for a session"""
+    session = get_chat_session(db, session_id, current_user.id)
+    if not session or session.meeting_id != meeting_id:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+
+    messages = get_chat_history(db, session_id, current_user.id, limit=1000)
+
+    history = []
+    for message in messages:
+        sender = "user"
+        if message.message_type == ChatMessageType.agent:
+            sender = "agent"
+        elif message.message_type == ChatMessageType.system:
+            sender = "system"
+
+        history.append(
+            {
+                "sender": sender,
+                "message": message.content,
+                "timestamp": message.created_at.isoformat(),
+            }
+        )
+
+    return ApiResponse(
+        success=True,
+        message="Chat history retrieved successfully",
+        data=history,
+    )
+
+
+
 # ===== CHAT MESSAGE ENDPOINTS =====
 
 @router.post("/chat/sessions/{session_id}/messages", response_model=ChatMessageApiResponse)
