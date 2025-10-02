@@ -9,9 +9,7 @@ from app.utils.auth import get_current_user
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Google Calendar"])
 
 
-@router.get(
-    "/auth/google/connect", response_model=ApiResponse
-)
+@router.get("/auth/google/connect", response_model=ApiResponse)
 def connect_google_calendar(current_user: User = Depends(get_current_user)):
     """Initiate Google Calendar OAuth connection"""
     service = GoogleCalendarService()
@@ -54,6 +52,7 @@ def google_calendar_callback(request: Request):
 
     # Get user_id from Redis using the state as key
     from app.utils.google_calendar import get_user_id_from_state
+
     user_id = get_user_id_from_state(state)
 
     if not user_id:
@@ -64,9 +63,7 @@ def google_calendar_callback(request: Request):
     try:
         success = service.handle_oauth_callback(code, user_id)
         if success:
-            return ApiResponse(
-                success=True, message="Google Calendar connected successfully"
-            )
+            return ApiResponse(success=True, message="Google Calendar connected successfully")
         else:
             raise HTTPException(status_code=500, detail="Failed to store refresh token")
     except Exception as e:
@@ -80,13 +77,9 @@ def get_calendar_events(current_user: User = Depends(get_current_user)):
     service = GoogleCalendarService()
     try:
         events = service.fetch_events(current_user.id)
-        return ApiResponse(
-            success=True, message="Events retrieved successfully", data=events
-        )
+        return ApiResponse(success=True, message="Events retrieved successfully", data=events)
     except HTTPException:
         raise
     except Exception as e:
         print(f"\033[91mError fetching Google Calendar events: {e}\033[0m")
-        raise HTTPException(
-            status_code=500, detail="Failed to fetch events, please retry"
-        )
+        raise HTTPException(status_code=500, detail="Failed to fetch events, please retry")

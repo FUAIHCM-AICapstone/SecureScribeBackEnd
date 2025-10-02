@@ -10,17 +10,20 @@ from .common import PaginationMeta
 
 class ConversationCreate(BaseModel):
     """Schema for creating conversations"""
+
     title: Optional[str] = None
 
 
 class ConversationUpdate(BaseModel):
     """Schema for updating conversations"""
+
     title: Optional[str] = None
     is_active: Optional[bool] = None
 
 
 class ConversationResponse(BaseModel):
     """Schema for conversation in API responses"""
+
     id: UUID
     user_id: UUID
     title: Optional[str] = None
@@ -35,6 +38,7 @@ class ConversationResponse(BaseModel):
 
 class ConversationWithMessagesResponse(BaseModel):
     """Schema for conversation with messages"""
+
     id: UUID
     user_id: UUID
     title: Optional[str] = None
@@ -49,6 +53,7 @@ class ConversationWithMessagesResponse(BaseModel):
 
 class ConversationsPaginatedResponse(BaseModel):
     """Schema for paginated conversations response"""
+
     success: bool
     message: str
     data: List[ConversationResponse]
@@ -57,6 +62,7 @@ class ConversationsPaginatedResponse(BaseModel):
 
 class ConversationApiResponse(BaseModel):
     """Schema for conversation API response"""
+
     success: bool
     message: str
     data: ConversationResponse
@@ -64,6 +70,7 @@ class ConversationApiResponse(BaseModel):
 
 class ConversationWithMessagesApiResponse(BaseModel):
     """Schema for conversation with messages API response"""
+
     success: bool
     message: str
     data: ConversationWithMessagesResponse

@@ -20,11 +20,7 @@ class GoogleCalendarService:
     def initiate_oauth_flow(self, user_id: uuid.UUID) -> GoogleCalendarConnectResponse:
         """Create OAuth flow for Google Calendar connection"""
         flow = create_oauth_flow()
-        auth_url, state = flow.authorization_url(
-            access_type="offline",
-            prompt="consent",
-            include_granted_scopes="true"
-        )
+        auth_url, state = flow.authorization_url(access_type="offline", prompt="consent", include_granted_scopes="true")
 
         # Store the user_id in Redis keyed by the OAuth state for later retrieval
         store_oauth_state(state, user_id)

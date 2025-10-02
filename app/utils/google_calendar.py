@@ -19,11 +19,11 @@ def get_google_client_credentials() -> tuple[str, str, str]:
         client_secrets = json.load(f)
 
     # The file has a "web" key containing the credentials
-    web_config = client_secrets.get('web', client_secrets)
+    web_config = client_secrets.get("web", client_secrets)
 
-    client_id = web_config['client_id']
-    client_secret = web_config['client_secret']
-    token_uri = web_config['token_uri']
+    client_id = web_config["client_id"]
+    client_secret = web_config["client_secret"]
+    token_uri = web_config["token_uri"]
 
     return client_id, client_secret, token_uri
 
@@ -46,11 +46,7 @@ def create_oauth_flow() -> Flow:
 def exchange_code_for_token(code: str) -> Credentials:
     """Exchange authorization code for credentials"""
     flow = create_oauth_flow()
-    flow.fetch_token(
-        code=code,
-        access_type="offline",
-        prompt="consent"
-    )
+    flow.fetch_token(code=code, access_type="offline", prompt="consent")
     return flow.credentials
 
 
@@ -95,9 +91,7 @@ def get_refresh_token(user_id: uuid.UUID) -> str | None:
             )
             .first()
         )
-        return (
-            integration.credentials_meta.get("refresh_token") if integration else None
-        )
+        return integration.credentials_meta.get("refresh_token") if integration else None
     finally:
         session.close()
 
@@ -106,22 +100,12 @@ def fetch_calendar_events(refresh_token: str) -> List[Dict[str, Any]]:
     """Fetch calendar events using refresh token"""
     client_id, client_secret, token_uri = get_google_client_credentials()
 
-    credentials = Credentials(
-        token=None,
-        refresh_token=refresh_token,
-        token_uri=token_uri,
-        client_id=client_id,
-        client_secret=client_secret
-    )
+    credentials = Credentials(token=None, refresh_token=refresh_token, token_uri=token_uri, client_id=client_id, client_secret=client_secret)
     # Refresh access token using refresh token
     credentials.refresh(Request())
 
     service = build("calendar", "v3", credentials=credentials)
-    events_result = (
-        service.events()
-        .list(calendarId="primary", maxResults=10, singleEvents=True, orderBy="startTime")
-        .execute()
-    )
+    events_result = service.events().list(calendarId="primary", maxResults=10, singleEvents=True, orderBy="startTime").execute()
     return events_result.get("items", [])
 
 

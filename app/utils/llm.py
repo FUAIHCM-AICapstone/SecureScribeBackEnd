@@ -45,6 +45,7 @@ async def chat_complete(system_prompt: str, user_prompt: str) -> str:
     response = await model.ainvoke(messages, assistant_message)
     return response.content
 
+
 def get_agno_postgres_db() -> PostgresDb:
     """Get agno PostgresDb instance for session management"""
     return PostgresDb(db_url=str(settings.SQLALCHEMY_DATABASE_URI), session_table="agno_sessions", user_memory_table="agno_user_memories")
