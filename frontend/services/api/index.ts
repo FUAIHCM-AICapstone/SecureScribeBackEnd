@@ -39,6 +39,9 @@ export {
 // Search API
 export * from './search';
 
+// Google Calendar API
+export * from './googleCalendar';
+
 // Legacy exports for backward compatibility
 export { default as authApi } from './auth';
 export { default as userApi } from './user';

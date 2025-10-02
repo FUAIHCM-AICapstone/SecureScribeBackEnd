@@ -10,6 +10,8 @@ services:
       - ENV=development
       - POSTGRES_SERVER=160.191.88.194
       - POSTGRES_PORT=5400
+      - MODEL_CHECKPOINT_PATH=/app/checkpoints/checkpoints_56_90h_07.ckpt
+      - MODEL_CONFIG_PATH=/app/config/EfficientConformerCTCSmall.json
     volumes:
       - .:/app
       - /app/__pycache__
@@ -46,6 +48,8 @@ services:
       - ENV=development
       - POSTGRES_SERVER=160.191.88.194
       - POSTGRES_PORT=5400
+      - MODEL_CHECKPOINT_PATH=/app/checkpoints/checkpoints_56_90h_07.ckpt
+      - MODEL_CONFIG_PATH=/app/config/EfficientConformerCTCSmall.json
     volumes:
       - .:/app
       - /app/__pycache__

@@ -18,6 +18,7 @@ import CreateMeetingModal from './CreateMeetingModal';
 import FileUploadModal from './FileUploadModal';
 import SearchComponent from './SearchComponent';
 import TaskManager from './TaskManager';
+import GoogleCalendarSection from './GoogleCalendarSection';
 
 
 type ViewType = 'dashboard' | 'project' | 'meeting';
@@ -183,6 +184,11 @@ const Dashboard: React.FC = () => {
                 {/* Search Section */}
                 <div className="mb-8">
                     <SearchComponent />
+                </div>
+
+                {/* Google Calendar Section */}
+                <div className="mb-8">
+                    <GoogleCalendarSection />
                 </div>
 
                 {/* Tasks Section */}

@@ -38,6 +38,9 @@ python-multipart>=0.0.6
 qdrant-client>=1.9.0
 agno>=2.0.0
 google-genai>=0.20.0
+google-auth-oauthlib==1.2.0
+google-api-python-client==2.100.0
+google-auth>=2.26.1
 
 torch>=2.2.0
 tensorboard
@@ -46,5 +49,5 @@ tqdm
 pyannote.audio==3.3.2
 soundfile>=0.12.1
 jiwer
-chonkie[all]
+chonkie[all]>=0.2.1
 numpy>=1.26.0

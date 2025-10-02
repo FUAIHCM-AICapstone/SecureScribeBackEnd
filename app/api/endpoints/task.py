@@ -152,4 +152,3 @@ def delete_task_endpoint(
         message="Task deleted successfully",
         data={"id": task_id},
     )
-

@@ -28,6 +28,14 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
+def get_session() -> Session:
+    """
+    Get a database session directly.
+    Use this in service classes that manage their own database transactions.
+    """
+    return SessionLocal()
+
+
 # Function to check if database exists and has tables
 def check_database_exists() -> bool:
     """Check if database exists and has any tables"""
@@ -108,7 +116,7 @@ def create_tables() -> None:
     try:
         # Use SQLModel.metadata.create_all() - this includes all registered tables
         SQLModel.metadata.create_all(bind=engine)
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -135,7 +143,7 @@ def init_database() -> None:
             except Exception:
                 return
 
-        except Exception as e:
+        except Exception:
             if attempt < max_retries - 1:
                 time.sleep(2)
             else:
