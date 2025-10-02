@@ -5,7 +5,6 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models.meeting import Meeting
 from app.services.meeting import get_meeting
 from app.services.transcript import get_transcript_by_meeting
 from app.utils.llm import chat_complete
