@@ -55,8 +55,8 @@ def create_model(config):
     return model
 
 
-model_config_path = os.getenv("MODEL_CONFIG_PATH", "./config/EfficientConformerCTCSmall.json")
-checkpoint_path = os.getenv("MODEL_CHECKPOINT_PATH", "./checkpoints/checkpoints_56_90h_07.ckpt")
+model_config_path = os.getenv("MODEL_CONFIG_PATH", "/config/EfficientConformerCTCSmall.json")
+checkpoint_path = os.getenv("MODEL_CHECKPOINT_PATH", "/checkpoints/checkpoints_56_90h_07.ckpt")
 
 
 # chỉnh đường dẫn

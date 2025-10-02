@@ -9,6 +9,7 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from . import (
         Project,
+        User,
     )
 
 
@@ -27,12 +28,17 @@ class Integration(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    project_id: uuid.UUID = Field(foreign_key="projects.id", nullable=False)
+    user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
+    project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id")
     type: Optional[str] = Field(default=None, sa_column=Column(String))
     credentials_meta: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
 
     # Relationships
-    project: "Project" = Relationship(
+    user: "User" = Relationship(
+        back_populates="integrations",
+        sa_relationship_kwargs={"foreign_keys": "Integration.user_id"},
+    )  # type: ignore
+    project: Optional["Project"] = Relationship(
         back_populates="integrations",
         sa_relationship_kwargs={"foreign_keys": "Integration.project_id"},
     )  # type: ignore

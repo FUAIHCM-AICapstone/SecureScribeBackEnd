@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db import get_db
 from app.jobs.tasks import process_audio_task
-from app.models.meeting import Meeting
 from app.models.user import User
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.meeting import (
@@ -34,7 +33,7 @@ from app.services.meeting import (
     validate_meeting_for_audio_operations,
 )
 from app.utils.auth import get_current_user
-from app.utils.meeting import check_meeting_access, get_meeting_projects
+from app.utils.meeting import get_meeting_projects
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting"])
 
