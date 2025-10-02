@@ -3,7 +3,6 @@ import type {
     ConversationResponse,
     ConversationUpdate,
     ConversationWithMessagesResponse,
-    ConversationsPaginatedResponse
 } from '../../types/conversation.type';
 import axiosInstance from './axiosInstance';
 import { ApiWrapper, QueryBuilder } from './utilities';
@@ -25,7 +24,7 @@ export const createConversation = async (
 export const getConversations = async (
     page: number = 1,
     limit: number = 20
-): Promise<ConversationsPaginatedResponse> => {
+): Promise<ConversationResponse[]> => {
     const queryParams = {
         page,
         limit,

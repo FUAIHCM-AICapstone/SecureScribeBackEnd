@@ -44,10 +44,6 @@ export const queryKeys = {
 
     googleCalendar: ['google-calendar'] as const,
     googleCalendarStatus: ['google-calendar', 'status'] as const,
-
-    conversations: ['conversations'] as const,
-    conversation: (id: string) => ['conversations', id] as const,
-    conversationMessages: (id: string) => ['conversations', id, 'messages'] as const,
 };
 
 export default queryClient;

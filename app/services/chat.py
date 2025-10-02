@@ -26,11 +26,26 @@ def create_chat_message(
     if not conversation:
         return None
 
+    # Ensure mentions are serializable dictionaries
+    serializable_mentions = None
+    if mentions:
+        serializable_mentions = []
+        for mention in mentions:
+            if hasattr(mention, 'dict'):
+                # Convert Pydantic model to dict
+                serializable_mentions.append(mention.dict())
+            elif isinstance(mention, dict):
+                # Already a dict
+                serializable_mentions.append(mention)
+            else:
+                # Convert to dict if it's a simple object
+                serializable_mentions.append(dict(mention))
+
     db_message = ChatMessage(
         conversation_id=conversation_id,
         message_type=message_type,
         content=content,
-        mentions=mentions
+        mentions=serializable_mentions
     )
     db.add(db_message)
 
@@ -173,14 +188,14 @@ def query_documents_for_mentions(
 
     for i, mention in enumerate(mentions):
         print(f"Mention {i + 1}:")
-        print(f"  Entity Type: {mention.get('entity_type')}")
-        print(f"  Entity ID: {mention.get('entity_id')}")
-        print(f"  Offset: {mention.get('offset_start')}-{mention.get('offset_end')}")
+        print(f"  Entity Type: {mention.entity_type}")
+        print(f"  Entity ID: {mention.entity_id}")
+        print(f"  Offset: {mention.offset_start}-{mention.offset_end}")
 
         # Here we would query the actual documents based on entity type and ID
         # For now, just print what would be queried
-        entity_type = mention.get('entity_type')
-        entity_id = mention.get('entity_id')
+        entity_type = mention.entity_type
+        entity_id = mention.entity_id
 
         if entity_type == 'project':
             print(f"  -> Would query project documents for project_id: {entity_id}")

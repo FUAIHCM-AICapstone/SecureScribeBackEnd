@@ -1,40 +1,43 @@
 'use client';
 
-import { useEffect, useRef, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { connectToChatSSE, disconnectFromChatSSE } from '@/services/api/chat';
-import { getConversationWithMessages } from '@/services/api/conversation';
-import { queryKeys } from '@/lib/queryClient';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { getConversation, connectToChatSSE, disconnectFromChatSSE } from '@/services/api/chat';
 import { formatMessageWithMentions } from '@/services/api/chat';
+import type { ChatMessageResponse } from '../../types/chat.type';
 
 interface MessageContainerProps {
     conversationId: string;
 }
 
 export default function MessageContainer({ conversationId }: MessageContainerProps) {
+    const [messages, setMessages] = useState<ChatMessageResponse[]>([]);
+    const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Fetch messages using React Query
-    const { data: conversation, isLoading, error } = useQuery({
-        queryKey: queryKeys.conversationMessages(conversationId),
-        queryFn: () => getConversationWithMessages(conversationId, 50),
-        enabled: !!conversationId,
-        staleTime: 10000, // 10 seconds
-    });
+    const loadMessages = useCallback(async () => {
+        try {
+            setLoading(true);
+            console.log('Loading messages for conversation:', conversationId);
+            const conversation = await getConversation(conversationId, 50);
+            console.log('Messages loaded:', conversation.messages);
+            setMessages(conversation.messages);
+        } catch (error) {
+            console.error('Failed to load messages:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [conversationId]);
 
-    const messages = useMemo(() => conversation?.messages || [], [conversation?.messages]);
-
-    // Set up SSE connection for real-time updates
     useEffect(() => {
-        if (!conversationId) return;
-
+        loadMessages();
         console.log('Connecting to SSE for conversation:', conversationId);
         const eventSource = connectToChatSSE(
             conversationId,
             (data) => {
                 console.log('SSE message received:', data);
-                // Note: In a real app, you'd want to refetch the conversation data
-                // or update the query cache when new messages arrive
+                if (data.type === 'chat_message' && data.message) {
+                    setMessages(prev => [...(prev || []), data.message]);
+                }
             },
             (error) => console.error('SSE error:', error)
         );
@@ -43,11 +46,11 @@ export default function MessageContainer({ conversationId }: MessageContainerPro
             console.log('Disconnecting SSE for conversation:', conversationId);
             disconnectFromChatSSE(eventSource);
         };
-    }, [conversationId]);
+    }, [conversationId, loadMessages]);
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages]); // messages is now memoized, so this won't cause infinite re-renders
+    }, [messages]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -55,15 +58,11 @@ export default function MessageContainer({ conversationId }: MessageContainerPro
 
     return (
         <div className="flex-1 overflow-y-auto p-4">
-            {isLoading ? (
+            {loading ? (
                 <div className="flex justify-center py-8">
                     <div className="text-gray-500">Loading messages...</div>
                 </div>
-            ) : error ? (
-                <div className="flex justify-center py-8">
-                    <div className="text-red-500">Failed to load messages</div>
-                </div>
-            ) : messages.length === 0 ? (
+            ) : !messages || messages.length === 0 ? (
                 <div className="flex justify-center py-8">
                     <div className="text-gray-500">No messages yet. Start the conversation!</div>
                 </div>

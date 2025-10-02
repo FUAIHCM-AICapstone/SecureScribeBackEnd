@@ -184,7 +184,7 @@ async def send_chat_message_endpoint(
                 "role": "user",
                 "content": user_message.content,
                 "timestamp": user_message.created_at.isoformat(),
-                "mentions": user_message.mentions
+                "mentions": user_message.mentions if isinstance(user_message.mentions, list) else []
             },
             "ai_message": {
                 "id": str(ai_message.id),
@@ -192,7 +192,7 @@ async def send_chat_message_endpoint(
                 "role": "assistant",
                 "content": ai_message.content,
                 "timestamp": ai_message.created_at.isoformat(),
-                "mentions": ai_message.mentions or []
+                "mentions": ai_message.mentions if isinstance(ai_message.mentions, list) else []
             }
         })
 
@@ -205,7 +205,7 @@ async def send_chat_message_endpoint(
                 "role": "user",
                 "content": user_message.content,
                 "timestamp": user_message.created_at.isoformat(),
-                "mentions": user_message.mentions
+                "mentions": user_message.mentions if isinstance(user_message.mentions, list) else []
             },
             "ai_message": None
         })

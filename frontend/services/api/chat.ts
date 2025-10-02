@@ -1,15 +1,62 @@
 import type {
+    ChatConversationResponse,
     ChatMessageCreate,
     ChatMessageResponse,
+    ConversationCreate,
+    ConversationResponse,
+    ConversationsPaginatedResponse,
     Mention
 } from '../../types/chat.type';
 import axiosInstance from './axiosInstance';
-import { ApiWrapper, SSEHelper } from './utilities';
+import { ApiWrapper, QueryBuilder, SSEHelper } from './utilities';
 
 /**
- * Create a new conversation (chat session) - moved to conversation.ts
- * Use createConversation from '@/services/api/conversation' instead
+ * Create a new conversation (chat session)
  */
+export const createConversation = async (
+    conversationData: ConversationCreate
+): Promise<ConversationResponse> => {
+    return ApiWrapper.execute(() =>
+        axiosInstance.post('/conversations', conversationData)
+    );
+};
+
+/**
+ * Get user's conversations with pagination
+ */
+export const getConversations = async (
+    page: number = 1,
+    limit: number = 20
+): Promise<ConversationsPaginatedResponse> => {
+    const queryParams = {
+        page,
+        limit,
+    };
+
+    const queryString = QueryBuilder.build(queryParams);
+
+    return ApiWrapper.execute(() =>
+        axiosInstance.get(`/conversations${queryString}`)
+    );
+};
+
+/**
+ * Get a specific conversation (chat session)
+ */
+export const getConversation = async (
+    conversationId: string,
+    limit: number = 50
+): Promise<ChatConversationResponse> => {
+    const queryParams = {
+        limit,
+    };
+
+    const queryString = QueryBuilder.build(queryParams);
+
+    return ApiWrapper.execute(() =>
+        axiosInstance.get(`/conversations/${conversationId}${queryString}`)
+    );
+};
 
 /**
  * Send a chat message
