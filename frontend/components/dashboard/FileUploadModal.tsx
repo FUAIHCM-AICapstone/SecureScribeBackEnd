@@ -180,7 +180,7 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({
             });
         }
 
-        setFiles(prev => [...prev, ...newFiles]);
+        setFiles(prev => [...(prev || []), ...newFiles]);
     }, []);
 
     const removeFile = (fileId: string) => {

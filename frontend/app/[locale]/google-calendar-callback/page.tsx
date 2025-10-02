@@ -1,7 +1,7 @@
 'use client';
 
+import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import { showToast } from '../../../hooks/useShowToast';
 import { handleGoogleCalendarCallback } from '../../../services/api/googleCalendar';
 
@@ -15,7 +15,6 @@ const GoogleCalendarCallbackPage: React.FC = () => {
         const handleCallback = async () => {
             try {
                 const code = searchParams.get('code');
-                const state = searchParams.get('state');
                 const errorParam = searchParams.get('error');
 
                 if (errorParam) {

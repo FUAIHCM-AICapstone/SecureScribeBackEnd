@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text, JSON
+from sqlalchemy import JSON, Boolean, Column, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -15,13 +15,13 @@ class ChatMessageType(str, Enum):
 
 
 if TYPE_CHECKING:
-    from . import Meeting, User
+    from . import User
 
 
-class ChatSession(SQLModel, table=True):
-    """Chat session model for meeting-based conversations"""
+class Conversation(SQLModel, table=True):
+    """Chat session model for user conversations"""
 
-    __tablename__ = "chat_sessions"
+    __tablename__ = "conversations"
 
     id: uuid.UUID = Field(
         default_factory=uuid.uuid4,
@@ -33,16 +33,14 @@ class ChatSession(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
 
-    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", nullable=False)
     user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     agno_session_id: str = Field(sa_column=Column(String, nullable=False))
     title: Optional[str] = Field(default=None, sa_column=Column(String))
     is_active: bool = Field(default=True, sa_column=Column(Boolean))
 
     # Relationships
-    meeting: "Meeting" = Relationship()
     user: "User" = Relationship()
-    messages: list["ChatMessage"] = Relationship(back_populates="chat_session")
+    messages: list["ChatMessage"] = Relationship(back_populates="conversation")
 
 
 class ChatMessage(SQLModel, table=True):
@@ -59,10 +57,11 @@ class ChatMessage(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
 
-    chat_session_id: uuid.UUID = Field(foreign_key="chat_sessions.id", nullable=False)
+    conversation_id: uuid.UUID = Field(foreign_key="conversations.id", nullable=False)
     message_type: str = Field(default=ChatMessageType.user, sa_column=Column(String))
     content: str = Field(sa_column=Column(Text, nullable=False))
+    mentions: Optional[list] = Field(default=None, sa_column=Column(JSON))
     message_metadata: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
     # Relationships
-    chat_session: ChatSession = Relationship(back_populates="messages")
+    conversation: Conversation = Relationship(back_populates="messages")

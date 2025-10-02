@@ -94,7 +94,7 @@ def create_tables() -> None:
         AudioFile,  # noqa: F401
         AuditLog,  # noqa: F401
         ChatMessage,  # noqa: F401
-        ChatSession,  # noqa: F401
+        Conversation,  # noqa: F401
         File,  # noqa: F401
         Integration,  # noqa: F401
         Meeting,  # noqa: F401

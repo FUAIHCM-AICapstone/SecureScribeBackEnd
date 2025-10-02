@@ -21,21 +21,22 @@ const TaskManager: React.FC = () => {
     const [createOpen, setCreateOpen] = useState(false);
     const [editTaskId, setEditTaskId] = useState<string | null>(null);
 
-    const { data, isLoading, error } = useQuery({
+    const { data: tasksData, isLoading, error } = useQuery({
         queryKey: [queryKeys.tasks[0], { page, limit, title: titleFilter, status: statusFilter }],
         queryFn: () => getTasks(
             { title: titleFilter || undefined, status: statusFilter || undefined },
             { page, limit }
         ),
-        keepPreviousData: true,
+        placeholderData: (previousData) => previousData, // Keep previous data while loading new data
     });
 
     const tasks = useMemo(() => {
-        const list: TaskResponse[] = data?.data || [];
+        const list: TaskResponse[] = tasksData?.data || [];
         // Sort by created_at desc for display
         return [...list].sort((a, b) => (new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-    }, [data?.data]);
-    const pagination = data?.pagination || { page, limit, total: 0, total_pages: 0 };
+    }, [tasksData?.data]);
+
+    const pagination = tasksData?.pagination || { page, limit, total: 0, total_pages: 0 };
 
     useEffect(() => {
         if (error) {

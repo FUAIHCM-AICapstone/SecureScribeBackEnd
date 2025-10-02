@@ -310,3 +310,76 @@ export class UuidValidator {
         }
     }
 }
+
+/**
+ * SSE (Server-Sent Events) helper with authorization support
+ */
+export class SSEHelper {
+    /**
+     * Create an EventSource with proper authorization headers
+     * Uses cookie-based authentication like axiosInstance
+     */
+    static createEventSource(
+        url: string,
+        onMessage: (data: any) => void,
+        onError?: (error: any) => void,
+        onOpen?: () => void
+    ): EventSource {
+        // Get access token from cookies (same as axiosInstance)
+        const token = this.getAccessToken();
+
+        // Add authorization as query parameter for SSE
+        const separator = url.includes('?') ? '&' : '?';
+        const authUrl = token ? `${url}${separator}authorization=${encodeURIComponent(token)}` : url;
+
+        const eventSource = new EventSource(authUrl);
+
+        eventSource.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                onMessage(data);
+            } catch (error) {
+                console.error('Failed to parse SSE message:', error);
+                onError?.(error);
+            }
+        };
+
+        eventSource.onopen = () => {
+            onOpen?.();
+        };
+
+        eventSource.onerror = (error) => {
+            console.error('SSE connection error:', error);
+            onError?.(error);
+        };
+
+        return eventSource;
+    }
+
+    /**
+     * Get access token from cookies (same logic as axiosInstance)
+     */
+    private static getAccessToken(): string | null {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+
+        // Try to get token from cookies (same as axiosInstance interceptor)
+        const cookies = document.cookie.split(';');
+        for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'access_token' && value) {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Close an EventSource connection
+     */
+    static closeEventSource(eventSource: EventSource): void {
+        eventSource.close();
+    }
+}

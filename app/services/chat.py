@@ -3,162 +3,193 @@ from datetime import datetime
 from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
-from sqlmodel import select
 
-from app.models.chat import ChatMessage, ChatMessageType, ChatSession
-from app.models.meeting import Meeting
-from app.models.user import User
-from app.schemas.chat import ChatSessionCreate, ChatSessionUpdate
-from app.services.meeting import get_meeting
+from app.models.chat import ChatMessage, Conversation
 
 
-def create_chat_session(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, chat_data: ChatSessionCreate) -> Optional[ChatSession]:
-    """Create a new chat session for a meeting"""
-    # Verify user has access to the meeting
-    meeting = get_meeting(db, meeting_id, user_id, raise_404=True)
-    if not meeting:
+def create_chat_message(
+    db: Session,
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    content: str,
+    message_type: str,
+    mentions: Optional[List] = None
+) -> Optional[ChatMessage]:
+    """Create a chat message"""
+    # Verify conversation exists and user has access
+    conversation = db.query(Conversation).filter(
+        Conversation.id == conversation_id,
+        Conversation.user_id == user_id,
+        Conversation.is_active == True
+    ).first()
+
+    if not conversation:
         return None
 
-    # Check if user already has an active session for this meeting
-    existing_session = db.exec(select(ChatSession).where(ChatSession.meeting_id == meeting_id, ChatSession.user_id == user_id, ChatSession.is_active == True)).first()
+    db_message = ChatMessage(
+        conversation_id=conversation_id,
+        message_type=message_type,
+        content=content,
+        mentions=mentions
+    )
+    db.add(db_message)
 
-    if existing_session:
-        return existing_session
-
-    # Generate agno session ID
-    agno_session_id = f"meeting_{meeting_id}_{user_id}_{uuid.uuid4().hex[:8]}"
-
-    # Auto-generate title if not provided
-    title = chat_data.title or f"Chat about {meeting.title or 'Meeting'}"
-
-    chat_session = ChatSession(meeting_id=meeting_id, user_id=user_id, agno_session_id=agno_session_id, title=title, is_active=True)
-
-    db.add(chat_session)
+    # Update conversation's updated_at timestamp
+    conversation.updated_at = datetime.utcnow()
     db.commit()
-    db.refresh(chat_session)
-
-    return chat_session
-
-
-def get_chat_session(db: Session, session_id: uuid.UUID, user_id: uuid.UUID) -> Optional[ChatSession]:
-    """Get a chat session by ID if user has access"""
-    return db.exec(select(ChatSession).where(ChatSession.id == session_id, ChatSession.user_id == user_id)).first()
+    db.refresh(db_message)
+    return db_message
 
 
-def get_chat_sessions_for_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, page: int = 1, limit: int = 20) -> Tuple[List[ChatSession], int]:
-    """Get chat sessions for a meeting with pagination"""
-    # Verify user has access to meeting
-    meeting = get_meeting(db, meeting_id, user_id)
-    if not meeting:
-        return [], 0
+def get_conversations_for_user(
+    db: Session,
+    user_id: uuid.UUID,
+    page: int = 1,
+    limit: int = 20
+) -> Tuple[List[Conversation], int]:
+    """Get conversations for a user"""
+    query = db.query(Conversation).filter(
+        Conversation.user_id == user_id,
+        Conversation.is_active == True
+    ).order_by(Conversation.updated_at.desc())
 
-    # Get sessions
-    query = select(ChatSession).where(ChatSession.meeting_id == meeting_id, ChatSession.user_id == user_id).order_by(ChatSession.created_at.desc())
+    total = query.count()
+    conversations = query.offset((page - 1) * limit).limit(limit).all()
 
-    # Count total
-    count_query = select(ChatSession).where(ChatSession.meeting_id == meeting_id, ChatSession.user_id == user_id)
-    total = len(db.exec(count_query).all())
-
-    # Apply pagination
-    offset = (page - 1) * limit
-    sessions = db.exec(query.offset(offset).limit(limit)).all()
-
-    return list(sessions), total
+    return conversations, total
 
 
-def update_chat_session(db: Session, session_id: uuid.UUID, user_id: uuid.UUID, update_data: ChatSessionUpdate) -> Optional[ChatSession]:
-    """Update a chat session"""
-    session = get_chat_session(db, session_id, user_id)
-    if not session:
+def get_conversation(
+    db: Session,
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID
+) -> Optional[Conversation]:
+    """Get a specific conversation"""
+    return db.query(Conversation).filter(
+        Conversation.id == conversation_id,
+        Conversation.user_id == user_id,
+        Conversation.is_active == True
+    ).first()
+
+
+def get_conversation_with_messages(
+    db: Session,
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    limit: int = 50
+) -> Optional[Conversation]:
+    """Get a conversation with its messages"""
+    conversation = db.query(Conversation).filter(
+        Conversation.id == conversation_id,
+        Conversation.user_id == user_id,
+        Conversation.is_active == True
+    ).first()
+
+    if not conversation:
+        return None
+
+    # Load messages
+    messages = db.query(ChatMessage).filter(
+        ChatMessage.conversation_id == conversation_id
+    ).order_by(ChatMessage.created_at.asc()).limit(limit).all()
+
+    conversation.messages = messages
+    return conversation
+
+
+def update_conversation(
+    db: Session,
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    update_data: dict
+) -> Optional[Conversation]:
+    """Update a conversation"""
+    conversation = db.query(Conversation).filter(
+        Conversation.id == conversation_id,
+        Conversation.user_id == user_id,
+        Conversation.is_active == True
+    ).first()
+
+    if not conversation:
         return None
 
     # Update fields
-    if update_data.title is not None:
-        session.title = update_data.title
-    if update_data.is_active is not None:
-        session.is_active = update_data.is_active
+    if update_data.get('title') is not None:
+        conversation.title = update_data['title']
+    if update_data.get('is_active') is not None:
+        conversation.is_active = update_data['is_active']
 
-    session.updated_at = datetime.utcnow()
-
-    db.add(session)
+    conversation.updated_at = datetime.utcnow()
     db.commit()
-    db.refresh(session)
+    db.refresh(conversation)
+    return conversation
 
-    return session
 
+def delete_conversation(
+    db: Session,
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID
+) -> bool:
+    """Soft delete a conversation"""
+    conversation = db.query(Conversation).filter(
+        Conversation.id == conversation_id,
+        Conversation.user_id == user_id
+    ).first()
 
-def delete_chat_session(db: Session, session_id: uuid.UUID, user_id: uuid.UUID) -> bool:
-    """Delete a chat session and all its messages"""
-    session = get_chat_session(db, session_id, user_id)
-    if not session:
+    if not conversation:
         return False
 
-    # Delete all messages first
-    db.exec(select(ChatMessage).where(ChatMessage.chat_session_id == session_id))
-    messages = db.exec(select(ChatMessage).where(ChatMessage.chat_session_id == session_id)).all()
-
-    for message in messages:
-        db.delete(message)
-
-    # Delete the session
-    db.delete(session)
+    conversation.is_active = False
+    conversation.updated_at = datetime.utcnow()
     db.commit()
-
     return True
 
 
-def create_chat_message(db: Session, session_id: uuid.UUID, user_id: uuid.UUID, content: str, message_type: ChatMessageType = ChatMessageType.user, message_metadata: Optional[dict] = None) -> Optional[ChatMessage]:
-    """Create a new chat message"""
-    # Verify session exists and user has access
-    session = get_chat_session(db, session_id, user_id)
-    if not session or not session.is_active:
-        return None
-
-    message = ChatMessage(chat_session_id=session_id, message_type=message_type, content=content, message_metadata=message_metadata)
-
-    db.add(message)
-    db.commit()
-    db.refresh(message)
-
-    # Update session timestamp
-    session.updated_at = datetime.utcnow()
-    db.add(session)
-    db.commit()
-
-    return message
+def get_recent_messages(
+    db: Session,
+    conversation_id: uuid.UUID,
+    limit: int = 5
+) -> List[ChatMessage]:
+    """Get recent messages from a conversation for context"""
+    return db.query(ChatMessage).filter(
+        ChatMessage.conversation_id == conversation_id
+    ).order_by(ChatMessage.created_at.desc()).limit(limit).all()
 
 
-def get_chat_messages(db: Session, session_id: uuid.UUID, user_id: uuid.UUID, page: int = 1, limit: int = 50) -> Tuple[List[ChatMessage], int]:
-    """Get chat messages for a session with pagination"""
-    # Verify session access
-    session = get_chat_session(db, session_id, user_id)
-    if not session:
-        return [], 0
+def query_documents_for_mentions(
+    mentions: List[dict],
+    current_user_id: str
+) -> str:
+    """
+    Query documents based on mentions and print query information.
+    For now, just prints the query structure as requested.
+    """
+    if not mentions:
+        return "No mentions found"
 
-    # Get messages ordered by creation time
-    query = select(ChatMessage).where(ChatMessage.chat_session_id == session_id).order_by(ChatMessage.created_at.asc())
+    print("=== MENTION-BASED QUERY DEBUG ===")
+    print(f"User ID: {current_user_id}")
+    print(f"Number of mentions: {len(mentions)}")
 
-    # Count total
-    count_query = select(ChatMessage).where(ChatMessage.chat_session_id == session_id)
-    total = len(db.exec(count_query).all())
+    for i, mention in enumerate(mentions):
+        print(f"Mention {i + 1}:")
+        print(f"  Entity Type: {mention.get('entity_type')}")
+        print(f"  Entity ID: {mention.get('entity_id')}")
+        print(f"  Offset: {mention.get('offset_start')}-{mention.get('offset_end')}")
 
-    # Apply pagination
-    offset = (page - 1) * limit
-    messages = db.exec(query.offset(offset).limit(limit)).all()
+        # Here we would query the actual documents based on entity type and ID
+        # For now, just print what would be queried
+        entity_type = mention.get('entity_type')
+        entity_id = mention.get('entity_id')
 
-    return list(messages), total
+        if entity_type == 'project':
+            print(f"  -> Would query project documents for project_id: {entity_id}")
+        elif entity_type == 'meeting':
+            print(f"  -> Would query meeting documents for meeting_id: {entity_id}")
+        elif entity_type == 'file':
+            print(f"  -> Would query file content for file_id: {entity_id}")
 
+    print(f"  -> Would also include user's personal documents (user_id: {current_user_id})")
+    print("=== END QUERY DEBUG ===")
 
-def get_chat_session_with_messages(db: Session, session_id: uuid.UUID, user_id: uuid.UUID, message_limit: int = 50) -> Optional[dict]:
-    """Get chat session with its messages and meeting info"""
-    session = get_chat_session(db, session_id, user_id)
-    if not session:
-        return None
-
-    # Get messages
-    messages, total_messages = get_chat_messages(db, session_id, user_id, limit=message_limit)
-
-    # Get meeting info
-    meeting = db.exec(select(Meeting).where(Meeting.id == session.meeting_id)).first()
-
-    return {"session": session, "messages": messages, "total_messages": total_messages, "meeting_title": meeting.title if meeting else None}
+    return f"Processed {len(mentions)} mentions for query"

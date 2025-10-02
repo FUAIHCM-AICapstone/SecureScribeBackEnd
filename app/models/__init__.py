@@ -1,7 +1,7 @@
 # Import base first
 from .audit import AuditLog
 from .base import BaseDatabaseModel
-from .chat import ChatMessage, ChatMessageType, ChatSession
+from .chat import ChatMessage, ChatMessageType, Conversation
 from .file import File
 from .integration import Integration
 from .meeting import (
@@ -47,7 +47,7 @@ __all__ = [
     "AuditLog",
     "SearchDocument",
     "Integration",
-    "ChatSession",
+    "Conversation",
     "ChatMessage",
     "ChatMessageType",
 ]
