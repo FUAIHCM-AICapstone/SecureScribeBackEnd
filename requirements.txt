@@ -27,10 +27,8 @@ tenacity>=9.1.2
 # Retry and timeout handling for embeddings
 tiktoken>=0.8.0
 
-# Legacy SSE Support (no longer used - migrated to WebSocket)
-# sse-starlette>=1.6.0
+requests>=2.31.0
 
-# File Management Dependencies
 minio>=7.1.0
 pymupdf>=1.23.0
 python-docx>=1.1.0
@@ -38,11 +36,3 @@ python-multipart>=0.0.6
 qdrant-client>=1.9.0
 agno>=2.0.0
 google-genai>=0.20.0
-
-torch>=2.2.0
-tensorboard
-sentencepiece
-tqdm
-pyannote.audio==3.3.2
-soundfile>=0.12.1
-jiwer

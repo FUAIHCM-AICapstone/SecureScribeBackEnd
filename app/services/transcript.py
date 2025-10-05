@@ -15,12 +15,14 @@ from app.utils.inference import transcriber
 from app.utils.meeting import check_meeting_access
 from app.utils.minio import download_file_from_minio
 
+from .meeting import get_meeting
+
 
 def check_transcript_access(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     transcript = db.query(Transcript).filter(Transcript.id == transcript_id).first()
     if not transcript:
         return False
-    meeting = db.query(Meeting).filter(Meeting.id == transcript.meeting_id).first()
+    meeting = get_meeting(db, transcript.meeting_id, user_id)
     if not meeting:
         return False
     return check_meeting_access(db, meeting, user_id)
@@ -48,7 +50,7 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
 
 
 def create_transcript(db: Session, transcript_data: TranscriptCreate, user_id: uuid.UUID) -> Transcript:
-    meeting = db.query(Meeting).filter(Meeting.id == transcript_data.meeting_id).first()
+    meeting = get_meeting(db, transcript_data.meeting_id, user_id)
     if not meeting:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
     if not check_meeting_access(db, meeting, user_id):
@@ -74,7 +76,7 @@ def get_transcript(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID) ->
 
 
 def get_transcript_by_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Transcript]:
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
         return None
     if not check_meeting_access(db, meeting, user_id):
