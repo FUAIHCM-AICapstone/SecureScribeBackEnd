@@ -86,6 +86,9 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str = "AIzaSyDKJL5HLh3syVxysfjFkBdqrJaY9dLXc_A"
     GOOGLE_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
 
+    # Transcription API Configuration
+    TRANSCRIBE_API_BASE_URL: str = "https://s2t.wc504.io.vn/api/v1"
+
     # Indexing Configuration
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
