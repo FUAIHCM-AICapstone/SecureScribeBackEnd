@@ -1,6 +1,25 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin123
+      - POSTGRES_DB=securescribe
+    ports:
+      - "5400:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - securescribe-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d securescribe"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api:
     build: .
     image: securescribe-api
@@ -8,17 +27,18 @@ services:
       - "8000:8000"
     environment:
       - ENV=development
-      - POSTGRES_SERVER=160.191.88.194
-      - POSTGRES_PORT=5400
-      - MODEL_CHECKPOINT_PATH=/app/checkpoints/checkpoints_56_90h_07.ckpt
-      - MODEL_CONFIG_PATH=/app/config/EfficientConformerCTCSmall.json
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
     volumes:
       - .:/app
       - /app/__pycache__
       - /app/.pytest_cache
     restart: unless-stopped
+    networks:
+      - securescribe-network
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
     depends_on:
+      - db
       - redis
       - minio
 
@@ -27,6 +47,8 @@ services:
     ports:
       - "6379:6379"
     restart: unless-stopped
+    networks:
+      - securescribe-network
 
   minio:
     image: minio/minio:latest
@@ -40,21 +62,24 @@ services:
       - minio_data:/data
     command: server /data --console-address ":9001"
     restart: unless-stopped
+    networks:
+      - securescribe-network
 
   celery_worker:
     image: securescribe-api
     command: celery -A app.jobs.celery_worker worker --loglevel=info
     environment:
       - ENV=development
-      - POSTGRES_SERVER=160.191.88.194
-      - POSTGRES_PORT=5400
-      - MODEL_CHECKPOINT_PATH=/app/checkpoints/checkpoints_56_90h_07.ckpt
-      - MODEL_CONFIG_PATH=/app/config/EfficientConformerCTCSmall.json
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
     volumes:
       - .:/app
       - /app/__pycache__
     restart: unless-stopped
+    networks:
+      - securescribe-network
     depends_on:
+      - db
       - redis
 
   qdrant:
@@ -65,6 +90,8 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped
+    networks:
+      - securescribe-network
 
   test:
     build: .
@@ -77,6 +104,10 @@ services:
     command: pytest tests/ -v --tb=short
     profiles:
       - test
+
+networks:
+  securescribe-network:
+    driver: bridge
 
 volumes:
   postgres_data:
