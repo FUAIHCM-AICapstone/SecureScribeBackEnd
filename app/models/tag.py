@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Column, DateTime, String, func
+from sqlalchemy import Boolean, Column, DateTime, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -28,6 +28,7 @@ class Tag(SQLModel, table=True):
     name: str = Field(sa_column=Column(String, nullable=False))
     created_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     scope: str = Field(default="global", sa_column=Column(String))
+    is_deleted: bool = Field(default=False, sa_column=Column(Boolean))
 
     # Relationships
     created_by_user: "User" = Relationship(

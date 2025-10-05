@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from .common import ApiResponse, PaginatedResponse
+from .tag import TagResponse
 
 
 class ProjectResponse(BaseModel):
@@ -62,6 +63,7 @@ class MeetingResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     projects: List[ProjectResponse] = Field(default_factory=list)
+    tags: List[TagResponse] = Field(default_factory=list)
     can_access: bool = True
 
     class Config:

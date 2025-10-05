@@ -8,6 +8,7 @@ from app.api.endpoints.meeting import router as meeting_router
 from app.api.endpoints.notification import router as notification_router
 from app.api.endpoints.project import router as project_router
 from app.api.endpoints.search import router as search_router
+from app.api.endpoints.tag import router as tag_router
 from app.api.endpoints.task import router as task_router
 from app.api.endpoints.transcript import router as transcript_router
 from app.api.endpoints.user import router as user_router
@@ -25,4 +26,5 @@ api_router.include_router(webhook_router)
 api_router.include_router(search_router)
 api_router.include_router(notification_router)
 api_router.include_router(task_router)
+api_router.include_router(tag_router)
 api_router.include_router(google_calendar_router)

@@ -33,7 +33,7 @@ from app.services.meeting import (
     validate_meeting_for_audio_operations,
 )
 from app.utils.auth import get_current_user
-from app.utils.meeting import get_meeting_projects
+from app.utils.meeting import get_meeting_projects, get_meeting_tags
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting"])
 
@@ -114,6 +114,7 @@ def get_meetings_endpoint(
         meetings_data = []
         for meeting in meetings:
             _ = get_meeting_projects(db, meeting.id)
+            tags = get_meeting_tags(db, meeting.id)
             meetings_data.append(
                 {
                     "id": meeting.id,
@@ -128,6 +129,7 @@ def get_meetings_endpoint(
                     "created_at": meeting.created_at,
                     "updated_at": meeting.updated_at,
                     "projects": [],
+                    "tags": tags,
                     "can_access": True,
                 }
             )
@@ -156,6 +158,7 @@ def get_meeting_endpoint(
     try:
         meeting = get_meeting(db, meeting_id, current_user.id, raise_404=True)
         projects = get_meeting_projects(db, meeting.id)
+        tags = get_meeting_tags(db, meeting.id)
         response_data = {
             "id": meeting.id,
             "title": meeting.title,
@@ -169,6 +172,7 @@ def get_meeting_endpoint(
             "created_at": meeting.created_at,
             "updated_at": meeting.updated_at,
             "projects": [],
+            "tags": tags,
             "can_access": True,
             "project_count": len(projects),
             "member_count": 0,
@@ -310,7 +314,7 @@ def upload_meeting_audio_endpoint(
     """Upload an audio file to a meeting and enqueue ASR (mock) processing."""
     try:
         # Validate meeting and access control
-        meeting = validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
+        validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
 
         # Validate file size and content type (≤ 100MB)
         content = file.file.read()
@@ -373,7 +377,7 @@ def list_meeting_audio_endpoint(
 ):
     try:
         # Validate meeting and access control
-        meeting = validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
+        validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
 
         rows, total = get_meeting_audio_files(db, meeting_id, page, limit)
 

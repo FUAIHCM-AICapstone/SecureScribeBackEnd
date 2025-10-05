@@ -57,6 +57,19 @@ def get_meeting_projects(db: Session, meeting_id: uuid.UUID) -> List[uuid.UUID]:
     return [pm.project_id for pm in project_meetings]
 
 
+def get_meeting_tags(db: Session, meeting_id: uuid.UUID) -> List[dict]:
+    """Get list of tags linked to meeting"""
+    from app.models.tag import MeetingTag, Tag
+
+    meeting_tags = (
+        db.query(Tag)
+        .join(MeetingTag, Tag.id == MeetingTag.tag_id)
+        .filter(MeetingTag.meeting_id == meeting_id, Tag.is_deleted == False)
+        .all()
+    )
+    return [{"id": tag.id, "name": tag.name, "scope": tag.scope, "created_by": tag.created_by, "created_at": tag.created_at, "updated_at": tag.updated_at, "meeting_count": 0} for tag in meeting_tags]
+
+
 def can_delete_meeting(db: Session, meeting: Meeting, user_id: uuid.UUID) -> bool:
     """Check if user can delete meeting"""
     # Owner of meeting can delete
