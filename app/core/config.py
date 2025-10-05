@@ -38,8 +38,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "SecureScribeBE"
 
     # Database Configuration
-    POSTGRES_SERVER: str = "160.191.88.194"  # External database server
-    POSTGRES_PORT: int = 5433  # External database port
+    POSTGRES_SERVER: str = "db"  # External database server
+    POSTGRES_PORT: int = 5432  # External database port
     POSTGRES_USER: str = "admin"
     POSTGRES_PASSWORD: str = "admin123"
     POSTGRES_DB: str = "securescribe"
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
 
     # Redis Configuration
     REDIS_HOST: str = "redis"
-    REDIS_PORT: int = 6380
+    REDIS_PORT: int = 6379
     REDIS_DB: int = 0
 
     # WebSocket Configuration
