@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # Server Configuration
     SERVER_NAME: str = "SecureScribeBE"
     SERVER_HOST: str = "http://localhost"
-    SERVER_PORT: int = 8000
+    SERVER_PORT: int = 8081
 
     # CORS Configuration
     BACKEND_CORS_ORIGINS: Annotated[
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     # Database Configuration
     POSTGRES_SERVER: str = "160.191.88.194"  # External database server
-    POSTGRES_PORT: int = 5400  # External database port
+    POSTGRES_PORT: int = 5433  # External database port
     POSTGRES_USER: str = "admin"
     POSTGRES_PASSWORD: str = "admin123"
     POSTGRES_DB: str = "securescribe"
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
 
     # Redis Configuration
     REDIS_HOST: str = "redis"
-    REDIS_PORT: int = 6379
+    REDIS_PORT: int = 6380
     REDIS_DB: int = 0
 
     # WebSocket Configuration
@@ -64,13 +64,13 @@ class Settings(BaseSettings):
     WEBSOCKET_CLEANUP_INTERVAL: int = 60  # 1 minute cleanup interval
 
     # MinIO Configuration
-    MINIO_ENDPOINT: str = "minio:9000"
+    MINIO_ENDPOINT: str = "minio:9002"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_SECURE: bool = False
     MINIO_BUCKET_NAME: str = "securescribe-files"
     MINIO_PUBLIC_BUCKET_NAME: str = "securescribe-public"
-    MINIO_PUBLIC_URL: str = "http://localhost:9000"  # Public URL for permanent links (internal Docker network)
+    MINIO_PUBLIC_URL: str = "http://localhost:9002"  # Public URL for permanent links (internal Docker network)
 
     # File Configuration
     MAX_FILE_SIZE_MB: int = 100
@@ -79,7 +79,7 @@ class Settings(BaseSettings):
 
     # Qdrant Configuration
     QDRANT_HOST: str = "qdrant"
-    QDRANT_PORT: int = 6333
+    QDRANT_PORT: int = 6334
     QDRANT_COLLECTION_NAME: str = "documents"
 
     # Google AI Configuration
