@@ -1,5 +1,8 @@
-﻿from datetime import datetime
-from typing import Dict, Optional, Sequence
+from __future__ import annotations
+
+import logging
+from datetime import datetime
+from typing import Any, Dict, Optional, Sequence
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -7,7 +10,17 @@ from sqlalchemy.orm import Session
 
 from app.models.meeting import MeetingNote
 from app.services.meeting import get_meeting
+from app.services.transcript import get_transcript_by_meeting
+from app.utils.meeting_agent import MeetingAnalyzer
 from app.utils.meeting_summary import generate_meeting_summary, normalize_summary_sections
+
+LOGGER = logging.getLogger(__name__)
+
+try:
+    _MEETING_ANALYZER = MeetingAnalyzer()
+except Exception as exc:  # pragma: no cover - defensive
+    LOGGER.warning("MeetingAnalyzer initialisation failed: %s", exc)
+    _MEETING_ANALYZER = None
 
 
 def _get_note(db: Session, meeting_id: UUID) -> Optional[MeetingNote]:
@@ -22,7 +35,14 @@ def get_meeting_note(db: Session, meeting_id: UUID, user_id: UUID, *, raise_not_
     return note
 
 
-def upsert_meeting_note(db: Session, meeting_id: UUID, user_id: UUID, content: str) -> MeetingNote:
+def upsert_meeting_note(
+    db: Session,
+    meeting_id: UUID,
+    user_id: UUID,
+    content: str,
+    *,
+    ai_data: Optional[Dict[str, Any]] = None,
+) -> MeetingNote:
     now = datetime.utcnow()
     note = _get_note(db, meeting_id)
     if note:
@@ -30,28 +50,92 @@ def upsert_meeting_note(db: Session, meeting_id: UUID, user_id: UUID, content: s
         note.last_editor_id = user_id
         note.last_edited_at = now
     else:
-        note = MeetingNote(meeting_id=meeting_id, content=content, last_editor_id=user_id, last_edited_at=now)
+        note = MeetingNote(
+            meeting_id=meeting_id,
+            content=content,
+            last_editor_id=user_id,
+            last_edited_at=now,
+        )
         db.add(note)
+
+    # if ai_data:
+    #     note.ai_meeting_type = ai_data.get('meeting_type')
+    #     note.ai_is_informative = ai_data.get('is_informative')
+    #     note.ai_task_items = ai_data.get('task_items') or []
+    #     note.ai_decision_items = ai_data.get('decision_items') or []
+    #     note.ai_question_items = ai_data.get('question_items') or []
+    #     note.ai_token_usage = ai_data.get('token_usage') or {}
+    # else:
+    #     note.ai_meeting_type = None
+    #     note.ai_is_informative = None
+    #     note.ai_task_items = []
+    #     note.ai_decision_items = []
+    #     note.ai_question_items = []
+    #     note.ai_token_usage = {}
     db.commit()
     db.refresh(note)
     return note
 
 
-async def create_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> Dict[str, object]:
+async def create_meeting_note(
+    db: Session,
+    meeting_id: UUID,
+    user_id: UUID,
+    *,
+    use_ai: bool = True,
+    custom_prompt: Optional[str] = None,
+    meeting_type_hint: Optional[str] = None,
+) -> Dict[str, object]:
     get_meeting(db, meeting_id, user_id, raise_404=True)
     existing = _get_note(db, meeting_id)
     if existing:
         raise HTTPException(status_code=409, detail="Meeting note already exists")
+
     summary = await generate_meeting_summary(db, meeting_id, user_id)
-    content: str = summary["content"]  # type: ignore
-    summaries = summary["summaries"]  # type: ignore
-    sections = summary["sections"]  # type: ignore
-    note = upsert_meeting_note(db, meeting_id, user_id, content)
+    summary_content: str = summary["content"]  # type: ignore[assignment]
+    summaries = summary["summaries"]  # type: ignore[assignment]
+    sections = summary["sections"]  # type: ignore[assignment]
+
+    # ai_payload: Optional[Dict[str, Any]] = None
+    ai_note_content: Optional[str] = None
+
+    transcript = get_transcript_by_meeting(db, meeting_id)
+    transcript_content = transcript.content if transcript else None
+
+    if use_ai and _MEETING_ANALYZER and transcript_content:
+        try:
+            ai_result = await _MEETING_ANALYZER.complete(
+                transcript=transcript_content,
+                meeting_type=meeting_type_hint,
+                custom_prompt=custom_prompt,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            LOGGER.error("MeetingAnalyzer execution failed: %s", exc, exc_info=True)
+        else:
+            is_informative = bool(ai_result.get("is_informative", True))
+            meeting_note = (ai_result.get("meeting_note") or "").strip()
+            if is_informative and meeting_note:
+                # ai_payload = {
+                #     'meeting_type': ai_result.get('meeting_type')
+                #     'is_informative': is_informative
+                #     'task_items': ai_result.get('task_items') or []
+                #     'decision_items': ai_result.get('decision_items') or []
+                #     'question_items': ai_result.get('question_items') or []
+                #     'token_usage': ai_result.get('token_usage') or {}
+                ai_note_content = meeting_note
+                # }
+            else:
+                LOGGER.info("MeetingAnalyzer returned insufficient data; falling back to summary")
+
+    note_content = ai_note_content or summary_content
+    note = upsert_meeting_note(db, meeting_id, user_id, note_content)
+
     return {
         "note": note,
-        "content": content,
+        "content": note_content,
         "summaries": summaries,
         "sections": sections,
+        # "ai": ai_payload,
     }
 
 
@@ -64,12 +148,12 @@ async def update_meeting_note(
     sections: Optional[Sequence[str]] = None,
 ) -> MeetingNote:
     note = get_meeting_note(db, meeting_id, user_id)
-    materialized = content
-    if materialized is None:
+    materialised = content
+    if materialised is None:
         normalized = normalize_summary_sections(sections)
         summary = await generate_meeting_summary(db, meeting_id, user_id, normalized)
-        materialized = summary["content"]  # type: ignore
-    return upsert_meeting_note(db, meeting_id, user_id, materialized)
+        materialised = summary["content"]  # type: ignore[assignment]
+    return upsert_meeting_note(db, meeting_id, user_id, materialised, ai_data=None)
 
 
 def delete_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> None:

@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Dict
+
 # Meeting prompts for different meeting types
 """
 This module contains system prompts for different types of meetings.

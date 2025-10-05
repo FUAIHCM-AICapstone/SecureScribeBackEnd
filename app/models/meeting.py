@@ -171,6 +171,12 @@ class MeetingNote(SQLModel, table=True):
     content: Optional[str] = Field(default=None, sa_column=Column(Text))
     last_editor_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     last_edited_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    # ai_meeting_type: Optional[str] = Field(default=None, sa_column=Column(String))
+    # ai_is_informative: Optional[bool] = Field(default=None, sa_column=Column(Boolean))
+    # ai_task_items: List[Dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    # ai_decision_items: List[Dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    # ai_question_items: List[Dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    # ai_token_usage: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Relationships
     meeting: Meeting = Relationship(back_populates="notes")

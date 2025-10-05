@@ -1,6 +1,7 @@
 ﻿from uuid import UUID
+from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -23,15 +24,26 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting Notes"])
 @router.post("/meetings/{meeting_id}/notes", response_model=ApiResponse[MeetingNoteSummaryResponse])
 async def create_meeting_note_endpoint(
     meeting_id: UUID,
+    use_ai: bool = Query(True, description="Generate note with the AI meeting agent when available"),
+    custom_prompt: Optional[str] = Query(None, description="Optional custom instructions for the AI agent"),
+    meeting_type_hint: Optional[str] = Query(None, description="Optional meeting type hint for the AI agent"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await create_meeting_note(db, meeting_id, current_user.id)
+    result = await create_meeting_note(
+        db,
+        meeting_id,
+        current_user.id,
+        use_ai=use_ai,
+        custom_prompt=custom_prompt,
+        meeting_type_hint=meeting_type_hint,
+    )
     payload = MeetingNoteSummaryResponse(
         note=MeetingNoteResponse.model_validate(result["note"]),
         content=result["content"],
         summaries=result["summaries"],
         sections=result["sections"],
+        # ai=result.get("ai"),
     )
     return ApiResponse(success=True, message="Meeting note created", data=payload)
 

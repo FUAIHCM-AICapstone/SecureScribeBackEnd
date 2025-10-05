@@ -1,167 +1,263 @@
+from __future__ import annotations
+
 import logging
-import uuid
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import END, START, StateGraph
+from agno.agent import Agent
+from agno.models.message import Message
+from pydantic import ValidationError
 
-from app.utils.meeting_agent.agent_schema import MeetingState
-from app.utils.meeting_agent.llm_setup import initialize_llm
-from app.utils.meeting_agent.meeting_processor.informative_checker import InformativeChecker
-from app.utils.meeting_agent.meeting_processor.output_generator import OutputGenerator
-from app.utils.meeting_agent.meeting_processor.simple_note_generator import SimpleMeetingNoteGenerator
-from app.utils.meeting_agent.meeting_processor.summary_extractor import SummaryExtractor
+from app.utils.meeting_agent.agent_schema import (
+    Decision,
+    MeetingOutput,
+    MeetingState,
+    MeetingTypeResult,
+    Question,
+    Task,
+)
 from app.utils.meeting_agent.meeting_prompts import get_meeting_type_detector_prompt
-from app.utils.meeting_agent.utils import TokenTracker, calculate_price
+LOGGER = logging.getLogger("MeetingProcessor")
+
+if TYPE_CHECKING:
+    from .informative_checker import InformativeChecker
+    from .output_generator import OutputGenerator
+    from .simple_note_generator import SimpleMeetingNoteGenerator
+    from .summary_extractor import SummaryExtractor
+
+__all__ = ["MeetingProcessor", "TokenTracker", "update_tracker_from_metrics"]
 
 
-class MeetingTypeDetector:
-	"""Detects meeting type from transcript content."""
+class TokenTracker:
+    """Track token usage reported by Agno."""
 
-	def __init__(self, llm, token_tracker):
-		self.llm = llm
-		self.token_tracker = token_tracker
-		self.logger = logging.getLogger('MeetingTypeDetector')
+    def __init__(self) -> None:
+        self.input_tokens = 0
+        self.output_tokens = 0
+        self.context_tokens = 0
 
-	def detect(self, state: MeetingState) -> MeetingState:
-		"""Detects the meeting type based on transcript content if not already provided."""
-		self.logger.info('Detecting meeting type from transcript')
-		# If meeting type is already set and not 'general', use that
-		if state.get('meeting_type') and state.get('meeting_type') != 'general':
-			self.logger.info(f'Using provided meeting type: {state.get("meeting_type")}')
-			return state
+    @property
+    def total_tokens(self) -> int:
+        return self.input_tokens + self.output_tokens + self.context_tokens
 
-		# If transcript is empty or too short, return general
-		transcript = state.get('transcript', '')
-		if not transcript or len(transcript) < 50:
-			self.logger.warning('Transcript too short for reliable meeting type detection')
-			return {**state, 'meeting_type': 'general'}
+    def add_input_tokens(self, tokens: int) -> None:
+        self.input_tokens += int(tokens)
 
-		# Prepare sample of transcript to analyze (first 2000 chars to save tokens)
-		transcript_sample = transcript[:2000]
+    def add_output_tokens(self, tokens: int) -> None:
+        self.output_tokens += int(tokens)
 
-		try:
-			# Get detector prompt
-			detector_prompt = get_meeting_type_detector_prompt()
+    def add_context_tokens(self, tokens: int) -> None:
+        self.context_tokens += int(tokens)
 
-			# Call LLM to detect meeting type
-			response = self.llm.invoke(detector_prompt + f'\n\nTranscript:\n{transcript_sample}')
-			detected_type = response.content.strip().lower()
 
-			# Validate detected type
-			valid_types = ['general', 'project', 'business', 'product', 'report']
-			if detected_type not in valid_types:
-				self.logger.warning(f"Invalid meeting type detected: {detected_type}. Using 'general' instead.")
-				detected_type = 'general'
+def update_tracker_from_metrics(token_tracker: TokenTracker, metrics: Any) -> None:
+    """Update tracker counters from an Agno metrics object."""
+    if metrics is None:
+        return
+    input_tokens = getattr(metrics, "input_tokens", 0) or 0
+    output_tokens = getattr(metrics, "output_tokens", 0) or 0
+    total_tokens = getattr(metrics, "total_tokens", 0) or 0
+    context_tokens = total_tokens - input_tokens - output_tokens
+    if input_tokens:
+        token_tracker.add_input_tokens(input_tokens)
+    if output_tokens:
+        token_tracker.add_output_tokens(output_tokens)
+    if context_tokens > 0:
+        token_tracker.add_context_tokens(context_tokens)
 
-			self.logger.info(f'Detected meeting type: {detected_type}')
 
-			# Return updated state with detected meeting type
-			return {
-				**state,
-				'meeting_type': detected_type,
-				'messages': state['messages'] + [HumanMessage(content='Phân tích loại cuộc họp'), AIMessage(content=f'Đã xác định đây là cuộc họp loại: {detected_type}')],
-			}
+class MeetingTypeDetector(Agent):
+    """Detect the meeting type based on transcript content."""
 
-		except Exception as e:
-			self.logger.error(f'Error detecting meeting type: {str(e)}')
-			return {**state, 'meeting_type': 'general'}
+    VALID_TYPES = ("general", "project", "business", "product", "report")
+
+    def __init__(self, model: Any, token_tracker: TokenTracker) -> None:
+        instructions = [
+            get_meeting_type_detector_prompt(),
+            "Return JSON matching the MeetingTypeResult schema with fields meeting_type and optional reasoning.",
+            "meeting_type must be one of: general, project, business, product, report.",
+        ]
+        super().__init__(
+            name="MeetingTypeDetector",
+            model=model,
+            instructions=instructions,
+            output_schema=MeetingTypeResult,
+            structured_outputs=True,
+            use_json_mode=True,
+        )
+        self._logger = logging.getLogger("MeetingTypeDetector")
+        self._token_tracker = token_tracker
+
+    async def detect(self, state: MeetingState) -> MeetingState:
+        provided_type = (state.get("meeting_type") or "").strip().lower()
+        if provided_type and provided_type != "general":
+            self._logger.info("Using provided meeting type: %s", provided_type)
+            state["meeting_type"] = provided_type
+            self._append_message(state, f"meeting_type preset: {provided_type}")
+            return state
+
+        transcript = state.get("transcript") or ""
+        if not transcript.strip():
+            self._logger.warning("Transcript is empty, defaulting meeting type to general")
+            return self._apply_result(
+                state,
+                MeetingTypeResult(meeting_type="general", reasoning="Transcript empty"),
+            )
+
+        sample = transcript[:2000]
+        try:
+            prompt = (
+                "Review the meeting transcript excerpt and determine the meeting type.\n\n"
+                f"Transcript excerpt:\n{sample}\n\n"
+                "Valid meeting types: general, project, business, product, report.\n"
+                "Respond in JSON following the MeetingTypeResult schema."
+            )
+            user_message = Message(role="user", content=prompt)
+            run_output = await self.arun([user_message], stream=False)
+            update_tracker_from_metrics(self._token_tracker, run_output.metrics)
+            content = run_output.content
+            if isinstance(content, MeetingTypeResult):
+                result = content
+            else:
+                result = MeetingTypeResult.model_validate(content)
+        except ValidationError as exc:
+            self._logger.error("Invalid response while detecting meeting type: %s", exc)
+            return self._apply_result(
+                state,
+                MeetingTypeResult(
+                    meeting_type="general",
+                    reasoning="Could not parse detection result",
+                ),
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self._logger.error("Error during meeting type detection: %s", exc)
+            return self._apply_result(
+                state,
+                MeetingTypeResult(meeting_type="general", reasoning="Detection failed"),
+            )
+
+        detected = (result.meeting_type or "general").strip().lower()
+        if detected not in self.VALID_TYPES:
+            self._logger.warning("Invalid meeting type received (%s), using general", detected)
+            detected = "general"
+        return self._apply_result(state, MeetingTypeResult(meeting_type=detected, reasoning=result.reasoning))
+
+    def _apply_result(self, state: MeetingState, result: MeetingTypeResult) -> MeetingState:
+        state["meeting_type"] = result.meeting_type
+        message = result.reasoning or f"Detected meeting type: {result.meeting_type}"
+        self._append_message(state, message)
+        self._logger.info("Meeting type set to %s", result.meeting_type)
+        return state
+
+    @staticmethod
+    def _append_message(state: MeetingState, content: str) -> None:
+        messages = state.setdefault("messages", [])
+        messages.append({"role": "agent", "agent": "MeetingTypeDetector", "content": content})
 
 
 class MeetingProcessor:
-	def __init__(self, api_key: str, meeting_type: str = 'general'):
-		self.logger = logging.getLogger('MeetingProcessor')
-		self.llm = initialize_llm(api_key)
-		self.memory = MemorySaver()
-		self.token_tracker = TokenTracker()
-		self.meeting_type = meeting_type.lower() if meeting_type else 'general'
-		self.meeting_type_detector = MeetingTypeDetector(self.llm, self.token_tracker)
-		self.informative_checker = InformativeChecker(self.llm, self.token_tracker)
-		self.summary_extractor = SummaryExtractor(self.llm, self.token_tracker)
-		self.simple_note_generator = SimpleMeetingNoteGenerator(self.llm, self.token_tracker)
-		self.output_generator = OutputGenerator(self.token_tracker)
-		self.workflow = self._build_workflow()
+    """Co-ordinate meeting processing across dedicated agents."""
 
-	def _build_workflow(self):
-		self.logger.info('Building workflow')
-		workflow = StateGraph(MeetingState)
+    def __init__(self, model: Any, meeting_type: Optional[str] = "general") -> None:
+        from .informative_checker import InformativeChecker
+        from .output_generator import OutputGenerator
+        from .simple_note_generator import SimpleMeetingNoteGenerator
+        from .summary_extractor import SummaryExtractor
 
-		# Add all nodes
-		workflow.add_node('detect_meeting_type', self.meeting_type_detector.detect)
-		workflow.add_node('check_informative', self.informative_checker.check)
+        self._logger = LOGGER
+        self._token_tracker = TokenTracker()
+        self._model = model
+        self._default_meeting_type = (meeting_type or "general").lower()
 
-		# Add nodes for the three-phase extraction
-		workflow.add_node('extract_tasks', self.summary_extractor.extract_tasks)
-		workflow.add_node('extract_decisions', self.summary_extractor.extract_decisions)
-		workflow.add_node('extract_questions', self.summary_extractor.extract_questions)
+        self._meeting_type_detector = MeetingTypeDetector(self._model, self._token_tracker)
+        self._informative_checker = InformativeChecker(self._model, self._token_tracker)
+        self._summary_extractor = SummaryExtractor(self._model, self._token_tracker)
+        self._note_generator = SimpleMeetingNoteGenerator(self._model, self._token_tracker)
+        self._output_generator = OutputGenerator(self._token_tracker)
 
-		workflow.add_node('generate_simple_note', self.simple_note_generator.generate)
-		workflow.add_node('generate_output', self.output_generator.generate)
+    @property
+    def default_meeting_type(self) -> str:
+        return self._default_meeting_type
 
-		# Start with meeting type detection
-		workflow.add_edge(START, 'detect_meeting_type')
-		workflow.add_edge('detect_meeting_type', 'check_informative')
+    async def process_meeting(self, transcript: str, custom_prompt: Optional[str] = None) -> Dict[str, Any]:
+        transcript_value = transcript or ""
+        state: MeetingState = {
+            "messages": [],
+            "transcript": transcript_value,
+            "meeting_note": "",
+            "task_items": [],
+            "decision_items": [],
+            "question_items": [],
+            "token_usage": {},
+            "is_informative": False,
+            "meeting_type": self._default_meeting_type,
+            "custom_prompt": custom_prompt,
+        }
+        try:
+            state = await self._meeting_type_detector.detect(state)
+            state = await self._informative_checker.check(state)
 
-		# Check if transcript is informative
-		workflow.add_conditional_edges(
-			'check_informative', lambda state: 'extract_tasks' if state['is_informative'] else 'generate_output', {'extract_tasks': 'extract_tasks', 'generate_output': 'generate_output'}
-		)
+            if state.get("is_informative"):
+                state = await self._summary_extractor.extract(state)
+            else:
+                state["task_items"] = []
+                state["decision_items"] = []
+                state["question_items"] = []
 
-		# Three-phase extraction workflow
-		workflow.add_edge('extract_tasks', 'extract_decisions')
-		workflow.add_edge('extract_decisions', 'extract_questions')
-		workflow.add_edge('extract_questions', 'generate_simple_note')
+            state = await self._note_generator.generate(state)
+            state = self._output_generator.generate(state)
+            return self._format_success(state)
+        except Exception as exc:  # pragma: no cover - defensive
+            self._logger.error("Error processing meeting: %s", exc, exc_info=True)
+            return self._format_failure(state, str(exc))
 
-		workflow.add_edge('generate_simple_note', 'generate_output')
+    def _format_success(self, state: MeetingState) -> Dict[str, Any]:
+        tasks = self._ensure_model_list(state.get("task_items", []), Task)
+        decisions = self._ensure_model_list(state.get("decision_items", []), Decision)
+        questions = self._ensure_model_list(state.get("question_items", []), Question)
 
-		# End workflow
-		workflow.add_edge('generate_output', END)
+        output = MeetingOutput(
+            meeting_note=state.get("meeting_note", ""),
+            task_items=tasks,
+            decision_items=decisions,
+            question_items=questions,
+            token_usage=state.get("token_usage", self._current_token_usage()),
+            is_informative=state.get("is_informative", False),
+            meeting_type=state.get("meeting_type", "general"),
+        )
 
-		return workflow.compile(checkpointer=self.memory)
+        result = output.model_dump()
+        result["task_items"] = [task.model_dump() for task in output.task_items]
+        result["decision_items"] = [decision.model_dump() for decision in output.decision_items]
+        result["question_items"] = [question.model_dump() for question in output.question_items]
+        return result
 
-	async def process_meeting(self, transcript: str, custom_prompt: str = None):
-		self.logger.info('Starting meeting processing')
-		thread_id = str(uuid.uuid4())
-		config = {'configurable': {'thread_id': thread_id}}
-		transcript = transcript or ''
-		initial_state = {
-			'messages': [SystemMessage(content='Bạn là trợ lý thông minh chuyên ghi chú cuộc họp...')],
-			'transcript': transcript,
-			'meeting_note': '',
-			'task_items': [],  # Initialize task_items
-			'decision_items': [],  # Initialize decision_items
-			'question_items': [],  # Initialize question_items
-			'token_usage': {},
-			'is_informative': False,
-			'meeting_type': self.meeting_type,
-			'custom_prompt': custom_prompt,  # Add custom_prompt to the state
-		}
-		try:
-			result = await self.workflow.ainvoke(initial_state, config)
-			return {
-				'meeting_note': result['meeting_note'],
-				'task_items': result.get('task_items', []),
-				'decision_items': result.get('decision_items', []),
-				'question_items': result.get('question_items', []),
-				'token_usage': result['token_usage'],
-				'is_informative': result['is_informative'],
-				'meeting_type': result['meeting_type'],
-				# Include separate extraction results in the output
-			}
-		except Exception as e:
-			self.logger.error(f'Error processing meeting: {str(e)}')
-			return {
-				'meeting_note': '',
-				'task_items': [],
-				'decision_items': [],
-				'question_items': [],
-				'token_usage': {
-					'input_tokens': self.token_tracker.input_tokens,
-					'output_tokens': self.token_tracker.output_tokens,
-					'context_tokens': self.token_tracker.context_tokens,
-					'total_tokens': self.token_tracker.total_tokens,
-					'price_usd': round(calculate_price(self.token_tracker.input_tokens, self.token_tracker.output_tokens, self.token_tracker.context_tokens), 6),
-				},
-				'is_informative': False,
-				'meeting_type': self.meeting_type,
-			}
+    def _format_failure(self, state: MeetingState, message: str) -> Dict[str, Any]:
+        self._logger.error("Returning fallback response: %s", message)
+        return {
+            "meeting_note": "",
+            "task_items": [],
+            "decision_items": [],
+            "question_items": [],
+            "token_usage": self._current_token_usage(),
+            "is_informative": False,
+            "meeting_type": state.get("meeting_type", "general"),
+        }
+
+    def _current_token_usage(self) -> Dict[str, Any]:
+        return {
+            "input_tokens": self._token_tracker.input_tokens,
+            "output_tokens": self._token_tracker.output_tokens,
+            "context_tokens": self._token_tracker.context_tokens,
+            "total_tokens": self._token_tracker.total_tokens,
+            "price_usd": 0.0,
+        }
+
+    @staticmethod
+    def _ensure_model_list(items: Iterable[Any], model_cls: Any) -> list:
+        converted = []
+        for item in items:
+            if isinstance(item, model_cls):
+                converted.append(item)
+            else:
+                converted.append(model_cls(**item))
+        return converted

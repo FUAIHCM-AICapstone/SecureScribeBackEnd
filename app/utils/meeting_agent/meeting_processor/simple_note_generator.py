@@ -1,98 +1,111 @@
+from __future__ import annotations
+
+import json
 import logging
-import time
-from typing import Dict
+from textwrap import dedent
+from typing import Any, Dict
 
-from langchain_core.messages import AIMessage, HumanMessage
+from agno.agent import Agent
+from agno.models.message import Message
+from pydantic import ValidationError
 
+from app.utils.meeting_agent.agent_schema import MeetingNoteResult, MeetingState
 from app.utils.meeting_agent.meeting_prompts import get_prompt_for_meeting_type
-from app.utils.meeting_agent.utils import count_tokens
+from . import TokenTracker, update_tracker_from_metrics
+
+LOGGER = logging.getLogger("SimpleMeetingNoteGenerator")
 
 
-class SimpleMeetingNoteGenerator:
-	"""
-	Creates a simple, concise meeting note tailored to the meeting type.
-	This replaces the more complex chunk-based summary approach.
-	"""
+class SimpleMeetingNoteGenerator(Agent):
+    """Generate a concise Vietnamese meeting note in Markdown."""
 
-	def __init__(self, llm, token_tracker):
-		self.llm = llm
-		self.token_tracker = token_tracker
-		self.logger = logging.getLogger('SimpleMeetingNoteGenerator')
+    def __init__(self, model: Any, token_tracker: TokenTracker) -> None:
+        instructions = [
+            "Create a Markdown meeting note in Vietnamese based on the provided context.",
+            "Return JSON matching the MeetingNoteResult schema.",
+        ]
+        super().__init__(
+            name="SimpleMeetingNoteGenerator",
+            model=model,
+            instructions=instructions,
+            output_schema=MeetingNoteResult,
+            structured_outputs=True,
+            use_json_mode=True,
+        )
+        self._logger = LOGGER
+        self._token_tracker = token_tracker
 
-	def generate(self, state) -> Dict:
-		"""
-		Generate a simple meeting note based on the transcript and meeting type.
-		Uses the type-specific prompt to format the note appropriately.
-		"""
-		self.logger.info(f'Generating simple meeting note for meeting type: {state.get("meeting_type", "general")}')
+    async def generate(self, state: MeetingState) -> MeetingState:
+        if not state.get("is_informative"):
+            note = "Không đủ thông tin để tạo ghi chú chi tiết."
+            self._logger.warning("Transcript marked as not informative, returning default note")
+            state["meeting_note"] = note
+            messages = state.setdefault("messages", [])
+            messages.append(
+                {
+                    "role": "agent",
+                    "agent": "SimpleMeetingNoteGenerator",
+                    "content": "Transcript not informative -> default note created",
+                }
+            )
+            return state
 
-		meeting_type = state.get('meeting_type', 'general')
-		transcript = state.get('transcript', '')
-		custom_prompt = state.get('custom_prompt')
-		if custom_prompt:
-			self.logger.info(f"Using custom prompt for meeting note generation of type '{meeting_type} custom prompt: {custom_prompt}'")
-		else:
-			self.logger.info('Using default prompt for meeting note generation')
-		if not transcript or len(transcript) < 50:
-			self.logger.warning('Transcript too short to generate meaningful meeting note')
-			return {
-				**state,
-				'meeting_note': 'Không đủ thông tin để tạo ghi chú cuộc họp.',
-				'messages': state['messages'] + [HumanMessage(content='Tạo ghi chú cuộc họp'), AIMessage(content='Không đủ thông tin để tạo ghi chú cuộc họp.')],
-			}
+        transcript = (state.get("transcript") or "").strip()
+        if len(transcript) < 50:
+            note = "Không đủ thông tin để tạo ghi chú cuộc họp."
+            state["meeting_note"] = note
+            messages = state.setdefault("messages", [])
+            messages.append(
+                {
+                    "role": "agent",
+                    "agent": "SimpleMeetingNoteGenerator",
+                    "content": "Transcript too short for detailed note",
+                }
+            )
+            return state
 
-		meeting_note_prompt = get_prompt_for_meeting_type(meeting_type)
+        meeting_type = state.get("meeting_type", "general")
+        custom_prompt = state.get("custom_prompt")
+        context: Dict[str, Any] = {
+            "meeting_type": meeting_type,
+            "meeting_note_prompt": get_prompt_for_meeting_type(meeting_type),
+            "transcript": transcript,
+            "custom_prompt": custom_prompt,
+            "tasks": state.get("task_items", []),
+            "decisions": state.get("decision_items", []),
+            "questions": state.get("question_items", []),
+        }
 
-		# Create the full prompt with transcript context
-		# Prioritize custom prompt if available, otherwise use the default
-		base_prompt = meeting_note_prompt
-		if custom_prompt:
-			base_prompt = f'{meeting_note_prompt}\n\nYêu cầu đặc biệt từ người dùng (ưu tiên cao nhất):\n{custom_prompt}'
+        try:
+            prompt = dedent(
+                f"""
+                Create a concise Vietnamese meeting note in Markdown format using the provided context.
 
-		prompt = f"""{base_prompt}
+                Context (JSON):
+                {json.dumps(context, ensure_ascii=False, indent=2)}
 
-    Dưới đây là transcript cuộc họp để bạn tham khảo:
+                Remove triple backticks if present. Respond in JSON following the MeetingNoteResult schema.
+                """
+            ).strip()
+            user_message = Message(role="user", content=prompt)
+            run_output = await self.arun([user_message], stream=False)
+            update_tracker_from_metrics(self._token_tracker, run_output.metrics)
+            content = run_output.content
+            if isinstance(content, MeetingNoteResult):
+                result = content
+            else:
+                result = MeetingNoteResult.model_validate(content)
+            note = (result.meeting_note or "").replace("```", "").strip()
+        except ValidationError as exc:
+            self._logger.error("Failed to parse meeting note response: %s", exc)
+            note = "Không thể tạo ghi chú cuộc họp do lỗi định dạng."  # fallback message
+        except Exception as exc:  # pragma: no cover - defensive
+            self._logger.error("Error generating meeting note: %s", exc)
+            note = "Không thể tạo ghi chú cuộc họp do lỗi không xác định."
 
-    {transcript}
-
-    Hãy tạo một ghi chú cuộc họp ngắn gọn, rõ ràng dựa trên nội dung transcript trên.
-    Lưu ý: Nếu có yêu cầu đặc biệt từ người dùng, hãy ưu tiên tuân theo các yêu cầu đó trước tiên.
-    Cố gắng xác định tên người nói dựa vào nội dung cuộc họp không nên dựa vào SPEAKER ID, và danh sách người tham gia là những người đang nói trong cuộc họp, khác với những người được đề cập trong nội dung cuộc họp.
-    Nếu không thể xác định tên người nói, hãy sử dụng 'Người nói' làm tên mặc định.
-    """
-
-		try:
-			# Track token usage
-			input_tokens = count_tokens(prompt, 'gemini')
-			self.token_tracker.add_input_tokens(input_tokens)
-
-			# Start timing
-			start_time = time.time()
-
-			# Call LLM to generate meeting note
-			response = self.llm.invoke(prompt)
-			meeting_note = response.content
-
-			# Track output tokens
-			output_tokens = count_tokens(meeting_note, 'gemini')
-			self.token_tracker.add_output_tokens(output_tokens)
-
-			# Log performance
-			duration = time.time() - start_time
-			self.logger.info(f'Generated meeting note in {duration:.2f} seconds')
-			self.logger.info(f'Meeting note length: {len(meeting_note)} characters')
-
-			# Update state with new meeting note
-			return {
-				**state,
-				'meeting_note': meeting_note.replace('```', '').strip(),
-				'messages': state['messages'] + [HumanMessage(content='Tạo ghi chú cuộc họp'), AIMessage(content=f"Đã tạo ghi chú cuộc họp cho loại '{meeting_type}'")],
-			}
-
-		except Exception as e:
-			self.logger.error(f'Error generating meeting note: {str(e)}')
-			return {
-				**state,
-				'meeting_note': 'Đã xảy ra lỗi khi tạo ghi chú cuộc họp.',
-				'messages': state['messages'] + [HumanMessage(content='Tạo ghi chú cuộc họp'), AIMessage(content=f'Lỗi: {str(e)}')],
-			}
+        state["meeting_note"] = note
+        messages = state.setdefault("messages", [])
+        messages.append(
+            {"role": "agent", "agent": "SimpleMeetingNoteGenerator", "content": "Generated meeting note"}
+        )
+        return state

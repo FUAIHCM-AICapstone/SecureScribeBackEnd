@@ -1,63 +1,64 @@
-from app.core.config import GOOGLE_API_KEY
-from .meeting_processor import MeetingProcessor
+from __future__ import annotations
 
 import logging
+from typing import Optional
 
-# Initialize LiteLLM settings
-try:
-	import litellm
+from agno.models.google import Gemini
 
-	# Force LiteLLM to drop unsupported parameters
-	litellm.drop_params = True
-	litellm.set_verbose = True
-except ImportError:
-	pass
+from app.utils.llm import _get_model
+from .meeting_processor import MeetingProcessor
+
+LOGGER = logging.getLogger("MeetingAnalyzer")
+
+__all__ = ["MeetingAnalyzer"]
 
 
 class MeetingAnalyzer:
-	def __init__(self):
-		self.logger = logging.getLogger('MeetingAnalyzer')
-		self.meeting_processor = MeetingProcessor(api_key=GOOGLE_API_KEY)
+    """Facade that coordinates meeting analysis for SecureScribe."""
 
-	async def complete(
-		self,
-		transcript: str,
-		meeting_type: str = None,
-		custom_prompt: str = None,
-	):
-		try:
-			self.logger.info(f'Processing meeting transcript with length: {len(transcript or "")}')
+    def __init__(self) -> None:
+        self._logger = LOGGER
+        self._default_processor = self._create_processor()
 
-			# Create a new processor instance with the specified meeting type if provided
-			if meeting_type:
-				self.logger.info(f'Using specified meeting type: {meeting_type}')
-				processor = MeetingProcessor(api_key=GOOGLE_API_KEY, meeting_type=meeting_type)
-			else:
-				self.logger.info('No meeting type specified, using default or auto-detection')
-				processor = self.meeting_processor
+    async def complete(
+        self,
+        transcript: Optional[str],
+        meeting_type: Optional[str] = None,
+        custom_prompt: Optional[str] = None,
+    ) -> dict:
+        transcript_value = transcript or ""
+        processor = self._default_processor
+        if meeting_type:
+            self._logger.info("Using requested meeting type: %s", meeting_type)
+            processor = self._create_processor(meeting_type=meeting_type)
+        else:
+            self._logger.info("Meeting type not specified; detector will infer it")
 
-			# Log custom prompt if provided
-			if custom_prompt:
-				self.logger.info('Using custom prompt for meeting analysis')
+        try:
+            return await processor.process_meeting(transcript_value, custom_prompt=custom_prompt)
+        except Exception as exc:  # pragma: no cover - defensive
+            self._logger.error("Meeting analysis failed: %s", exc, exc_info=True)
+            fallback_type = meeting_type or processor.default_meeting_type
+            return {
+                "meeting_note": "",
+                "task_items": [],
+                "decision_items": [],
+                "question_items": [],
+                "token_usage": {
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "context_tokens": 0,
+                    "total_tokens": 0,
+                    "price_usd": 0.0,
+                },
+                "is_informative": False,
+                "meeting_type": fallback_type,
+            }
 
-			result = await processor.process_meeting(transcript, custom_prompt=custom_prompt)
-			# if email:
-			#     self.SendEmail.send_meeting_note_to_email(email=email, note=result['meeting_note'])
-			return result
-		except Exception as e:
-			self.logger.error(f'Error in complete: {str(e)}')
-			return {
-				'meeting_note': '',  # Include empty meeting note on error
-				'task_items': [],
-				'decision_items': [],
-				'question_items': [],
-				'token_usage': {
-					'input_tokens': 0,
-					'output_tokens': 0,
-					'context_tokens': 0,
-					'total_tokens': 0,
-					'price_usd': 0,
-				},
-				'is_informative': False,
-				'meeting_type': meeting_type or 'general',
-			}
+    def _create_processor(self, meeting_type: Optional[str] = None) -> MeetingProcessor:
+        model = self._instantiate_model()
+        return MeetingProcessor(model=model, meeting_type=meeting_type)
+
+    @staticmethod
+    def _instantiate_model() -> Gemini:
+        return _get_model()
