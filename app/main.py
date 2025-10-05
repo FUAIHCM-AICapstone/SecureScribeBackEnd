@@ -1,4 +1,3 @@
-import os
 from typing import Any, Dict
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -6,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRoute
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -140,25 +138,8 @@ app.add_middleware(
     expose_headers=["*"],  # Expose all headers for EventSource
 )
 
-# Mount API router FIRST (important for routing precedence)
 app.include_router(api_router)
 
-# Mount static files AFTER API router to avoid conflicts
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
-
-@app.get("/firebase-messaging-sw.js")
-def get_firebase_service_worker():
-    """Serve Firebase service worker file"""
-    file_path = "firebase-messaging-sw.js"
-    if os.path.exists(file_path):
-        return FileResponse(file_path, media_type="application/javascript")
-    else:
-        raise HTTPException(status_code=404, detail="Service worker not found")
-
-
-# Mount service worker at root for Firebase
-app.mount("/firebase-messaging-sw.js", StaticFiles(directory="app/static"), name="firebase-sw")
 
 # Initialize Firebase SDK
 initialize_firebase()
@@ -198,13 +179,6 @@ def test_auth_endpoint(request: Request) -> Dict[str, Any]:
         "user_id": user_id,
         "token_preview": token[:20] + "..." if len(token) > 20 else token,
     }
-
-
-@app.get("/celery-test")
-def get_celery_test_page():
-    """Serve the Celery task test page"""
-    return FileResponse("app/static/celery-test.html", media_type="text/html")
-
 
 @app.get("/search-test")
 def get_search_test_page():
