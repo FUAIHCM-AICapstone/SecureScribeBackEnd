@@ -187,3 +187,13 @@ def file_exists_in_minio(bucket_name: str, object_name: str) -> bool:
         return True
     except S3Error:
         return False
+
+
+def health_check() -> bool:
+    try:
+        client = get_minio_client()
+        client.list_buckets()
+        return True
+    except Exception as e:
+        logger.exception(f"MinIO health check error: {e}")
+        return False

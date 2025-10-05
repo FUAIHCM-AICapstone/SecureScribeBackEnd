@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # Server Configuration
     SERVER_NAME: str = "SecureScribeBE"
     SERVER_HOST: str = "http://localhost"
-    SERVER_PORT: int = 8000
+    SERVER_PORT: int = 8081
 
     # CORS Configuration
     BACKEND_CORS_ORIGINS: Annotated[
@@ -38,8 +38,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "SecureScribeBE"
 
     # Database Configuration
-    POSTGRES_SERVER: str = "160.191.88.194"  # External database server
-    POSTGRES_PORT: int = 5400  # External database port
+    POSTGRES_SERVER: str = "db"  # External database server
+    POSTGRES_PORT: int = 5432  # External database port
     POSTGRES_USER: str = "admin"
     POSTGRES_PASSWORD: str = "admin123"
     POSTGRES_DB: str = "securescribe"
@@ -64,13 +64,13 @@ class Settings(BaseSettings):
     WEBSOCKET_CLEANUP_INTERVAL: int = 60  # 1 minute cleanup interval
 
     # MinIO Configuration
-    MINIO_ENDPOINT: str = "minio:9000"
+    MINIO_ENDPOINT: str = "minio:9002"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_SECURE: bool = False
     MINIO_BUCKET_NAME: str = "securescribe-files"
     MINIO_PUBLIC_BUCKET_NAME: str = "securescribe-public"
-    MINIO_PUBLIC_URL: str = "http://localhost:9000"  # Public URL for permanent links (internal Docker network)
+    MINIO_PUBLIC_URL: str = "http://localhost:9002"  # Public URL for permanent links (internal Docker network)
 
     # File Configuration
     MAX_FILE_SIZE_MB: int = 100
@@ -79,12 +79,15 @@ class Settings(BaseSettings):
 
     # Qdrant Configuration
     QDRANT_HOST: str = "qdrant"
-    QDRANT_PORT: int = 6333
+    QDRANT_PORT: int = 6334
     QDRANT_COLLECTION_NAME: str = "documents"
 
     # Google AI Configuration
     GOOGLE_API_KEY: str = "AIzaSyDKJL5HLh3syVxysfjFkBdqrJaY9dLXc_A"
     GOOGLE_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
+
+    # Transcription API Configuration
+    TRANSCRIBE_API_BASE_URL: str = "https://s2t.wc504.io.vn/api/v1"
 
     # Indexing Configuration
     CHUNK_SIZE: int = 1000
