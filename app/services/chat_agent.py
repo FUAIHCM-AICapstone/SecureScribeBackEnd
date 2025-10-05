@@ -1,155 +1,71 @@
-import asyncio
+import json
 import uuid
-from typing import Iterable, List, Set
+from typing import Iterable, List, Optional, Set
 
 from agno.models.message import Message
 from sqlalchemy.orm import Session
-from sqlmodel import select
 
 from app.models.chat import ChatMessage, ChatMessageType
-from app.models.meeting import MeetingNote, Transcript
-from app.models.user import User
-from app.services.meeting import get_meeting
-from app.services.meeting_summary import summarize_meeting_sections_for_chat
-from app.utils.llm import get_agno_postgres_db, create_meeting_chat_agent
+from app.utils.llm import get_agno_postgres_db, create_chat_agent
 
 
-def get_meeting_transcript(meeting_id: str, db: Session, user_id: uuid.UUID) -> str:
-    """Get meeting transcript content."""
-    try:
-        meeting_uuid = uuid.UUID(meeting_id)
-        meeting = get_meeting(db, meeting_uuid, user_id)
-        if not meeting:
-            return "Meeting not found or access denied."
-
-        transcript = db.exec(
-            select(Transcript).where(Transcript.meeting_id == meeting_uuid)
-        ).first()
-        if not transcript or not transcript.content:
-            return "No transcript available for this meeting."
-
-        return f"Meeting: {meeting.title}\nTranscript:\n{transcript.content}"
-    except ValueError:
-        return "Invalid meeting ID format."
-    except Exception as e:
-        return f"Error retrieving transcript: {str(e)}"
+def _normalize_mentions(raw_mentions: Optional[Iterable]) -> List[dict]:
+    if not raw_mentions:
+        return []
+    normalized: List[dict] = []
+    for mention in raw_mentions:
+        if isinstance(mention, dict):
+            normalized.append(mention)
+        else:
+            try:
+                normalized.append(dict(mention))  # type: ignore[arg-type]
+            except Exception:
+                pass
+    return normalized
 
 
-def get_meeting_notes(meeting_id: str, db: Session, user_id: uuid.UUID) -> str:
-    """Get meeting notes content."""
-    try:
-        meeting_uuid = uuid.UUID(meeting_id)
-        meeting = get_meeting(db, meeting_uuid, user_id)
-        if not meeting:
-            return "Meeting not found or access denied."
+def _format_mentions_summary(mentions: Optional[Iterable]) -> str:
+    normalized = _normalize_mentions(mentions)
+    if not normalized:
+        return "No mentions supplied."
 
-        notes = db.exec(
-            select(MeetingNote).where(MeetingNote.meeting_id == meeting_uuid)
-        ).first()
-        if not notes or not notes.content:
-            return "No notes available for this meeting."
-
-        return f"Meeting: {meeting.title}\nNotes:\n{notes.content}"
-    except ValueError:
-        return "Invalid meeting ID format."
-    except Exception as e:
-        return f"Error retrieving notes: {str(e)}"
+    lines = ["Mentioned context:"]
+    for item in normalized:
+        entity_type = item.get("entity_type", "unknown")
+        entity_id = item.get("entity_id", "unknown")
+        start = item.get("offset_start")
+        end = item.get("offset_end")
+        span = f" (offsets {start}-{end})" if start is not None and end is not None else ""
+        lines.append(f"- {entity_type}: {entity_id}{span}")
+    return "\n".join(lines)
 
 
-def get_meeting_metadata(meeting_id: str, db: Session, user_id: uuid.UUID) -> str:
-    """Get meeting metadata and details."""
-    try:
-        meeting_uuid = uuid.UUID(meeting_id)
-        meeting = get_meeting(db, meeting_uuid, user_id)
-        if not meeting:
-            return "Meeting not found or access denied."
-
-        creator = db.exec(select(User).where(User.id == meeting.created_by)).first()
-
-        import textwrap
-
-        return textwrap.dedent(
-            f"""\
-            Meeting Details:
-            - Title: {meeting.title or "Untitled"}
-            - Description: {meeting.description or "No description"}
-            - Status: {meeting.status}
-            - Start Time: {meeting.start_time or "Not scheduled"}
-            - Created By: {creator.name if creator else "Unknown"}
-            - Created At: {meeting.created_at}
-            - Meeting URL: {meeting.url or "No URL"}
-            - Personal Meeting: {"Yes" if meeting.is_personal else "No"}"""
-        )
-    except ValueError:
-        return "Invalid meeting ID format."
-    except Exception as e:
-        return f"Error retrieving metadata: {str(e)}"
-
-
-def get_meeting_chat_agent(
-    db: Session, user_id: uuid.UUID, meeting_id: uuid.UUID, session_id: str
+def get_chat_agent(
+    db: Session,
+    user_id: uuid.UUID,
+    session_id: str,
 ):
-    """Factory function to create a meeting chat agent."""
+    """Factory function to create a chat agent without meeting linkage."""
     try:
-        meeting = get_meeting(db, meeting_id, user_id)
-        if not meeting:
-            return None
-
         agno_db = get_agno_postgres_db()
 
-        # Define tools as named functions (NOT lambdas)
-        def meeting_transcript_tool(mid: str = str(meeting_id)) -> str:
-            return get_meeting_transcript(mid, db, user_id)
-
-        def meeting_notes_tool(mid: str = str(meeting_id)) -> str:
-            return get_meeting_notes(mid, db, user_id)
-
-        def meeting_metadata_tool(mid: str = str(meeting_id)) -> str:
-            return get_meeting_metadata(mid, db, user_id)
-
-        def meeting_summary_tool(sections: str = "all") -> str:
-            targets = None
-            if sections:
-                parts = [part.strip() for part in sections.split(",") if part.strip()]
-                lowered = {part.lower() for part in parts}
-                if parts and not lowered.intersection({"all", "full", "everything"}):
-                    targets = parts
-            coro = summarize_meeting_sections_for_chat(meeting_id, db, user_id, targets)
+        def mention_context_tool(mentions: str = "[]") -> str:
             try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-            if loop and loop.is_running():
-                future = asyncio.run_coroutine_threadsafe(coro, loop)
-                result = future.result()
-            else:
-                result = asyncio.run(coro)
-            order: List[str] = result.get("sections", [])  # type: ignore
-            summaries: dict = result.get("summaries", {})  # type: ignore
-            pieces: List[str] = []
-            for section in order:
-                text = str(summaries.get(section, "")).strip()
-                if text:
-                    pieces.append(f"{section}:\n{text}".strip())
-            return "\n\n".join(pieces) if pieces else "No summary available."
+                payload = json.loads(mentions) if isinstance(mentions, str) else mentions
+            except (ValueError, TypeError):
+                payload = []
+            return _format_mentions_summary(payload)
 
-        tools: List = [
-            meeting_transcript_tool,
-            meeting_notes_tool,
-            meeting_metadata_tool,
-            meeting_summary_tool,
-        ]
+        tools: List = [mention_context_tool]
 
-        return create_meeting_chat_agent(
+        return create_chat_agent(
             agno_db=agno_db,
             session_id=session_id,
             user_id=str(user_id),
-            meeting_id=str(meeting_id),
-            meeting_title=meeting.title if meeting else "Unknown",
             tools=tools,
         )
-    except Exception as e:
-        print(f"Error creating meeting chat agent: {e}")
+    except Exception as exc:
+        print(f"Error creating chat agent: {exc}")
         return None
 
 
@@ -175,7 +91,13 @@ def prime_agent_with_history(agent, history: Iterable[ChatMessage]) -> None:
     fresh = [message for message in buffered if str(message.id) not in seen and message.content]
     if not fresh:
         return
-    agno_messages = [Message(role=_resolve_message_role(message.message_type), content=message.content) for message in fresh]
+    agno_messages = [
+        Message(
+            role=_resolve_message_role(message.message_type),
+            content=message.content,
+        )
+        for message in fresh
+    ]
     if not agno_messages:
         return
     updated = False

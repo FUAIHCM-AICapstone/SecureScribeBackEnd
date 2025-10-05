@@ -1,5 +1,5 @@
 import textwrap
-from typing import List
+from typing import List, Optional
 
 from agno.agent import Agent
 from agno.db.postgres import PostgresDb
@@ -45,9 +45,6 @@ async def chat_complete(system_prompt: str, user_prompt: str) -> str:
     response = await model.ainvoke(messages, assistant_message)
     return response.content
 
-# def get_agno_postgres_db() -> PostgresDb:
-#     """Get agno PostgresDb instance for session management"""
-#     return PostgresDb(db_url=str(settings.SQLALCHEMY_DATABASE_URI), session_table="agno_sessions", user_memory_table="agno_user_memories")
 
 def get_agno_postgres_db() -> PostgresDb:
     """Get agno PostgresDb instance for session management"""
@@ -58,11 +55,34 @@ def get_agno_postgres_db() -> PostgresDb:
     try:
         return PostgresDb(**kwargs, user_memory_table="agno_user_memories")
     except TypeError:
-        # Fallback n???u version khA'ng h??- tr??? user_memory_table
         return PostgresDb(**kwargs)
 
-def create_meeting_chat_agent(agno_db: PostgresDb, session_id: str, user_id: str, meeting_id: str, meeting_title: str, tools: List, agent_name: str = "Meeting Assistant") -> Agent:
-    """Create a meeting chat agent with proper configuration"""
+
+def create_chat_agent(
+    agno_db: PostgresDb,
+    session_id: str,
+    user_id: str,
+    tools: Optional[List] = None,
+    agent_name: str = "SecureScribe Assistant",
+) -> Agent:
+    """Create a generic chat agent that can leverage mention context."""
+    tools = tools or []
+    description = textwrap.dedent(
+        f"""
+        You are a helpful AI assistant supporting SecureScribe chat sessions.
+
+        Conversation context:
+        - User ID: {user_id}
+        - Session ID: {session_id}
+
+        Guidance:
+        - Use provided tools (such as mention_context_tool) to interpret references like @project or @meeting tokens when available.
+        - Base your responses on conversation history and resolved context.
+        - If context is missing for a mention, acknowledge the gap instead of inventing details.
+        - Respond clearly and concisely, using markdown when helpful.
+        """
+    ).strip()
+
     return Agent(
         name=agent_name,
         model=_get_model(),
@@ -75,28 +95,5 @@ def create_meeting_chat_agent(agno_db: PostgresDb, session_id: str, user_id: str
         add_history_to_context=True,
         num_history_runs=5,
         markdown=True,
-        description=textwrap.dedent(f"""\
-            You are a helpful AI assistant for discussing meeting content.
-
-            Current meeting context:
-            - Meeting: {meeting_title or "Unknown"}
-            - Meeting ID: {meeting_id}
-
-            You have access to these tools:
-            - meeting_transcript_tool: Get meeting transcript from audio recordings
-            - meeting_notes_tool: Get user-editable meeting notes
-            - meeting_metadata_tool: Get meeting details and metadata
-            - meeting_summary_tool: Generate targeted summaries (Objective, Discussion, Decision, Action Items)
-
-            Guidelines:
-            - Help users understand and analyze meeting content
-            - Answer questions about what was discussed
-            - Identify key points, decisions, and action items
-            - Provide focused summaries by calling meeting_summary_tool when users ask for overall or section-specific recaps
-            - Be conversational and helpful
-            - Always base your responses on the actual meeting content
-            - Use the appropriate tool to retrieve meeting information when needed
-            - Be clear about what information comes from transcripts vs. notes vs. metadata vs. summaries
-            - For the current meeting, use meeting ID: {meeting_id}
-        """),
+        description=description,
     )
