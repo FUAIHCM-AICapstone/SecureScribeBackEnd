@@ -2,7 +2,6 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
-from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -10,6 +9,7 @@ from app.db import SessionLocal, get_db
 from app.models.chat import ChatMessageType
 from app.models.user import User
 from app.schemas.chat import (
+    ChatConversationApiResponse,
     ChatMessageApiResponse,
     ChatMessageCreate,
     ChatSessionApiResponse,
@@ -24,10 +24,11 @@ from app.services.chat import (
     delete_chat_session,
     get_chat_history,
     get_chat_session,
-    get_chat_sessions_for_user,
+    get_chat_session_with_messages,
+    get_chat_sessions_for_meeting,
     update_chat_session,
 )
-from app.services.chat_agent import get_chat_agent, prime_agent_with_history
+from app.services.chat_agent import get_meeting_chat_agent, prime_agent_with_history
 from app.services.user import get_user_by_id
 from app.services.websocket_manager import websocket_manager
 from app.utils.auth import get_current_user, get_current_user_from_token
@@ -38,33 +39,31 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["Chat"])
 # ===== CHAT SESSION ENDPOINTS =====
 
 
-@router.post("/chat/sessions", response_model=ChatSessionApiResponse)
+@router.post("/meetings/{meeting_id}/chat/sessions", response_model=ChatSessionApiResponse)
 def create_chat_session_endpoint(
+    meeting_id: uuid.UUID,
     session_data: ChatSessionCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a new chat session"""
-    session = create_chat_session(db, current_user.id, session_data)
+    """Create a new chat session for a meeting"""
+    session = create_chat_session(db, meeting_id, current_user.id, session_data)
     if not session:
-        raise HTTPException(status_code=500, detail="Failed to create chat session")
+        raise HTTPException(status_code=404, detail="Meeting not found or access denied")
 
-    return ApiResponse(
-        success=True,
-        message="Chat session created successfully",
-        data=session,
-    )
+    return ApiResponse(success=True, message="Chat session created successfully", data=session)
 
 
-@router.get("/chat/sessions", response_model=ChatSessionsPaginatedResponse)
-def get_user_chat_sessions_endpoint(
+@router.get("/meetings/{meeting_id}/chat/sessions", response_model=ChatSessionsPaginatedResponse)
+def get_meeting_chat_sessions_endpoint(
+    meeting_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
-    """Get chat sessions for the current user"""
-    sessions, total = get_chat_sessions_for_user(db, current_user.id, page, limit)
+    """Get chat sessions for a meeting"""
+    sessions, total = get_chat_sessions_for_meeting(db, meeting_id, current_user.id, page, limit)
 
     pagination_meta = create_pagination_meta(page, limit, total)
 
@@ -87,11 +86,7 @@ def get_chat_session_endpoint(
     if not session:
         raise HTTPException(status_code=404, detail="Chat session not found")
 
-    return ApiResponse(
-        success=True,
-        message="Chat session retrieved successfully",
-        data=session,
-    )
+    return ApiResponse(success=True, message="Chat session retrieved successfully", data=session)
 
 
 @router.put("/chat/sessions/{session_id}", response_model=ChatSessionApiResponse)
@@ -106,11 +101,7 @@ def update_chat_session_endpoint(
     if not session:
         raise HTTPException(status_code=404, detail="Chat session not found")
 
-    return ApiResponse(
-        success=True,
-        message="Chat session updated successfully",
-        data=session,
-    )
+    return ApiResponse(success=True, message="Chat session updated successfully", data=session)
 
 
 @router.delete("/chat/sessions/{session_id}", response_model=ApiResponse[None])
@@ -124,22 +115,19 @@ def delete_chat_session_endpoint(
     if not success:
         raise HTTPException(status_code=404, detail="Chat session not found")
 
-    return ApiResponse(
-        success=True,
-        message="Chat session deleted successfully",
-        data=None,
-    )
+    return ApiResponse(success=True, message="Chat session deleted successfully", data=None)
 
 
-@router.get("/chat/sessions/{session_id}/history")
+@router.get("/meetings/{meeting_id}/chat/{session_id}/history")
 def get_chat_history_endpoint(
+    meeting_id: uuid.UUID,
     session_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Get full chat history for a session"""
     session = get_chat_session(db, session_id, current_user.id)
-    if not session:
+    if not session or session.meeting_id != meeting_id:
         raise HTTPException(status_code=404, detail="Chat session not found")
 
     messages = get_chat_history(db, session_id, current_user.id, limit=1000)
@@ -157,7 +145,6 @@ def get_chat_history_endpoint(
                 "sender": sender,
                 "message": message.content,
                 "timestamp": message.created_at.isoformat(),
-                "mentions": message.mentions or [],
             }
         )
 
@@ -168,8 +155,8 @@ def get_chat_history_endpoint(
     )
 
 
-# ===== CHAT MESSAGE ENDPOINTS =====
 
+# ===== CHAT MESSAGE ENDPOINTS =====
 
 @router.post("/chat/sessions/{session_id}/messages", response_model=ChatMessageApiResponse)
 async def send_chat_message_endpoint(
@@ -179,28 +166,24 @@ async def send_chat_message_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """Send a message to a chat session and get agent response"""
-    mentions_payload = [
-        mention.model_dump() for mention in (message_data.mentions or [])
-    ]
-
+    # Create user message
     user_message = create_chat_message(
-        db,
-        session_id,
-        current_user.id,
-        message_data.content,
-        ChatMessageType.user,
-        mentions=mentions_payload,
+        db, session_id, current_user.id, message_data.content, ChatMessageType.user
     )
     if not user_message:
         raise HTTPException(
             status_code=404, detail="Chat session not found or inactive"
         )
 
+    # Get session to determine meeting
     session = get_chat_session(db, session_id, current_user.id)
     if not session:
         raise HTTPException(status_code=404, detail="Chat session not found")
 
-    agent = get_chat_agent(db, current_user.id, session.agno_session_id)
+    # Create agent
+    agent = get_meeting_chat_agent(
+        db, current_user.id, session.meeting_id, session.agno_session_id
+    )
     if not agent:
         raise HTTPException(status_code=500, detail="Failed to create chat agent")
 
@@ -213,6 +196,7 @@ async def send_chat_message_endpoint(
     prime_agent_with_history(agent, history_messages)
 
     try:
+        # Get agent response (arun is async version)
         agent_response_obj = await agent.arun(message_data.content)
         agent_response = (
             agent_response_obj.content
@@ -220,15 +204,12 @@ async def send_chat_message_endpoint(
             else str(agent_response_obj)
         )
 
+        # Create agent message
         agent_message = create_chat_message(
-            db,
-            session_id,
-            current_user.id,
-            agent_response,
-            ChatMessageType.agent,
-            mentions=[],
+            db, session_id, current_user.id, agent_response, ChatMessageType.agent
         )
 
+        # Broadcast to WebSocket if connected
         await websocket_manager.publish_user_message(
             str(current_user.id),
             {
@@ -239,7 +220,6 @@ async def send_chat_message_endpoint(
                     "content": agent_response,
                     "message_type": "agent",
                     "created_at": agent_message.created_at.isoformat(),
-                    "mentions": agent_message.mentions or [],
                 },
             },
         )
@@ -251,25 +231,18 @@ async def send_chat_message_endpoint(
         )
 
     except Exception as e:
+        # Create error response
         error_message = f"I apologize, but I encountered an error: {str(e)}"
         agent_message = create_chat_message(
-            db,
-            session_id,
-            current_user.id,
-            error_message,
-            ChatMessageType.agent,
-            mentions=[],
+            db, session_id, current_user.id, error_message, ChatMessageType.agent
         )
 
         return ApiResponse(
-            success=True,
-            message="Message sent with error response",
-            data=agent_message,
+            success=True, message="Message sent with error response", data=agent_message
         )
 
 
 # ===== WEBSOCKET CHAT ENDPOINT =====
-
 
 @router.websocket("/chat/sessions/{session_id}/ws")
 async def chat_websocket_endpoint(
@@ -285,6 +258,7 @@ async def chat_websocket_endpoint(
     db = None
 
     try:
+        # Get token
         auth_token = None
         if authorization and authorization.lower().startswith("bearer "):
             auth_token = authorization[len("bearer ") :].strip()
@@ -297,6 +271,7 @@ async def chat_websocket_endpoint(
             await websocket.close(code=4001, reason="Missing token")
             return
 
+        # Authenticate user
         user_id = get_current_user_from_token(auth_token)
         if not user_id:
             await websocket.close(code=4001, reason="Invalid token")
@@ -308,6 +283,7 @@ async def chat_websocket_endpoint(
             await websocket.close(code=4001, reason="Invalid token")
             return
 
+        # Validate user exists
         db = SessionLocal()
         try:
             user = get_user_by_id(db, user_uuid)
@@ -319,52 +295,58 @@ async def chat_websocket_endpoint(
 
         print(f"WebSocket connected for user: {user.id}")
 
+        # Get db session for chat
         db = SessionLocal()
 
+        # Verify session access
         session = get_chat_session(db, session_id, user_uuid)
         if not session:
             await websocket.close(code=4002, reason="Chat session not found")
             return
 
+        # Accept connection
         await websocket.accept()
 
+        # Add to connection manager
         connection_key = f"chat_{session_id}_{user_id}"
         websocket_manager.add_connection(connection_key, websocket)
 
-        agent = get_chat_agent(db, user_uuid, session.agno_session_id)
+        # Create agent
+        agent = get_meeting_chat_agent(
+            db, user_uuid, session.meeting_id, session.agno_session_id
+        )
 
         if agent:
             history_messages = get_chat_history(db, session_id, user_uuid)
             prime_agent_with_history(agent, history_messages)
 
+        # Main message loop
         while True:
             try:
+                # Receive message
                 data = await websocket.receive_json()
                 message_content = data.get("content", "")
-                mentions_payload = jsonable_encoder(data.get("mentions", [])) or []
 
                 if not message_content:
                     continue
 
+                # Create user message
                 user_message = create_chat_message(
                     db,
                     session_id,
                     user_uuid,
                     message_content,
                     ChatMessageType.user,
-                    mentions=mentions_payload,
                 )
 
                 if not user_message:
-                    await websocket.send_json(
-                        {"type": "chat_error", "error": "Chat session unavailable"}
-                    )
+                    await websocket.send_json({"type": "chat_error", "error": "Chat session unavailable"})
                     continue
 
-                await websocket.send_json(
-                    {"type": "chat_status", "status": "processing"}
-                )
+                # Send typing indicator
+                await websocket.send_json({"type": "chat_status", "status": "processing"})
 
+                # Get agent response
                 if agent:
                     history_messages = get_chat_history(
                         db,
@@ -381,15 +363,16 @@ async def chat_websocket_endpoint(
                         else str(agent_response_obj)
                     )
 
+                    # Create agent message
                     agent_message = create_chat_message(
                         db,
                         session_id,
                         user_uuid,
                         agent_response,
                         ChatMessageType.agent,
-                        mentions=[],
                     )
 
+                    # Send response
                     await websocket.send_json(
                         {
                             "type": "chat_message",
@@ -398,28 +381,29 @@ async def chat_websocket_endpoint(
                                 "content": agent_response,
                                 "message_type": "agent",
                                 "created_at": agent_message.created_at.isoformat(),
-                                "mentions": agent_message.mentions or [],
                             },
                         }
                     )
                 else:
-                    await websocket.send_json(
-                        {"type": "chat_error", "error": "Agent unavailable"}
-                    )
+                    await websocket.send_json({"type": "chat_error", "error": "Agent unavailable"})
 
             except WebSocketDisconnect:
                 break
             except Exception as e:
-                await websocket.send_json(
-                    {"type": "chat_error", "error": str(e)}
-                )
+                await websocket.send_json({"type": "chat_error", "error": str(e)})
+
+    except Exception:
+        try:
+            await websocket.close(code=4000, reason="Connection error")
+        except:
+            pass
 
     finally:
         if user_id:
             connection_key = f"chat_{session_id}_{user_id}"
             try:
                 websocket_manager.remove_connection(connection_key, websocket)
-            except Exception:
+            except:
                 pass
 
         if db:

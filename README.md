@@ -64,22 +64,3 @@ pytest tests/ -v
 ```
 
 **Note:** Tests run against the production database. Make sure your database is properly configured and backed up before running tests.
-
-## Chat Schema Update
-
-The chat subsystem is now session-centric and no longer joins meetings directly.
-
-- `chat_sessions` no longer includes a `meeting_id` column; sessions are keyed to users only.
-- `chat_messages` gained a non-null `mentions` JSON column for storing raw mention metadata from API requests.
-- API requests accept a `mentions` array on chat messages, and responses echo the stored metadata.
-
-### Manual Migration
-
-Because the project does not ship with automated migrations, apply the following SQL in existing environments:
-
-```sql
-ALTER TABLE chat_sessions DROP COLUMN IF EXISTS meeting_id;
-ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS mentions JSONB NOT NULL DEFAULT '[]'::jsonb;
-```
-
-Reapply defaults or backfill data as needed to match your deployment requirements.

@@ -15,11 +15,11 @@ class ChatMessageType(str, Enum):
 
 
 if TYPE_CHECKING:
-    from . import User
+    from . import Meeting, User
 
 
 class ChatSession(SQLModel, table=True):
-    """Chat session model for user conversations"""
+    """Chat session model for meeting-based conversations"""
 
     __tablename__ = "chat_sessions"
 
@@ -33,12 +33,14 @@ class ChatSession(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
 
+    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", nullable=False)
     user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     agno_session_id: str = Field(sa_column=Column(String, nullable=False))
     title: Optional[str] = Field(default=None, sa_column=Column(String))
     is_active: bool = Field(default=True, sa_column=Column(Boolean))
 
     # Relationships
+    meeting: "Meeting" = Relationship()
     user: "User" = Relationship()
     messages: list["ChatMessage"] = Relationship(back_populates="chat_session")
 
@@ -60,10 +62,6 @@ class ChatMessage(SQLModel, table=True):
     chat_session_id: uuid.UUID = Field(foreign_key="chat_sessions.id", nullable=False)
     message_type: str = Field(default=ChatMessageType.user, sa_column=Column(String))
     content: str = Field(sa_column=Column(Text, nullable=False))
-    mentions: list[dict] = Field(
-        default_factory=list,
-        sa_column=Column(JSON, nullable=False, default=list),
-    )
     message_metadata: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
     # Relationships

@@ -7,13 +7,6 @@ from pydantic import BaseModel, Field
 from .common import ApiResponse, PaginatedResponse
 
 
-class ChatMention(BaseModel):
-    entity_type: str
-    entity_id: str
-    offset_start: int
-    offset_end: int
-
-
 class ChatSessionCreate(BaseModel):
     title: Optional[str] = None
 
@@ -25,6 +18,7 @@ class ChatSessionUpdate(BaseModel):
 
 class ChatSessionResponse(BaseModel):
     id: UUID
+    meeting_id: UUID
     user_id: UUID
     agno_session_id: str
     title: Optional[str] = None
@@ -38,7 +32,6 @@ class ChatSessionResponse(BaseModel):
 
 class ChatMessageCreate(BaseModel):
     content: str = Field(..., min_length=1, max_length=10000)
-    mentions: Optional[List[ChatMention]] = Field(default_factory=list)
 
 
 class ChatMessageResponse(BaseModel):
@@ -46,7 +39,6 @@ class ChatMessageResponse(BaseModel):
     chat_session_id: UUID
     message_type: str
     content: str
-    mentions: List[ChatMention] = Field(default_factory=list)
     message_metadata: Optional[dict] = None
     created_at: datetime
 
@@ -63,6 +55,7 @@ class ChatConversationResponse(BaseModel):
     session: ChatSessionResponse
     messages: List[ChatMessageResponse]
     total_messages: int
+    meeting_title: Optional[str] = None
 
 
 # API Response types
