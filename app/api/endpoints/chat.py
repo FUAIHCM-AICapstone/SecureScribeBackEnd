@@ -19,10 +19,12 @@ from app.schemas.common import ApiResponse
 from app.services.chat import (
     create_chat_message,
     get_conversation,
+    get_recent_messages,
     query_documents_for_mentions,
 )
 from app.utils.auth import get_current_user
 from app.utils.redis import get_async_redis_client
+from app.utils.llm import chat_complete
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Chat"])
 
@@ -49,10 +51,42 @@ async def send_chat_message_endpoint(
     if message_data.mentions:
         query_documents_for_mentions(message_data.mentions, str(current_user.id))
 
+    def _serialize_message(db_message):
+        return {
+            "id": str(db_message.id),
+            "conversation_id": str(db_message.conversation_id),
+            "role": (
+                "assistant"
+                if db_message.message_type == ChatMessageType.agent
+                else "user"
+                if db_message.message_type == ChatMessageType.user
+                else "system"
+            ),
+            "content": db_message.content,
+            "timestamp": db_message.created_at.isoformat(),
+            "mentions": db_message.mentions if isinstance(db_message.mentions, list) else [],
+        }
+
     try:
-        # For now, create a simple AI response
-        # TODO: Integrate with proper LLM when ready
-        ai_response_content = f"I received your message: '{message_data.content}'. This is a placeholder response."
+        recent_messages = get_recent_messages(db, conversation_id, limit=5)
+        if not any(msg.id == user_message.id for msg in recent_messages):
+            recent_messages.append(user_message)
+        recent_messages.sort(key=lambda msg: msg.created_at)
+
+        transcript_lines = []
+        for msg in recent_messages:
+            role_label = "User"
+            if msg.message_type == ChatMessageType.agent:
+                role_label = "Assistant"
+            elif msg.message_type != ChatMessageType.user:
+                role_label = "System"
+            transcript_lines.append(f"{role_label}: {msg.content}")
+        transcript_text = "\n".join(transcript_lines)
+
+        system_prompt = "You are SecureScribe's AI assistant. Use the conversation transcript to provide a concise, helpful reply."
+        user_prompt = f"Conversation transcript:\n{transcript_text}\n\nCurrent user message: {message_data.content}"
+
+        ai_response_content = await chat_complete(system_prompt, user_prompt)
 
         # Create AI message
         ai_message = create_chat_message(db=db, conversation_id=conversation_id, user_id=current_user.id, content=ai_response_content, message_type=ChatMessageType.agent)
@@ -60,15 +94,19 @@ async def send_chat_message_endpoint(
         # Broadcast message via Redis to SSE channel
         redis_client = await get_async_redis_client()
         channel = f"conversation:{conversation_id}:messages"
-        message_data = {"type": "chat_message", "conversation_id": str(conversation_id), "message": {"id": str(ai_message.id), "content": ai_response_content, "message_type": "agent", "created_at": ai_message.created_at.isoformat()}}
+        message_data = {
+            "type": "chat_message",
+            "conversation_id": str(conversation_id),
+            "message": _serialize_message(ai_message),
+        }
         await redis_client.publish(channel, json.dumps(message_data))
 
         # Return both user and AI messages as per API spec
-        return ApiResponse(success=True, message="Message sent and response received", data={"user_message": {"id": str(user_message.id), "conversation_id": str(user_message.conversation_id), "role": "user", "content": user_message.content, "timestamp": user_message.created_at.isoformat(), "mentions": user_message.mentions if isinstance(user_message.mentions, list) else []}, "ai_message": {"id": str(ai_message.id), "conversation_id": str(ai_message.conversation_id), "role": "assistant", "content": ai_message.content, "timestamp": ai_message.created_at.isoformat(), "mentions": ai_message.mentions if isinstance(ai_message.mentions, list) else []}})
+        return ApiResponse(success=True, message="Message sent and response received", data={"user_message": _serialize_message(user_message), "ai_message": _serialize_message(ai_message)})
 
     except Exception:
         # Return user message only if AI generation failed
-        return ApiResponse(success=True, message="Message sent but AI response failed", data={"user_message": {"id": str(user_message.id), "conversation_id": str(user_message.conversation_id), "role": "user", "content": user_message.content, "timestamp": user_message.created_at.isoformat(), "mentions": user_message.mentions if isinstance(user_message.mentions, list) else []}, "ai_message": None})
+        return ApiResponse(success=True, message="Message sent but AI response failed", data={"user_message": _serialize_message(user_message), "ai_message": None})
 
 
 # ===== SSE CHAT ENDPOINT =====
