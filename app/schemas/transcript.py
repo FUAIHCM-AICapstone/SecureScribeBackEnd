@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
-from app.schemas.common import ApiResponse
+from app.schemas.common import ApiResponse, PaginatedResponse
 
 
 class TranscriptBase(BaseModel):
@@ -39,3 +39,33 @@ class TranscriptResponse(BaseModel):
 
 class TranscriptApiResponse(ApiResponse[TranscriptResponse]):
     pass
+
+
+class TranscriptsPaginatedResponse(PaginatedResponse[TranscriptResponse]):
+    pass
+
+
+class BulkTranscriptCreate(BaseModel):
+    transcripts: List[TranscriptCreate]
+
+
+class BulkTranscriptUpdateItem(BaseModel):
+    id: uuid.UUID
+    updates: TranscriptUpdate
+
+
+class BulkTranscriptUpdate(BaseModel):
+    transcripts: List[BulkTranscriptUpdateItem]
+
+
+class BulkTranscriptDelete(BaseModel):
+    transcript_ids: List[uuid.UUID]
+
+
+class BulkTranscriptResponse(BaseModel):
+    success: bool
+    message: str
+    data: List[dict]
+    total_processed: int
+    total_success: int
+    total_failed: int
