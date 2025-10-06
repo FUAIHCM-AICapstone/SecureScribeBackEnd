@@ -70,7 +70,6 @@ async def update_meeting_note_endpoint(
         meeting_id,
         current_user.id,
         content=payload.content,
-        sections=payload.sections,
     )
     return ApiResponse(success=True, message="Meeting note updated", data=MeetingNoteResponse.model_validate(note))
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -12,7 +12,7 @@ from app.models.meeting import MeetingNote
 from app.services.meeting import get_meeting
 from app.services.transcript import get_transcript_by_meeting
 from app.utils.meeting_agent import MeetingAnalyzer
-from app.utils.meeting_summary import generate_meeting_summary, normalize_summary_sections
+from app.utils.meeting_summary import generate_meeting_summary
 
 LOGGER = logging.getLogger(__name__)
 
@@ -144,16 +144,10 @@ async def update_meeting_note(
     meeting_id: UUID,
     user_id: UUID,
     *,
-    content: Optional[str] = None,
-    sections: Optional[Sequence[str]] = None,
+    content: str,
 ) -> MeetingNote:
-    note = get_meeting_note(db, meeting_id, user_id)
-    materialised = content
-    if materialised is None:
-        normalized = normalize_summary_sections(sections)
-        summary = await generate_meeting_summary(db, meeting_id, user_id, normalized)
-        materialised = summary["content"]  # type: ignore[assignment]
-    return upsert_meeting_note(db, meeting_id, user_id, materialised, ai_data=None)
+    get_meeting_note(db, meeting_id, user_id)
+    return upsert_meeting_note(db, meeting_id, user_id, content)
 
 
 def delete_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> None:

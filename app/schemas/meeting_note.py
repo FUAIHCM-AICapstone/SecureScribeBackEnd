@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
@@ -9,8 +8,7 @@ from app.schemas.user import MeetingNoteResponse
 
 
 class MeetingNoteRequest(BaseModel):
-    content: Optional[str] = None
-    sections: Optional[List[str]] = None
+    content: str
 
 
 # class MeetingNoteAIResponse(BaseModel):

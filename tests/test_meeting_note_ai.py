@@ -149,3 +149,25 @@ async def test_create_meeting_note_missing_transcript(db: Session, test_user, me
     result = await meeting_note_service.create_meeting_note(db, meeting_id, test_user.id)
     assert result["content"] == "Tóm tắt truyền thống"
 
+
+
+@pytest.mark.asyncio
+async def test_update_meeting_note_manual_edit(db: Session, test_user, meeting_factory, monkeypatch):
+    meeting_id = meeting_factory(None)
+    meeting_note_service.upsert_meeting_note(db, meeting_id, test_user.id, "Initial content")
+
+    async def _raise(*args, **kwargs):
+        raise AssertionError("generate_meeting_summary should not run during manual update")
+
+    monkeypatch.setattr(meeting_note_service, "generate_meeting_summary", _raise)
+
+    updated = await meeting_note_service.update_meeting_note(
+        db,
+        meeting_id,
+        test_user.id,
+        content="Manual update",
+    )
+
+    assert updated.content == "Manual update"
+    note = meeting_note_service.get_meeting_note(db, meeting_id, test_user.id)
+    assert note.content == "Manual update"
