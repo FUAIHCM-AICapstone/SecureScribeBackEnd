@@ -419,27 +419,23 @@ async def query_documents_by_meeting_id(
 
     client = get_qdrant_client()
 
-    # Use scroll API to get all points and filter in Python
-    # This avoids the need for payload indexes
     try:
         all_points = []
         offset = None
-        limit = 100  # Get points in batches
+        limit = 100
 
         while True:
-            # Scroll returns a tuple: (points, next_page_offset)
             points, next_offset = client.scroll(
                 collection_name=collection_name,
                 limit=limit,
                 offset=offset,
                 with_payload=True,
-                with_vectors=False,  # We don't need vectors for filtering
+                with_vectors=False
             )
 
             if not points:
                 break
 
-            # Filter points by meeting_id in Python
             for point in points:
                 if point.payload and point.payload.get("meeting_id") == meeting_id:
                     all_points.append(point)
@@ -448,17 +444,15 @@ async def query_documents_by_meeting_id(
             if not offset or len(all_points) >= top_k:
                 break
 
-        # Limit results to top_k
         filtered_points = all_points[:top_k]
 
-        # Convert results to a more usable format
         documents = []
         for point in filtered_points:
             doc = {
                 "id": point.id,
-                "score": 1.0,  # Since we're not doing similarity search
+                "score": 1.0,
                 "payload": point.payload or {},
-                "vector": [],  # No vectors since we didn't request them
+                "vector": [],
             }
             documents.append(doc)
 

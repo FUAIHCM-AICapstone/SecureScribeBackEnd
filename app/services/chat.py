@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.models.chat import ChatMessage, Conversation
+from app.schemas.chat import Mention
 from app.services.qdrant_service import query_documents_by_meeting_id
 
 
@@ -41,7 +42,7 @@ def create_chat_message(db: Session, conversation_id: uuid.UUID, user_id: uuid.U
     return db_message
 
 
-async def query_documents_for_mentions(mentions: List[dict], current_user_id: str = None) -> List[dict]:
+async def query_documents_for_mentions(mentions: List[Mention], current_user_id: str = None) -> List[dict]:
     """
     Query documents based on mentions and return results.
     """
