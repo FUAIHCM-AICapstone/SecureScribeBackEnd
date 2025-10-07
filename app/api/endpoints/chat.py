@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import SessionLocal, get_db
+from app.jobs.tasks import process_chat_message
 from app.models.chat import ChatMessageType, Conversation
 from app.models.user import User
 from app.schemas.chat import (
@@ -19,12 +20,11 @@ from app.schemas.common import ApiResponse
 from app.services.chat import (
     create_chat_message,
     get_conversation,
-    get_recent_messages,
     query_documents_for_mentions,
 )
 from app.utils.auth import get_current_user
-from app.utils.redis import get_async_redis_client
 from app.utils.llm import chat_complete
+from app.utils.redis import get_async_redis_client
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Chat"])
 
@@ -34,80 +34,38 @@ async def send_chat_message_endpoint(
     conversation_id: uuid.UUID,
     message_data: ChatMessageCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),  # Adapted to use get_current_user
 ):
-    """Send a message to a conversation and get AI response"""
-    # Create user message with mentions
+    """Send a message to a conversation and trigger background AI processing"""
+    # Create user message with mentions (existing logic)
     user_message = create_chat_message(db=db, conversation_id=conversation_id, user_id=current_user.id, content=message_data.content, message_type=ChatMessageType.user, mentions=message_data.mentions)
     if not user_message:
         raise HTTPException(status_code=404, detail="Conversation not found or inactive")
 
-    # Get conversation for context
+    # Get conversation for context (existing logic)
     conversation = get_conversation(db, conversation_id, current_user.id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Handle mention-based querying (for now just prints as requested)
+    # Handle mention-based querying (adapted from Agno_chat)
     if message_data.mentions:
         query_documents_for_mentions(message_data.mentions, str(current_user.id))
 
-    def _serialize_message(db_message):
-        return {
-            "id": str(db_message.id),
-            "conversation_id": str(db_message.conversation_id),
-            "role": (
-                "assistant"
-                if db_message.message_type == ChatMessageType.agent
-                else "user"
-                if db_message.message_type == ChatMessageType.user
-                else "system"
-            ),
-            "content": db_message.content,
-            "timestamp": db_message.created_at.isoformat(),
-            "mentions": db_message.mentions if isinstance(db_message.mentions, list) else [],
-        }
+    # Trigger background AI processing task (core Agno_chat logic)
+    task = process_chat_message.delay(conversation_id=str(conversation_id), user_message_id=str(user_message.id), content=message_data.content, user_id=current_user.id, query_results=[])
 
-    try:
-        recent_messages = get_recent_messages(db, conversation_id, limit=5)
-        if not any(msg.id == user_message.id for msg in recent_messages):
-            recent_messages.append(user_message)
-        recent_messages.sort(key=lambda msg: msg.created_at)
+    print(f"Triggered background task {task.id} for conversation_id={conversation_id}")
 
-        transcript_lines = []
-        for msg in recent_messages:
-            role_label = "User"
-            if msg.message_type == ChatMessageType.agent:
-                role_label = "Assistant"
-            elif msg.message_type != ChatMessageType.user:
-                role_label = "System"
-            transcript_lines.append(f"{role_label}: {msg.content}")
-        transcript_text = "\n".join(transcript_lines)
-
-        system_prompt = "You are SecureScribe's AI assistant. Use the conversation transcript to provide a concise, helpful reply."
-        user_prompt = f"Conversation transcript:\n{transcript_text}\n\nCurrent user message: {message_data.content}"
-
-        ai_response_content = await chat_complete(system_prompt, user_prompt)
-
-        # Create AI message
-        ai_message = create_chat_message(db=db, conversation_id=conversation_id, user_id=current_user.id, content=ai_response_content, message_type=ChatMessageType.agent)
-
-        # Broadcast message via Redis to SSE channel
-        redis_client = await get_async_redis_client()
-        channel = f"conversation:{conversation_id}:messages"
-        message_data = {
-            "type": "chat_message",
-            "conversation_id": str(conversation_id),
-            "message": _serialize_message(ai_message),
-        }
-        await redis_client.publish(channel, json.dumps(message_data))
-
-        # Return both user and AI messages as per API spec
-        return ApiResponse(success=True, message="Message sent and response received", data={"user_message": _serialize_message(user_message), "ai_message": _serialize_message(ai_message)})
-
-    except Exception:
-        # Return user message only if AI generation failed
-        return ApiResponse(success=True, message="Message sent but AI response failed", data={"user_message": _serialize_message(user_message), "ai_message": None})
-
+    # Return user message + task_id immediately (Agno_chat logic)
+    return ApiResponse(  # Standardized to SecureScribeBackEnd's ApiResponse
+        success=True,
+        message="Message sent and background AI processing started",
+        data={
+            "user_message": {"id": str(user_message.id), "conversation_id": str(user_message.conversation_id), "role": "user", "content": user_message.content, "timestamp": user_message.created_at.isoformat(), "mentions": user_message.mentions if isinstance(user_message.mentions, list) else []},
+            "task_id": task.id,
+            "ai_message": None,  # AI response will come via SSE
+        },
+    )
 
 # ===== SSE CHAT ENDPOINT =====
 

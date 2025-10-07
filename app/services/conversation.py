@@ -80,8 +80,3 @@ def delete_conversation(db: Session, conversation_id: uuid.UUID, user_id: uuid.U
     conversation.updated_at = datetime.utcnow()
     db.commit()
     return True
-
-
-def get_message_count_for_conversation(db: Session, conversation_id: uuid.UUID) -> int:
-    """Get message count for a conversation"""
-    return db.query(ChatMessage).filter(ChatMessage.conversation_id == conversation_id).count()
