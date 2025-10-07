@@ -323,45 +323,57 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
     This task handles AI processing and broadcasts the response via Redis for SSE clients.
     """
 
+    print(f"[process_chat_message] Start processing: conversation_id={conversation_id}, user_message_id={user_message_id}, user_id={user_id}")
     # Create database session for this task
     db = SessionLocal()
 
     try:
+        print("[process_chat_message] Getting Agno Postgres DB instance...")
         # Get Agno DB for agent
         agno_db = get_agno_postgres_db()
 
+        print("[process_chat_message] Creating general chat agent...")
         # Create chat agent
         agent = create_general_chat_agent(agno_db, conversation_id, user_id)
 
+        print("[process_chat_message] Fetching conversation history...")
         # Fetch conversation history (using sync version for Celery task)
         history = fetch_conversation_history_sync(conversation_id)
 
         # Prepare enhanced content with meeting documents if available
         enhanced_content = content
         if query_results:
+            print(f"[process_chat_message] Found {len(query_results)} query_results, preparing meeting context...")
             meeting_context = "\n\nThông tin từ tài liệu cuộc họp được tìm thấy:\n"
             for i, doc in enumerate(query_results[:3]):  # Limit to 3 documents for context
+                print(f"[process_chat_message] Adding document {i+1} to context.")
                 meeting_context += f"\nTài liệu {i + 1}:\n{doc.get('payload', {}).get('text', 'Nội dung không có sẵn')}\n"
             enhanced_content = content + meeting_context
 
+        print("[process_chat_message] Running agent for AI response...")
         # Process message with AI agent
         response = agent.run(enhanced_content, history=history)
 
         ai_response_content = response.content
+        print(f"[process_chat_message] AI response generated. Length: {len(ai_response_content)} characters.")
 
         # Create AI message in database
+        print("[process_chat_message] Creating AI message in database...")
         ai_message = ChatMessage(conversation_id=conversation_id, message_type=ChatMessageType.agent, content=ai_response_content, user_id=user_id)
         db.add(ai_message)
         db.commit()
         db.refresh(ai_message)
+        print(f"[process_chat_message] AI message committed to DB with id: {ai_message.id}")
 
         # Broadcast message via Redis to SSE channel
         channel = f"conversation:{conversation_id}:messages"
         message_data = {"type": "chat_message", "conversation_id": conversation_id, "message": {"id": str(ai_message.id), "content": ai_response_content, "message_type": "agent", "created_at": ai_message.created_at.isoformat()}}
 
+        print(f"[process_chat_message] Broadcasting AI message to Redis channel: {channel}")
         # Use sync Redis client for broadcasting in Celery task
         sync_redis_client.publish(channel, json.dumps(message_data))
 
+        print("[process_chat_message] Processing complete. Returning success response.")
         return {
             "status": "success",
             "conversation_id": conversation_id,
@@ -371,15 +383,18 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
         }
 
     except Exception as e:
+        print(f"[process_chat_message] Exception occurred: {e}")
         # Create error message in database
         error_message = ChatMessage(conversation_id=conversation_id, message_type=ChatMessageType.agent, content="I apologize, but I encountered an error processing your message. Please try again.", user_id=user_id)
         db.add(error_message)
         db.commit()
+        print(f"[process_chat_message] Error message committed to DB with id: {error_message.id}")
 
         # Try to broadcast error message
         channel = f"conversation:{conversation_id}:messages"
         error_data = {"type": "chat_message", "conversation_id": conversation_id, "message": {"id": str(error_message.id), "content": error_message.content, "message_type": "agent", "created_at": error_message.created_at.isoformat(), "error": True}}
 
+        print(f"[process_chat_message] Broadcasting error message to Redis channel: {channel}")
         # Use sync Redis client for error broadcasting
         sync_redis_client.publish(channel, json.dumps(error_data))
 

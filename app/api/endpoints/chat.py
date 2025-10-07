@@ -19,9 +19,9 @@ from app.schemas.chat import (
 from app.schemas.common import ApiResponse
 from app.services.chat import (
     create_chat_message,
-    get_conversation,
     query_documents_for_mentions,
 )
+from app.services.conversation import get_conversation
 from app.utils.auth import get_current_user
 from app.utils.redis import get_async_redis_client
 
@@ -47,11 +47,12 @@ async def send_chat_message_endpoint(
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     # Handle mention-based querying (adapted from Agno_chat)
+    query_results = []
     if message_data.mentions:
-        query_documents_for_mentions(message_data.mentions, str(current_user.id))
+        query_results = await query_documents_for_mentions(message_data.mentions)
 
     # Trigger background AI processing task (core Agno_chat logic)
-    task = process_chat_message.delay(conversation_id=str(conversation_id), user_message_id=str(user_message.id), content=message_data.content, user_id=current_user.id, query_results=[])
+    task = process_chat_message.delay(conversation_id=str(conversation_id), user_message_id=str(user_message.id), content=message_data.content, user_id=current_user.id, query_results=query_results)
 
     print(f"Triggered background task {task.id} for conversation_id={conversation_id}")
 

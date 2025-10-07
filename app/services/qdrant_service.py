@@ -406,3 +406,66 @@ async def reindex_file(
         owner_user_id=owner_user_id,
         file_type=file_type,
     )
+
+
+async def query_documents_by_meeting_id(
+    meeting_id: str,
+    collection_name: str | None = None,
+    top_k: int = 10,
+) -> List[dict]:
+    """Query all documents for a specific meeting_id"""
+    if not collection_name:
+        collection_name = settings.QDRANT_COLLECTION_NAME
+
+    client = get_qdrant_client()
+
+    # Use scroll API to get all points and filter in Python
+    # This avoids the need for payload indexes
+    try:
+        all_points = []
+        offset = None
+        limit = 100  # Get points in batches
+
+        while True:
+            # Scroll returns a tuple: (points, next_page_offset)
+            points, next_offset = client.scroll(
+                collection_name=collection_name,
+                limit=limit,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,  # We don't need vectors for filtering
+            )
+
+            if not points:
+                break
+
+            # Filter points by meeting_id in Python
+            for point in points:
+                if point.payload and point.payload.get("meeting_id") == meeting_id:
+                    all_points.append(point)
+
+            offset = next_offset
+            if not offset or len(all_points) >= top_k:
+                break
+
+        # Limit results to top_k
+        filtered_points = all_points[:top_k]
+
+        # Convert results to a more usable format
+        documents = []
+        for point in filtered_points:
+            doc = {
+                "id": point.id,
+                "score": 1.0,  # Since we're not doing similarity search
+                "payload": point.payload or {},
+                "vector": [],  # No vectors since we didn't request them
+            }
+            documents.append(doc)
+
+        print(f"Found {len(documents)} documents for meeting_id {meeting_id}")
+        return documents
+
+    except Exception as e:
+        print(f"Error querying documents for meeting_id {meeting_id}: {e}")
+        return []
+

@@ -27,6 +27,7 @@ services:
       - ENV=development
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=5432
+      - AGNO_TELEMETRY=false
     volumes:
       - .:/app
       - /app/__pycache__
@@ -65,6 +66,7 @@ services:
       - ENV=development
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=5432
+      - AGNO_TELEMETRY=false
     volumes:
       - .:/app
       - /app/__pycache__
