@@ -23,7 +23,6 @@ from app.services.chat import (
     query_documents_for_mentions,
 )
 from app.utils.auth import get_current_user
-from app.utils.llm import chat_complete
 from app.utils.redis import get_async_redis_client
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Chat"])
