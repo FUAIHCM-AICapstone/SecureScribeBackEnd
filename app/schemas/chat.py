@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .common import PaginationMeta
 
@@ -28,9 +28,9 @@ class ChatMessageResponse(BaseModel):
 
     id: UUID
     conversation_id: UUID
-    role: str  # "user", "assistant", "system"
+    role: str = Field(alias="message_type")  # "user", "assistant", "system"
     content: str
-    timestamp: datetime
+    timestamp: datetime = Field(alias="created_at")
     mentions: Optional[List[Mention]] = None
 
     class Config:
