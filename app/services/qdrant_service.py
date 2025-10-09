@@ -463,3 +463,120 @@ async def query_documents_by_meeting_id(
         print(f"Error querying documents for meeting_id {meeting_id}: {e}")
         return []
 
+
+async def query_documents_by_project_id(
+    project_id: str,
+    collection_name: str | None = None,
+    top_k: int = 10,
+) -> List[dict]:
+    """Query documents scoped to a specific project_id"""
+    if not project_id:
+        return []
+
+    if not collection_name:
+        collection_name = settings.QDRANT_COLLECTION_NAME
+
+    client = get_qdrant_client()
+
+    filter_condition = qmodels.Filter(
+        must=[qmodels.FieldCondition(key="project_id", match=qmodels.MatchValue(value=project_id))]
+    )
+
+    try:
+        documents: List[dict] = []
+        offset = None
+        limit = min(max(top_k, 1), 100)
+
+        while len(documents) < top_k:
+            points, next_offset = client.scroll(
+                collection_name=collection_name,
+                limit=limit,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+                scroll_filter=filter_condition,
+            )
+
+            if not points:
+                break
+
+            for point in points:
+                doc = {
+                    "id": point.id,
+                    "score": 1.0,
+                    "payload": point.payload or {},
+                    "vector": [],
+                }
+                documents.append(doc)
+                if len(documents) >= top_k:
+                    break
+
+            offset = next_offset
+            if not offset:
+                break
+
+        print(f"Found {len(documents)} documents for project_id {project_id}")
+        return documents
+
+    except Exception as e:
+        print(f"Error querying documents for project_id {project_id}: {e}")
+        return []
+
+
+async def query_documents_by_file_id(
+    file_id: str,
+    collection_name: str | None = None,
+    top_k: int = 10,
+) -> List[dict]:
+    """Query documents scoped to a specific file_id"""
+    if not file_id:
+        return []
+
+    if not collection_name:
+        collection_name = settings.QDRANT_COLLECTION_NAME
+
+    client = get_qdrant_client()
+
+    filter_condition = qmodels.Filter(
+        must=[qmodels.FieldCondition(key="file_id", match=qmodels.MatchValue(value=file_id))]
+    )
+
+    try:
+        documents: List[dict] = []
+        offset = None
+        limit = min(max(top_k, 1), 100)
+
+        while len(documents) < top_k:
+            points, next_offset = client.scroll(
+                collection_name=collection_name,
+                limit=limit,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+                scroll_filter=filter_condition,
+            )
+
+            if not points:
+                break
+
+            for point in points:
+                doc = {
+                    "id": point.id,
+                    "score": 1.0,
+                    "payload": point.payload or {},
+                    "vector": [],
+                }
+                documents.append(doc)
+                if len(documents) >= top_k:
+                    break
+
+            offset = next_offset
+            if not offset:
+                break
+
+        print(f"Found {len(documents)} documents for file_id {file_id}")
+        return documents
+
+    except Exception as e:
+        print(f"Error querying documents for file_id {file_id}: {e}")
+        return []
