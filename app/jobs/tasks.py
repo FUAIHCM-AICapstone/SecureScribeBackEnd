@@ -270,35 +270,13 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
         db.commit()
         db.refresh(transcript)
 
+        # Queue transcript indexing as background task
         try:
-            from app.core.config import settings as _settings
-            from app.services.qdrant_service import (
-                chunk_text,
-                create_collection_if_not_exist,
-                upsert_vectors,
-            )
-            from app.utils.llm import embed_documents
-
-            chunks = chunk_text(transcript.content or "")
-            if chunks:
-                vectors = asyncio.run(embed_documents(chunks))
-                if vectors:
-                    asyncio.run(create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, len(vectors[0])))
-                payloads = [
-                    {
-                        "text": ch,
-                        "chunk_index": i,
-                        "meeting_id": str(meeting_id),
-                        "transcript_id": str(transcript.id),
-                        "total_chunks": len(chunks),
-                    }
-                    for i, ch in enumerate(chunks)
-                ]
-                asyncio.run(upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads))
-                transcript.qdrant_vector_id = str(transcript.id)
-                db.commit()
-        except Exception:
-            pass
+            index_transcript_task.delay(str(transcript.id))
+            print(f"🟢 \033[92m[process_audio_task] Queued indexing for transcript {transcript.id}\033[0m")
+        except Exception as e:
+            print(f"🟡 \033[93m[process_audio_task] Failed to queue indexing: {e}\033[0m")
+            # Continue anyway - user gets transcript, indexing can be retried
 
         update_task_progress(task_id, actor_user_id, 100, "completed", task_type="audio_asr")
         _broadcast(100, "completed", "0s")
@@ -318,6 +296,57 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
         except Exception:
             pass
         raise
+    finally:
+        try:
+            db.close()
+        except Exception:
+            pass
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
+def index_transcript_task(self, transcript_id: str) -> Dict[str, Any]:
+    """
+    Background task to index a transcript into Qdrant.
+    
+    Args:
+        transcript_id: UUID string of the transcript to index
+        
+    Returns:
+        dict with status and details
+    """
+    db = SessionLocal()
+    try:
+        from app.services.qdrant_service import index_transcript_sync
+        import uuid
+        
+        print(f"🔵 \033[94m[index_transcript_task] Starting for transcript {transcript_id}\033[0m")
+        
+        transcript_uuid = uuid.UUID(transcript_id)
+        success = index_transcript_sync(db, transcript_uuid)
+        
+        if success:
+            print(f"🟢 \033[92m[index_transcript_task] Successfully indexed transcript {transcript_id}\033[0m")
+            return {
+                "status": "success",
+                "transcript_id": transcript_id,
+            }
+        else:
+            print(f"🔴 \033[91m[index_transcript_task] Failed to index transcript {transcript_id}\033[0m")
+            # Retry the task
+            raise self.retry(exc=Exception("Indexing failed"))
+            
+    except Exception as e:
+        print(f"🔴 \033[91m[index_transcript_task] Error: {e}\033[0m")
+        # Retry up to max_retries times
+        try:
+            raise self.retry(exc=e)
+        except self.MaxRetriesExceededError:
+            print(f"🔴 \033[91m[index_transcript_task] Max retries exceeded for {transcript_id}\033[0m")
+            return {
+                "status": "failed",
+                "transcript_id": transcript_id,
+                "error": str(e),
+            }
     finally:
         try:
             db.close()

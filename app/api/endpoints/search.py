@@ -15,7 +15,7 @@ from app.schemas.search import (
     SearchResult,
 )
 from app.services.file import check_file_access, get_file
-from app.services.qdrant_service import search_vectors
+from app.services.qdrant_service import build_transcript_search_filter, search_vectors
 from app.services.search import search_dynamic
 from app.utils.auth import get_current_user
 from app.utils.llm import embed_query
@@ -38,12 +38,14 @@ async def search_documents(
 
         query_embedding = await embed_query(request.query)
         # Server-side scope filtering in Qdrant
-        from qdrant_client.http.models import FieldCondition, Filter, MatchValue
+        from qdrant_client.http.models import FieldCondition, Filter, MatchAny, MatchValue
+        from app.models.project import Project
 
-        # Meeting scope: only that meeting's files
-        # Project scope: project files OR current user's personal files
+        # Build filter that works for both files and transcripts
         qfilter = None
+        
         if request.meeting_id:
+            # Meeting scope: search both files and transcripts in that meeting
             qfilter = Filter(
                 should=[
                     FieldCondition(key="meeting_id", match=MatchValue(value=request.meeting_id)),
@@ -52,12 +54,32 @@ async def search_documents(
                 must=[FieldCondition(key="uploaded_by", match=MatchValue(value=str(current_user.id)))],
             )
         elif request.project_id:
+            # Project scope: search files by project_id AND transcripts by project_ids array
             qfilter = Filter(
                 should=[
+                    # Files with this project_id
                     FieldCondition(key="project_id", match=MatchValue(value=request.project_id)),
+                    # Transcripts with this project in their project_ids array
+                    FieldCondition(key="project_ids", match=MatchAny(any=[request.project_id])),
+                    # User's personal items (files uploaded_by or transcripts created_by)
                     FieldCondition(key="uploaded_by", match=MatchValue(value=str(current_user.id))),
+                    FieldCondition(key="created_by", match=MatchValue(value=str(current_user.id))),
                 ]
             )
+        else:
+            # No specific scope: get user's accessible projects and build filter
+            user_projects = db.query(Project).join(Project.users).filter(
+                Project.users.any(id=current_user.id)
+            ).all()
+            user_project_ids = [str(p.id) for p in user_projects]
+            
+            if user_project_ids:
+                qfilter = build_transcript_search_filter(
+                    user_id=str(current_user.id),
+                    project_ids=user_project_ids,
+                    meeting_id=None,
+                    include_personal=True
+                )
 
         raw_results = await search_vectors(
             collection=settings.QDRANT_COLLECTION_NAME,

@@ -61,11 +61,31 @@ def create_transcript(db: Session, transcript_data: TranscriptCreate, user_id: u
         existing.audio_concat_file_id = transcript_data.audio_concat_file_id
         db.commit()
         db.refresh(existing)
+        
+        # Queue transcript indexing as background task
+        try:
+            from app.jobs.tasks import index_transcript_task
+            index_transcript_task.delay(str(existing.id))
+            print(f"🟢 \033[92mQueued indexing for transcript {existing.id}\033[0m")
+        except Exception as e:
+            print(f"🟡 \033[93mFailed to queue transcript indexing: {e}\033[0m")
+            # Continue anyway - transcript is created, indexing can be retried later
+        
         return existing
     transcript = Transcript(**transcript_data.model_dump())
     db.add(transcript)
     db.commit()
     db.refresh(transcript)
+    
+    # Queue transcript indexing as background task
+    try:
+        from app.jobs.tasks import index_transcript_task
+        index_transcript_task.delay(str(transcript.id))
+        print(f"🟢 \033[92mQueued indexing for transcript {transcript.id}\033[0m")
+    except Exception as e:
+        print(f"🟡 \033[93mFailed to queue transcript indexing: {e}\033[0m")
+        # Continue anyway - transcript is created, indexing can be retried later
+    
     return transcript
 
 
@@ -110,6 +130,15 @@ def update_transcript(db: Session, transcript_id: uuid.UUID, transcript_data: Tr
             setattr(transcript, key, value)
     db.commit()
     db.refresh(transcript)
+    
+    # Re-index the updated transcript
+    try:
+        from app.jobs.tasks import index_transcript_task
+        index_transcript_task.delay(str(transcript.id))
+        print(f"🟢 \033[92mQueued re-indexing for updated transcript {transcript.id}\033[0m")
+    except Exception as e:
+        print(f"🟡 \033[93mFailed to queue transcript re-indexing: {e}\033[0m")
+    
     return transcript
 
 
@@ -119,6 +148,17 @@ def delete_transcript(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID)
     transcript = db.query(Transcript).filter(Transcript.id == transcript_id).first()
     if not transcript:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
+    
+    # Delete vectors from Qdrant
+    try:
+        import asyncio
+        from app.services.qdrant_service import delete_transcript_vectors
+        asyncio.run(delete_transcript_vectors(str(transcript_id)))
+        print(f"🟢 \033[92mDeleted vectors for transcript {transcript_id}\033[0m")
+    except Exception as e:
+        print(f"🟡 \033[93mFailed to delete transcript vectors: {e}\033[0m")
+        # Continue with DB deletion anyway
+    
     db.delete(transcript)
     db.commit()
 

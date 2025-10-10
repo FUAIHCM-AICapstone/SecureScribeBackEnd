@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 
 from chonkie import CodeChunker, SentenceChunker
 from qdrant_client.http import models as qmodels
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.utils.qdrant import get_qdrant_client
@@ -61,7 +62,15 @@ async def search_vectors(
     top_k: int = 5,
     query_filter: qmodels.Filter | None = None,
 ) -> List[Any]:
-    """Search for similar vectors in a collection"""
+    """
+    Search for similar vectors in a collection
+    
+    For transcript searches with project scoping, use:
+        Filter(should=[
+            FieldCondition(key="project_ids", match=MatchAny(any=[project_id])),
+            FieldCondition(key="is_global", match=MatchValue(value=True)),
+        ])
+    """
     if not query_vector:
         return []
 
@@ -79,6 +88,76 @@ async def search_vectors(
     except Exception as e:
         print(f"🔴 \033[91mSearch failed: {e}\033[0m")
         return []
+
+
+def build_transcript_search_filter(
+    user_id: str,
+    project_ids: List[str] | None = None,
+    meeting_id: str | None = None,
+    include_personal: bool = True
+) -> qmodels.Filter | None:
+    """
+    Build Qdrant filter for transcript searches with proper access control.
+    
+    Args:
+        user_id: Current user's ID
+        project_ids: List of project IDs user has access to
+        meeting_id: Specific meeting ID to filter by
+        include_personal: Whether to include user's personal transcripts
+        
+    Returns:
+        Qdrant Filter object or None
+    """
+    from typing import Union
+    conditions: List[Union[qmodels.FieldCondition, qmodels.Filter]] = []
+    
+    if meeting_id:
+        # Meeting-specific search: that meeting OR global docs by this user
+        conditions.append(
+            qmodels.FieldCondition(
+                key="meeting_id",
+                match=qmodels.MatchValue(value=meeting_id)
+            )
+        )
+    elif project_ids and len(project_ids) > 0:
+        # Project search: any of the projects
+        for project_id in project_ids:
+            conditions.append(
+                qmodels.FieldCondition(
+                    key="project_ids",
+                    match=qmodels.MatchAny(any=[project_id])
+                )
+            )
+    
+    # Add personal transcripts if requested
+    if include_personal:
+        conditions.append(
+            qmodels.Filter(
+                must=[
+                    qmodels.FieldCondition(
+                        key="is_personal",
+                        match=qmodels.MatchValue(value=True)
+                    ),
+                    qmodels.FieldCondition(
+                        key="created_by",
+                        match=qmodels.MatchValue(value=user_id)
+                    ),
+                ]
+            )
+        )
+    
+    # Add global documents
+    conditions.append(
+        qmodels.FieldCondition(
+            key="is_global",
+            match=qmodels.MatchValue(value=True)
+        )
+    )
+    
+    if not conditions:
+        return None
+    
+    return qmodels.Filter(should=conditions)  # type: ignore
 
 
 def chunk_text(text: str, chunk_size: int = 1000) -> List[str]:
@@ -244,6 +323,36 @@ def _extract_text_from_docx(file_path: str) -> str:
         return ""
 
 
+def _get_meeting_index_metadata(db: Session, meeting_id: uuid.UUID) -> dict:
+    """
+    Get metadata for indexing a meeting transcript.
+    
+    Returns dict with project_ids, is_personal, created_by, is_global
+    """
+    from sqlalchemy.orm import joinedload
+    from app.models.meeting import Meeting, ProjectMeeting
+    
+    meeting = db.query(Meeting).options(
+        joinedload(Meeting.projects)
+    ).filter(Meeting.id == meeting_id).first()
+    
+    if not meeting:
+        return {}
+    
+    # Get all project IDs
+    project_ids = [str(pm.project_id) for pm in meeting.projects]
+    
+    # Determine if global (no projects and not personal)
+    is_global = len(project_ids) == 0 and not meeting.is_personal
+    
+    return {
+        "project_ids": project_ids,
+        "is_personal": meeting.is_personal,
+        "created_by": str(meeting.created_by),
+        "is_global": is_global,
+    }
+
+
 async def process_file(
     file_path: str,
     collection_name: str = None,
@@ -383,6 +492,138 @@ async def delete_file_vectors(file_id: str, collection_name: str | None = None) 
     except Exception as e:
         print(f"🔴 \033[91mFailed to delete vectors for file_id {file_id}: {e}\033[0m")
         return False
+
+
+async def delete_transcript_vectors(transcript_id: str, collection_name: str | None = None) -> bool:
+    """Delete all vectors for a specific transcript_id from the collection"""
+    client = get_qdrant_client()
+    
+    try:
+        if not collection_name:
+            collection_name = settings.QDRANT_COLLECTION_NAME
+        
+        filter_condition = qmodels.Filter(
+            must=[qmodels.FieldCondition(
+                key="transcript_id",
+                match=qmodels.MatchValue(value=transcript_id)
+            )]
+        )
+        
+        client.delete(
+            collection_name=collection_name,
+            points_selector=qmodels.FilterSelector(filter=filter_condition),
+        )
+        
+        print(f"🟢 \033[92mDeleted existing vectors for transcript_id {transcript_id}\033[0m")
+        return True
+        
+    except Exception as e:
+        print(f"🔴 \033[91mFailed to delete vectors for transcript_id {transcript_id}: {e}\033[0m")
+        return False
+
+
+async def index_transcript(
+    db: Session,
+    transcript_id: uuid.UUID,
+    collection_name: str | None = None
+) -> bool:
+    """Index a meeting transcript with proper metadata scoping"""
+    try:
+        from sqlalchemy.orm import joinedload
+        from app.models.meeting import Transcript
+        from app.utils.llm import embed_documents
+        
+        # Get transcript with meeting relationship
+        transcript = db.query(Transcript).options(
+            joinedload(Transcript.meeting)
+        ).filter(Transcript.id == transcript_id).first()
+        
+        if not transcript:
+            print(f"🔴 \033[91mTranscript {transcript_id} not found\033[0m")
+            return False
+        
+        if not transcript.content or not transcript.content.strip():
+            print(f"🟡 \033[93mTranscript {transcript_id} has no content to index\033[0m")
+            return False
+        
+        meeting_id = transcript.meeting_id
+        print(f"🟢 \033[92mIndexing transcript {transcript_id} for meeting {meeting_id}\033[0m")
+        
+        # Get meeting metadata
+        meeting_meta = _get_meeting_index_metadata(db, meeting_id)
+        if not meeting_meta:
+            print(f"🔴 \033[91mCould not get metadata for meeting {meeting_id}\033[0m")
+            return False
+        
+        # Delete existing vectors for this transcript (re-indexing)
+        await delete_transcript_vectors(str(transcript_id), collection_name)
+        
+        # Chunk the content
+        chunks = chunk_text(transcript.content)
+        if not chunks:
+            print(f"🟡 \033[93mNo chunks generated for transcript {transcript_id}\033[0m")
+            return False
+        
+        print(f"🟢 \033[92mGenerated {len(chunks)} chunks from transcript\033[0m")
+        
+        # Generate embeddings
+        embeddings = await embed_documents(chunks)
+        if not embeddings:
+            print(f"🔴 \033[91mFailed to generate embeddings for transcript {transcript_id}\033[0m")
+            return False
+        
+        # Ensure collection exists
+        if not collection_name:
+            collection_name = settings.QDRANT_COLLECTION_NAME
+        
+        vector_dim = len(embeddings[0])
+        await create_collection_if_not_exist(collection_name, vector_dim)
+        
+        # Build payloads with comprehensive metadata
+        payloads = []
+        for i, chunk in enumerate(chunks):
+            payload = {
+                "text": chunk,
+                "chunk_index": i,
+                "transcript_id": str(transcript_id),
+                "meeting_id": str(meeting_id),
+                "project_ids": meeting_meta["project_ids"],  # Array for matching
+                "is_personal": meeting_meta["is_personal"],
+                "created_by": meeting_meta["created_by"],
+                "is_global": meeting_meta["is_global"],
+                "source_type": "transcript",
+                "total_chunks": len(chunks),
+            }
+            payloads.append(payload)
+        
+        # Upsert to Qdrant
+        success = await upsert_vectors(collection_name, embeddings, payloads)
+        
+        if success:
+            # Update transcript record
+            transcript.qdrant_vector_id = str(transcript_id)
+            db.commit()
+            print(f"🟢 \033[92mSuccessfully indexed transcript {transcript_id} with {len(chunks)} chunks\033[0m")
+        else:
+            print(f"🔴 \033[91mFailed to upsert vectors for transcript {transcript_id}\033[0m")
+        
+        return success
+        
+    except Exception as e:
+        print(f"🔴 \033[91mError indexing transcript {transcript_id}: {e}\033[0m")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def index_transcript_sync(
+    db: Session,
+    transcript_id: uuid.UUID,
+    collection_name: str | None = None
+) -> bool:
+    """Synchronous wrapper for indexing transcripts in Celery tasks"""
+    import asyncio
+    return asyncio.run(index_transcript(db, transcript_id, collection_name))
 
 
 async def reindex_file(
