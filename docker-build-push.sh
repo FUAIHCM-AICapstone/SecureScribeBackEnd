@@ -31,8 +31,9 @@ echo ""
 echo "🔐 Logging into Docker Hub..."
 echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 
-# Build the Docker image
-echo "🔨 Building Docker image..."
+# Build the Docker image (standalone - no code mounting required)
+echo "🔨 Building standalone Docker image..."
+echo "📦 This image contains all application code and can run anywhere"
 docker build -t "$FULL_IMAGE_NAME" -f Dockerfile .
 
 # Push the image to registry

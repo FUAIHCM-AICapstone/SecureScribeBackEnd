@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin123
+      - POSTGRES_DB=securescribe
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - securescribe-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d securescribe"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: luongnguyenminhan/securescribe:backend
+    ports:
+      - "8081:8000"
+    environment:
+      - ENV=production
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
+      - AGNO_TELEMETRY=false
+    restart: unless-stopped
+    networks:
+      - securescribe-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      - db
+      - redis
+      - minio
+
+  celery_worker:
+    image: luongnguyenminhan/securescribe:backend
+    command: celery -A app.jobs.celery_worker worker --loglevel=info
+    environment:
+      - ENV=production
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
+      - AGNO_TELEMETRY=false
+    restart: unless-stopped
+    networks:
+      - securescribe-network
+    depends_on:
+      - db
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - securescribe-network
+
+  minio:
+    image: minio/minio:latest
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - securescribe-network
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    networks:
+      - securescribe-network
+
+networks:
+  securescribe-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data:
+  qdrant_data:

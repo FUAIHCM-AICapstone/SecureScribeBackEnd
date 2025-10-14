@@ -4,6 +4,7 @@ FROM python:3.11-slim-bullseye
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
+ENV ENV=production
 
 # Set working directory
 WORKDIR /app
@@ -23,6 +24,10 @@ RUN apt-get update && apt-get install -y \
     g++ \
     make \
     && rm -rf /var/lib/apt/lists/* && pip install uv && uv pip install -r requirements.txt --system
+
+# Copy application code
+COPY app/ ./app/
+COPY config/ ./config/
 
 # Switch to non-root user
 USER appuser
