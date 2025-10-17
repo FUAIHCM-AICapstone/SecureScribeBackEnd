@@ -19,27 +19,41 @@ services:
       retries: 5
 
   api:
-    build: .
-    image: securescribe-api
+    image: luongnguyenminhan/securescribe:backend
     ports:
       - "8081:8000"
     environment:
-      - ENV=development
+      - ENV=production
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=5432
       - AGNO_TELEMETRY=false
-    volumes:
-      - .:/app
-      - /app/__pycache__
-      - /app/.pytest_cache
     restart: unless-stopped
     networks:
       - securescribe-network
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
       - db
       - redis
       - minio
+    volumes:
+      - ./config:/app/config:rw
+
+  celery_worker:
+    image: luongnguyenminhan/securescribe:backend
+    command: celery -A app.jobs.celery_worker worker --loglevel=info
+    environment:
+      - ENV=production
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
+      - AGNO_TELEMETRY=false
+    restart: unless-stopped
+    networks:
+      - securescribe-network
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./config:/app/config:rw
 
   redis:
     image: redis:7-alpine
@@ -59,24 +73,6 @@ services:
     networks:
       - securescribe-network
 
-  celery_worker:
-    image: securescribe-api
-    command: celery -A app.jobs.celery_worker worker --loglevel=info
-    environment:
-      - ENV=development
-      - POSTGRES_SERVER=db
-      - POSTGRES_PORT=5432
-      - AGNO_TELEMETRY=false
-    volumes:
-      - .:/app
-      - /app/__pycache__
-    restart: unless-stopped
-    networks:
-      - securescribe-network
-    depends_on:
-      - db
-      - redis
-
   qdrant:
     image: qdrant/qdrant:latest
     volumes:
@@ -84,18 +80,6 @@ services:
     restart: unless-stopped
     networks:
       - securescribe-network
-
-  test:
-    build: .
-    environment:
-      - ENV=development
-    volumes:
-      - .:/app
-      - /app/__pycache__
-      - /app/.pytest_cache
-    command: pytest tests/ -v --tb=short
-    profiles:
-      - test
 
 networks:
   securescribe-network:

@@ -13,6 +13,9 @@ WORKDIR /app
 RUN addgroup --system appuser && \
     adduser --system --ingroup appuser appuser
 
+# Ensure external config mount point exists and set ownership (so mounted files are accessible)
+RUN mkdir -p /app/config && chown -R appuser:appuser /app/config
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
@@ -27,7 +30,8 @@ RUN apt-get update && apt-get install -y \
 
 # Copy application code
 COPY app/ ./app/
-COPY config/ ./config/
+
+VOLUME ["/app/config"]
 
 # Switch to non-root user
 USER appuser
