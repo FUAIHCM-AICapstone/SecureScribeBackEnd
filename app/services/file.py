@@ -127,13 +127,15 @@ def bulk_delete_files(db: Session, file_ids: List[uuid.UUID], user_id: Optional[
     return results
 
 
-def bulk_move_files(
+async def bulk_move_files(
     db: Session,
     file_ids: List[uuid.UUID],
     target_project_id: Optional[uuid.UUID] = None,
     target_meeting_id: Optional[uuid.UUID] = None,
     user_id: Optional[uuid.UUID] = None,
 ) -> List[dict]:
+    from app.services.qdrant_service import update_file_vectors_metadata
+
     results = []
     for file_id in file_ids:
         file = db.query(File).filter(File.id == file_id).first()
@@ -172,6 +174,19 @@ def bulk_move_files(
             file.project_id = target_project_id
         if target_meeting_id is not None:
             file.meeting_id = target_meeting_id
+
+        # Update Qdrant vectors with new metadata
+        vector_update_success = await update_file_vectors_metadata(
+            file_id=str(file_id),
+            project_id=str(target_project_id) if target_project_id else None,
+            meeting_id=str(target_meeting_id) if target_meeting_id else None,
+            owner_user_id=str(user_id) if user_id else None,
+        )
+
+        if not vector_update_success:
+            results.append({"success": False, "file_id": str(file_id), "error": "Failed to update vector metadata"})
+            continue
+
         results.append({"success": True, "file_id": str(file_id)})
     db.commit()
     return results

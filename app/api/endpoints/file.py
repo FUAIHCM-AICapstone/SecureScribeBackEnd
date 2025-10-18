@@ -237,7 +237,7 @@ def update_file_endpoint(
 
 
 @router.post("/files/{file_id}/move", response_model=FileApiResponse)
-def move_file_endpoint(
+async def move_file_endpoint(
     file_id: uuid.UUID,
     move_request: FileMoveRequest,
     db: Session = Depends(get_db),
@@ -269,6 +269,10 @@ def move_file_endpoint(
             if not target_meeting or not check_meeting_access_utils(db, target_meeting, current_user.id):
                 raise HTTPException(status_code=403, detail="Access denied to meeting")
 
+        # Store old values for rollback
+        old_project_id = file.project_id
+        old_meeting_id = file.meeting_id
+
         # Update file associations
         if move_request.project_id is not None:
             file.project_id = move_request.project_id
@@ -277,6 +281,22 @@ def move_file_endpoint(
 
         db.commit()
         db.refresh(file)
+
+        # Update Qdrant vectors with new metadata
+        from app.services.qdrant_service import update_file_vectors_metadata
+
+        vector_update_success = await update_file_vectors_metadata(
+            file_id=str(file_id),
+            project_id=str(file.project_id) if file.project_id else None,
+            meeting_id=str(file.meeting_id) if file.meeting_id else None,
+            owner_user_id=str(current_user.id),
+        )
+
+        if not vector_update_success:
+            file.project_id = old_project_id
+            file.meeting_id = old_meeting_id
+            db.commit()
+            raise HTTPException(status_code=400, detail="Failed to update vector metadata")
 
         return ApiResponse(
             success=True,
@@ -326,7 +346,7 @@ def delete_file_endpoint(
 
 
 @router.post("/files/bulk", response_model=BulkFileResponse)
-def bulk_files_endpoint(
+async def bulk_files_endpoint(
     operation: BulkFileOperation,
     db: Session = Depends(get_db),
     _current_user: User = Depends(get_current_user),
@@ -336,7 +356,7 @@ def bulk_files_endpoint(
         if operation.operation == "delete":
             results = bulk_delete_files(db, operation.file_ids, _current_user.id)
         elif operation.operation == "move":
-            results = bulk_move_files(
+            results = await bulk_move_files(
                 db,
                 operation.file_ids,
                 operation.target_project_id,

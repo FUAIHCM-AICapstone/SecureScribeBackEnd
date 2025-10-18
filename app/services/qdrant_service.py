@@ -385,6 +385,62 @@ async def delete_file_vectors(file_id: str, collection_name: str | None = None) 
         return False
 
 
+async def update_file_vectors_metadata(
+    file_id: str,
+    project_id: str | None = None,
+    meeting_id: str | None = None,
+    owner_user_id: str | None = None,
+    collection_name: str | None = None,
+) -> bool:
+    """Update vector payloads for a file with new project_id and/or meeting_id"""
+    client = get_qdrant_client()
+
+    try:
+        if not collection_name:
+            collection_name = settings.QDRANT_COLLECTION_NAME
+
+        filter_condition = qmodels.Filter(
+            must=[qmodels.FieldCondition(key="file_id", match=qmodels.MatchValue(value=file_id))]
+        )
+
+        points, _ = client.scroll(
+            collection_name=collection_name,
+            scroll_filter=filter_condition,
+            limit=100,
+        )
+
+        if not points:
+            print(f"🟡 \033[93mNo vectors found for file_id {file_id}\033[0m")
+            return True
+
+        updated_points = []
+        for point in points:
+            payload = point.payload
+            payload["project_id"] = project_id
+            payload["meeting_id"] = meeting_id
+            payload["is_global"] = bool(not project_id and not meeting_id and owner_user_id)
+
+            updated_points.append(
+                qmodels.PointStruct(
+                    id=point.id,
+                    vector=point.vector,
+                    payload=payload,
+                )
+            )
+
+        client.upsert(
+            collection_name=collection_name,
+            points=updated_points,
+        )
+
+        print(f"🟢 \033[92mUpdated {len(updated_points)} vectors for file_id {file_id}\033[0m")
+        return True
+
+    except Exception as e:
+        print(f"🔴 \033[91mFailed to update vectors for file_id {file_id}: {e}\033[0m")
+        return False
+
+
 async def reindex_file(
     file_path: str,
     file_id: str,
