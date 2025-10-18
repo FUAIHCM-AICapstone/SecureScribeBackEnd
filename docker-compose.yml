@@ -116,7 +116,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - RI_APP_BASE_PATH=/redis-insight
+      - RIPORT=5540
     restart: unless-stopped
     networks:
       - securescribe-network
