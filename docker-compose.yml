@@ -65,9 +65,11 @@ services:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
       - MINIO_CONSOLE_BASE_PATH=/minio
+      - MINIO_SERVER_URL=http://localhost:8081/minio/
+      - MINIO_BROWSER_REDIRECT_URL=http://localhost:8081/minio-console/
     volumes:
       - minio_data:/data
-    command: server /data --console-address ":9001"
+    command: server /data --address ':9000' --console-address ':9001'
     restart: unless-stopped
     networks:
       - securescribe-network
