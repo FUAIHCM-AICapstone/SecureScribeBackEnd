@@ -81,6 +81,7 @@ app = FastAPI(
     license_info={
         "name": "MIT",
     },
+    root_path="/be",
     # Custom operation ID generation for better client code
     generate_unique_id_function=custom_generate_unique_id,
 )
