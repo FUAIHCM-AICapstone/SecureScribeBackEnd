@@ -26,16 +26,7 @@ from app.utils.task_progress import (
 engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Attempt to establish Redis connection, but fall back to a no-op client in test
-try:
-    sync_redis_client = get_redis_client()
-except Exception as exc:  # pragma: no cover - fallback path for testing environments
-    print(f"\033[93m⚠️ Redis connection unavailable ({exc}); using dummy client.\033[0m")
-
-    class _DummyRedis:
-        def publish(self, *args, **kwargs):
-            print("\033[93m⚠️ DummyRedis.publish called; message not sent\033[0m")
-
-    sync_redis_client = _DummyRedis()
+sync_redis_client = get_redis_client()
 
 
 def fetch_conversation_history_sync(conversation_id: str, limit: int = 10) -> List[Message]:
