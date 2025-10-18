@@ -6,7 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.models.chat import ChatMessage, Conversation
 from app.schemas.chat import Mention
-from app.services.qdrant_service import query_documents_by_meeting_id
+from app.services.qdrant_service import (
+    query_documents_by_file_id,
+    query_documents_by_meeting_id,
+    query_documents_by_project_id,
+)
 
 
 def create_chat_message(db: Session, conversation_id: uuid.UUID, user_id: uuid.UUID, content: str, message_type: str, mentions: Optional[List] = None) -> Optional[ChatMessage]:
@@ -55,10 +59,22 @@ async def query_documents_for_mentions(mentions: List[Mention], current_user_id:
         entity_type = mention.entity_type
         entity_id = mention.entity_id
 
+        if not entity_id:
+            continue
+
+        documents: List[dict] = []
+
         if entity_type == "meeting":
-            # Use existing qdrant service to query
-            meeting_docs = await query_documents_by_meeting_id(entity_id, top_k=5)
-            results.extend(meeting_docs)
+            documents = await query_documents_by_meeting_id(entity_id, top_k=5)
+        elif entity_type == "project":
+            documents = await query_documents_by_project_id(entity_id, top_k=5)
+        elif entity_type == "file":
+            documents = await query_documents_by_file_id(entity_id, top_k=5)
+        else:
+            # Unsupported mention types are ignored
+            continue
+
+        if documents:
+            results.extend(documents)
 
     return results
-
