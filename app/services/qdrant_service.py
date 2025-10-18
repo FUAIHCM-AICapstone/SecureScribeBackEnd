@@ -403,6 +403,7 @@ async def update_file_vectors_metadata(
             must=[qmodels.FieldCondition(key="file_id", match=qmodels.MatchValue(value=file_id))]
         )
 
+        # Fetch all point IDs for this file
         points, _ = client.scroll(
             collection_name=collection_name,
             scroll_filter=filter_condition,
@@ -413,32 +414,28 @@ async def update_file_vectors_metadata(
             print(f"🟡 \033[93mNo vectors found for file_id {file_id}\033[0m")
             return True
 
-        updated_points = []
-        for point in points:
-            payload = point.payload
-            payload["project_id"] = project_id
-            payload["meeting_id"] = meeting_id
-            payload["is_global"] = bool(not project_id and not meeting_id and owner_user_id)
+        point_ids = [point.id for point in points]
 
-            updated_points.append(
-                qmodels.PointStruct(
-                    id=point.id,
-                    vector=point.vector,
-                    payload=payload,
-                )
-            )
+        payload = {
+            "project_id": project_id,
+            "meeting_id": meeting_id,
+            "is_global": bool(not project_id and not meeting_id and owner_user_id),
+        }
 
-        client.upsert(
+        client.set_payload(
             collection_name=collection_name,
-            points=updated_points,
+            payload=payload,
+            points=point_ids,
+            wait=True,
         )
 
-        print(f"🟢 \033[92mUpdated {len(updated_points)} vectors for file_id {file_id}\033[0m")
+        print(f"🟢 \033[92mUpdated {len(point_ids)} vectors for file_id {file_id}\033[0m")
         return True
 
     except Exception as e:
         print(f"🔴 \033[91mFailed to update vectors for file_id {file_id}: {e}\033[0m")
         return False
+
 
 
 async def reindex_file(
