@@ -38,7 +38,7 @@ async def search_documents(
 
         query_embedding = await embed_query(request.query)
         # Server-side scope filtering in Qdrant
-        from qdrant_client.http.models import FieldCondition, Filter, MatchValue
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
 
         # Meeting scope: only that meeting's files
         # Project scope: project files OR current user's personal files

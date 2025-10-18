@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     MINIO_SECURE: bool = False
     MINIO_BUCKET_NAME: str = "securescribe-files"
     MINIO_PUBLIC_BUCKET_NAME: str = "securescribe-public"
-    MINIO_PUBLIC_URL: str = "http://localhost:9002"  # Public URL for permanent links (internal Docker network)
+    MINIO_PUBLIC_URL: str = "http://localhost:9000"  # Public URL for permanent links (internal Docker network)
 
     # File Configuration
     MAX_FILE_SIZE_MB: int = 100
@@ -79,7 +79,7 @@ class Settings(BaseSettings):
 
     # Qdrant Configuration
     QDRANT_HOST: str = "qdrant"
-    QDRANT_PORT: int = 6334
+    QDRANT_PORT: int = 6334  # gRPC port
     QDRANT_COLLECTION_NAME: str = "documents"
 
     # Google AI Configuration

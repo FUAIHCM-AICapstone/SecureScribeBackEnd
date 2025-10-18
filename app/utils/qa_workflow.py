@@ -15,7 +15,7 @@ async def run_rag(
     # Get embedding for query
     qvec = await embed_query(query)
 
-    from qdrant_client.http.models import FieldCondition, Filter, MatchValue
+    from qdrant_client.models import FieldCondition, Filter, MatchValue
 
     # Build filter based on scope
     qfilter = None

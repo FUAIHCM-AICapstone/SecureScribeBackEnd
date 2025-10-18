@@ -1,4 +1,5 @@
 # app/clients/redis_client.py
+import asyncio
 import logging
 
 import redis
@@ -30,25 +31,8 @@ redis_pool = ConnectionPool(
 
 redis_client = redis.Redis(connection_pool=redis_pool)
 
-# Async Redis client for WebSocket pub/sub operations
-try:
-    import redis.asyncio as aioredis
-
-    redis_async_client = aioredis.Redis(
-        host=settings.REDIS_HOST,
-        port=int(settings.REDIS_PORT),
-        db=int(settings.REDIS_DB),
-        decode_responses=True,
-        retry_on_timeout=True,
-        socket_timeout=5,
-        socket_connect_timeout=5,
-        health_check_interval=30,
-        max_connections=20,  # Lower for async
-    )
-    logger.info("Async Redis client initialized successfully")
-except ImportError:
-    logger.warning("aioredis not available, async Redis operations will be limited")
-    redis_async_client = None
+# Async Redis client will be created per event loop
+_async_clients = {}  # Store clients per event loop
 
 
 @retry(
@@ -92,32 +76,47 @@ def get_redis_client():
 async def get_async_redis_client():
     """
     Get async Redis client with error handling and retry.
+    Creates client per event loop to avoid multiprocessing issues.
     """
-    if redis_async_client is None:
+    try:
+        import redis.asyncio as aioredis
+    except ImportError:
         raise RuntimeError("Async Redis client not available. Please install aioredis.")
 
-    try:
-        # quick ping to ensure connection usable
-        await redis_async_client.ping()
-        return redis_async_client
-    except Exception as e:
-        logger.exception("Async Redis connection error: %s", e)
-        # Try to create fresh connection
+    # Get current event loop
+    loop = asyncio.get_running_loop()
+    loop_id = id(loop)
+
+    # Check if we already have a client for this event loop
+    if loop_id in _async_clients:
+        client = _async_clients[loop_id]
         try:
-            fresh_client = aioredis.Redis(
-                host=settings.REDIS_HOST,
-                port=int(settings.REDIS_PORT),
-                db=int(settings.REDIS_DB),
-                decode_responses=True,
-                socket_connect_timeout=5,
-                socket_timeout=5,
-            )
-            await fresh_client.ping()
-            logger.warning("Using fresh async redis connection.")
-            return fresh_client
-        except Exception as e2:
-            logger.exception("Fresh async redis connection also failed: %s", e2)
-            raise
+            await client.ping()
+            return client
+        except Exception:
+            # Client is dead, remove it and create a new one
+            del _async_clients[loop_id]
+
+    # Create new client for this event loop
+    try:
+        client = aioredis.Redis(
+            host=settings.REDIS_HOST,
+            port=int(settings.REDIS_PORT),
+            db=int(settings.REDIS_DB),
+            decode_responses=True,
+            retry_on_timeout=True,
+            socket_timeout=5,
+            socket_connect_timeout=5,
+            health_check_interval=30,
+            max_connections=20,  # Lower for async
+        )
+        await client.ping()
+        _async_clients[loop_id] = client
+        logger.info("Async Redis client initialized for event loop %s", loop_id)
+        return client
+    except Exception as e:
+        logger.exception("Failed to create async Redis client: %s", e)
+        raise
 
 
 async def publish_to_user_channel(user_id: str, message: dict) -> bool:

@@ -5,7 +5,7 @@ import uuid
 from typing import Any, Dict, List
 
 from chonkie import CodeChunker, SentenceChunker
-from qdrant_client.http import models as qmodels
+from qdrant_client import models as qmodels
 
 from app.core.config import settings
 from app.utils.qdrant import get_qdrant_client
@@ -119,14 +119,14 @@ def chunk_text(text: str, chunk_size: int = 1000) -> List[str]:
 
     # Initialize chunkers
     sent_chunker = SentenceChunker(
-        tokenizer_or_token_counter=_gemini_token_counter,
+        tokenizer=_gemini_token_counter,
         chunk_size=chunk_size,
         chunk_overlap=overlap_tokens,
         min_sentences_per_chunk=1,
     )
     code_chunker = CodeChunker(
         language="markdown",
-        tokenizer_or_token_counter=_gemini_token_counter,
+        tokenizer=_gemini_token_counter,
         chunk_size=chunk_size,
         include_nodes=False,
     )

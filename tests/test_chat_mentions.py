@@ -1,7 +1,7 @@
 import types
 
 import pytest
-from qdrant_client.http import models as qmodels
+from qdrant_client import models as qmodels
 
 from app.schemas.chat import Mention
 from app.services import chat as chat_service
