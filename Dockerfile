@@ -4,6 +4,7 @@ FROM python:3.11-slim-bullseye
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
+ENV ENV=production
 
 # Set working directory
 WORKDIR /app
@@ -11,6 +12,9 @@ WORKDIR /app
 # Create non-root user
 RUN addgroup --system appuser && \
     adduser --system --ingroup appuser appuser
+
+# Ensure external config mount point exists and set ownership (so mounted files are accessible)
+RUN mkdir -p /app/config && chown -R appuser:appuser /app/config
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
@@ -23,6 +27,11 @@ RUN apt-get update && apt-get install -y \
     g++ \
     make \
     && rm -rf /var/lib/apt/lists/* && pip install uv && uv pip install -r requirements.txt --system
+
+# Copy application code
+COPY app/ ./app/
+
+VOLUME ["/app/config"]
 
 # Switch to non-root user
 USER appuser

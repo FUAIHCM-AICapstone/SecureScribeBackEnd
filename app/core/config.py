@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     WEBSOCKET_CLEANUP_INTERVAL: int = 60  # 1 minute cleanup interval
 
     # MinIO Configuration
-    MINIO_ENDPOINT: str = "minio:9002"
+    MINIO_ENDPOINT: str = "minio:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_SECURE: bool = False

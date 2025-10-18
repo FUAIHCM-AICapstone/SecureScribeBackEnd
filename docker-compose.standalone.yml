@@ -35,8 +35,6 @@ services:
       - db
       - redis
       - minio
-    volumes:
-      - ./config:/app/config:rw
 
   celery_worker:
     image: luongnguyenminhan/securescribe:backend
@@ -52,8 +50,6 @@ services:
     depends_on:
       - db
       - redis
-    volumes:
-      - ./config:/app/config:rw
 
   redis:
     image: redis:7-alpine
