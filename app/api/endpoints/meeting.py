@@ -1,4 +1,3 @@
-import logging
 import uuid
 from typing import Optional
 
@@ -158,17 +157,12 @@ def get_meeting_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """Get a specific meeting by ID"""
-    logger = logging.getLogger(__name__)
     try:
         meeting = get_meeting(db, meeting_id, current_user.id, raise_404=True)
         projects = get_meeting_projects(db, meeting.id)
 
         # Fetch meeting note with error handling
-        meeting_note = None
-        try:
-            meeting_note = get_meeting_note(db, meeting_id, current_user.id)
-        except Exception as e:
-            logger.error(f"Failed to fetch meeting note: {str(e)}")
+        meeting_note = get_meeting_note(db, meeting_id, current_user.id)
 
         # Fetch transcripts with error handling
         transcripts = []
@@ -177,7 +171,7 @@ def get_meeting_endpoint(
             if transcript_data:
                 transcripts = [TranscriptResponse.model_validate(t) for t in transcript_data]
         except Exception as e:
-            logger.error(f"Failed to fetch transcripts: {str(e)}")
+            print(f"Error fetching transcripts: {e}")
             transcripts = []
 
         response_data = {

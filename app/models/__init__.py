@@ -46,5 +46,6 @@ __all__ = [
     "SearchDocument",
     "Integration",
     "Conversation",
+    "ChatMessageType",
     "ChatMessage",
 ]

@@ -1,4 +1,6 @@
-from typing import Dict, List, Optional
+from __future__ import annotations
+
+from typing import Any, Dict, List
 
 from pydantic import BaseModel
 
@@ -6,12 +8,13 @@ from app.schemas.user import MeetingNoteResponse
 
 
 class MeetingNoteRequest(BaseModel):
-    content: Optional[str] = None
-    sections: Optional[List[str]] = None
+    content: str
 
 
 class MeetingNoteSummaryResponse(BaseModel):
     note: MeetingNoteResponse
     content: str
-    summaries: Dict[str, str]
-    sections: List[str]
+    task_items: List[Dict[str, Any]] = []
+    decision_items: List[Dict[str, Any]] = []
+    question_items: List[Dict[str, Any]] = []
+    token_usage: Dict[str, Any] = {}

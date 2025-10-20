@@ -1,9 +1,9 @@
-# Meeting prompts for different meeting types
+from __future__ import annotations
+
 """
 This module contains system prompts for different types of meetings.
 """
 
-# General meeting prompt
 GENERAL_MEETING_PROMPT = """Tóm tắt nội dung cuộc họp dưới dạng các ý chính, dễ hiểu và đầy đủ. Ghi rõ các chủ đề được thảo luận, quyết định được đưa ra, và các việc cần làm sau cuộc họp (bao gồm deadline từng task nếu có đề cập).
 
 Hãy đảm bảo nội dung tóm tắt:
@@ -461,17 +461,17 @@ def get_prompt_for_meeting_type(meeting_type: str) -> str:
     return MEETING_TYPE_PROMPTS.get(meeting_type.lower(), GENERAL_MEETING_PROMPT)
 
 
-def get_task_extraction_prompt(meeting_type: str) -> str:
+def get_task_extraction_prompt() -> str:
     """Get the prompt specifically for task extraction."""
     return TASK_EXTRACTION_PROMPT_TEMPLATE
 
 
-def get_decision_extraction_prompt(meeting_type: str) -> str:
+def get_decision_extraction_prompt() -> str:
     """Get the prompt specifically for decision extraction."""
     return DECISION_EXTRACTION_PROMPT_TEMPLATE
 
 
-def get_question_extraction_prompt(meeting_type: str) -> str:
+def get_question_extraction_prompt() -> str:
     """Get the prompt specifically for question extraction."""
     return QUESTION_EXTRACTION_PROMPT_TEMPLATE
 

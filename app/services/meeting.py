@@ -178,9 +178,13 @@ def update_meeting(db: Session, meeting_id: uuid.UUID, updates: MeetingUpdate, u
 
 def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """Soft delete meeting and hard delete associated files"""
-    meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.is_deleted == False).first()
-
+    # Validate user has access to the meeting
+    meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
+        return False
+
+    # Check if user has permission to delete this meeting
+    if not can_delete_meeting(db, meeting, user_id):
         return False
 
     # Get all files associated with this meeting

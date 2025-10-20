@@ -121,6 +121,7 @@ def send_fcm_notification(
                 if resp.exception:
                     print(f"FCM device {i} failed: {resp.exception}")
         except Exception as e:
+            print(f"Failed to send FCM notification: {str(e)}")
             raise
     finally:
         db.close()
