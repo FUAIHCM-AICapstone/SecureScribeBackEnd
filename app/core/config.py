@@ -85,6 +85,7 @@ class Settings(BaseSettings):
     # Google AI Configuration
     GOOGLE_API_KEY: str = "AIzaSyDKJL5HLh3syVxysfjFkBdqrJaY9dLXc_A"
     GOOGLE_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
+    GOOGLE_EMBEDDING_DIMENSIONS: int = 3072  # Gemini embedding dimensions
 
     # Transcription API Configuration
     TRANSCRIBE_API_BASE_URL: str = "https://s2t.wc504.io.vn/api/v1"

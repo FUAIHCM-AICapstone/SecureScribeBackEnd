@@ -81,6 +81,109 @@ async def search_vectors(
         return []
 
 
+async def semantic_search_with_filters(
+    query: str,
+    collection_name: str | None = None,
+    top_k: int = 5,
+    meeting_ids: List[str] | None = None,
+    project_ids: List[str] | None = None,
+    file_ids: List[str] | None = None,
+) -> List[Dict[str, Any]]:
+    """
+    Perform semantic vector search with optional metadata filters.
+    
+    Args:
+        query: Search query string
+        collection_name: Qdrant collection name (uses default if None)
+        top_k: Number of results to return
+        meeting_ids: List of meeting IDs to filter by
+        project_ids: List of project IDs to filter by
+        file_ids: List of file IDs to filter by
+        
+    Returns:
+        List of document dictionaries with id, score, payload, vector
+    """
+    try:
+        from app.utils.llm import embed_query
+        
+        if not collection_name:
+            collection_name = settings.QDRANT_COLLECTION_NAME
+        
+        # Generate query embedding
+        query_vector = await embed_query(query)
+        
+        if not query_vector:
+            print("🔴 \033[91mFailed to generate query embedding\033[0m")
+            return []
+        
+        # Build filter conditions
+        filter_conditions = []
+        
+        # Add meeting_ids filter (OR logic within meeting_ids)
+        if meeting_ids:
+            meeting_conditions = [
+                qmodels.FieldCondition(key="meeting_id", match=qmodels.MatchValue(value=mid))
+                for mid in meeting_ids
+            ]
+            if len(meeting_conditions) == 1:
+                filter_conditions.append(meeting_conditions[0])
+            else:
+                filter_conditions.append(qmodels.Filter(should=meeting_conditions))
+        
+        # Add project_ids filter (OR logic within project_ids)
+        if project_ids:
+            project_conditions = [
+                qmodels.FieldCondition(key="project_id", match=qmodels.MatchValue(value=pid))
+                for pid in project_ids
+            ]
+            if len(project_conditions) == 1:
+                filter_conditions.append(project_conditions[0])
+            else:
+                filter_conditions.append(qmodels.Filter(should=project_conditions))
+        
+        # Add file_ids filter (OR logic within file_ids)
+        if file_ids:
+            file_conditions = [
+                qmodels.FieldCondition(key="file_id", match=qmodels.MatchValue(value=fid))
+                for fid in file_ids
+            ]
+            if len(file_conditions) == 1:
+                filter_conditions.append(file_conditions[0])
+            else:
+                filter_conditions.append(qmodels.Filter(should=file_conditions))
+        
+        # Combine all filters with AND logic
+        query_filter = None
+        if filter_conditions:
+            query_filter = qmodels.Filter(must=filter_conditions)
+        
+        # Perform semantic search
+        results = await search_vectors(
+            collection=collection_name,
+            query_vector=query_vector,
+            top_k=top_k,
+            query_filter=query_filter,
+        )
+        
+        # Convert to consistent dict format
+        documents = []
+        for result in results:
+            doc = {
+                "id": result.id,
+                "score": float(result.score),
+                "payload": result.payload or {},
+                "vector": result.vector if hasattr(result, 'vector') else [],
+            }
+            documents.append(doc)
+        
+        print(f"🟢 \033[92mSemantic search found {len(documents)} documents\033[0m")
+        return documents
+        
+    except Exception as e:
+        print(f"🔴 \033[91mSemantic search with filters failed: {e}\033[0m")
+        return []
+
+
 def chunk_text(text: str, chunk_size: int = 1000) -> List[str]:
     """Chunk text using Chonkie: Code first, then sentences; 15% overlap; merge <200 tokens."""
     if not text:
@@ -465,7 +568,7 @@ async def query_documents_by_meeting_id(
     meeting_id: str,
     collection_name: str | None = None,
     top_k: int = 10,
-) -> List[dict]:
+) -> List[Dict[str, Any]]:
     """Query all documents for a specific meeting_id"""
     if not collection_name:
         collection_name = settings.QDRANT_COLLECTION_NAME
@@ -521,7 +624,7 @@ async def query_documents_by_project_id(
     project_id: str,
     collection_name: str | None = None,
     top_k: int = 10,
-) -> List[dict]:
+) -> List[Dict[str, Any]]:
     """Query documents scoped to a specific project_id"""
     if not project_id:
         return []
@@ -580,7 +683,7 @@ async def query_documents_by_file_id(
     file_id: str,
     collection_name: str | None = None,
     top_k: int = 10,
-) -> List[dict]:
+) -> List[Dict[str, Any]]:
     """Query documents scoped to a specific file_id"""
     if not file_id:
         return []

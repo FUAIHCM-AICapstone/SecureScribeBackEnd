@@ -46,6 +46,60 @@ async def chat_complete(system_prompt: str, user_prompt: str) -> str:
     return response.content
 
 
+async def expand_query_with_llm(query: str, num_expansions: int = 3) -> List[str]:
+    """
+    Generate multiple reformulated queries using LLM for query expansion.
+    
+    Args:
+        query: Original user query
+        num_expansions: Number of expanded queries to generate (default: 3)
+        
+    Returns:
+        List of expanded queries (includes original query)
+    """
+    try:
+        system_prompt = """Bạn là một chuyên gia về mở rộng truy vấn tìm kiếm. 
+Nhiệm vụ của bạn là tạo ra các phiên bản khác nhau của câu truy vấn để tìm kiếm hiệu quả hơn trong cơ sở dữ liệu tài liệu.
+
+Quy tắc:
+1. Tạo ra các câu truy vấn có nghĩa tương tự nhưng diễn đạt khác nhau
+2. Thêm từ đồng nghĩa và các thuật ngữ liên quan
+3. Trích xuất và mở rộng các thực thể chính (tên, địa điểm, khái niệm)
+4. Giữ nguyên ngôn ngữ của câu truy vấn gốc (tiếng Việt hoặc tiếng Anh)
+5. Mỗi câu truy vấn mở rộng trên một dòng riêng biệt
+6. KHÔNG thêm số thứ tự, dấu đầu dòng, hoặc ký tự đặc biệt
+7. KHÔNG giải thích hoặc thêm bất kỳ văn bản nào khác"""
+
+        user_prompt = f"""Hãy tạo {num_expansions} phiên bản mở rộng của câu truy vấn sau:
+
+"{query}"
+
+Trả về CHỈ {num_expansions} câu truy vấn mở rộng, mỗi câu trên một dòng."""
+
+        response = await chat_complete(system_prompt, user_prompt)
+        
+        # Parse response - each line is an expanded query
+        expanded_queries = [line.strip() for line in response.strip().split('\n') if line.strip()]
+        
+        # Filter out empty strings and ensure we have valid queries
+        expanded_queries = [q for q in expanded_queries if q and len(q) > 3]
+        
+        # Always include original query
+        if query not in expanded_queries:
+            expanded_queries.insert(0, query)
+        
+        # Limit to requested number + original
+        expanded_queries = expanded_queries[:num_expansions + 1]
+        
+        print(f"🟢 \033[92mGenerated {len(expanded_queries)} expanded queries from original query\033[0m")
+        return expanded_queries
+        
+    except Exception as e:
+        print(f"🔴 \033[91mQuery expansion failed: {e}. Using original query.\033[0m")
+        # Fallback to original query
+        return [query]
+
+
 def get_agno_postgres_db() -> PostgresDb:
     """Get agno PostgresDb instance for session management"""
     return PostgresDb(db_url=str(settings.SQLALCHEMY_DATABASE_URI), session_table="conversations", memory_table="chat_messages")

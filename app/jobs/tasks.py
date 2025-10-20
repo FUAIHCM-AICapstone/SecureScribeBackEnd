@@ -14,6 +14,7 @@ from app.jobs.celery_worker import celery_app
 from app.models.chat import ChatMessage, ChatMessageType
 from app.models.file import File
 from app.models.meeting import AudioFile, Meeting, Transcript
+from app.services.chat import perform_query_expansion_search
 from app.services.qdrant_service import reindex_file
 from app.utils.llm import create_general_chat_agent, get_agno_postgres_db
 from app.utils.redis import get_redis_client
@@ -344,12 +345,75 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
         # Prepare enhanced content with meeting documents if available
         enhanced_content = content
         if query_results:
-            print(f"[process_chat_message] Found {len(query_results)} query_results, preparing meeting context...")
+            print(f"[process_chat_message] Found {len(query_results)} mention-based query_results, preparing meeting context...")
             meeting_context = "\n\nThông tin từ tài liệu cuộc họp được tìm thấy:\n"
             for i, doc in enumerate(query_results[:3]):  # Limit to 3 documents for context
-                print(f"[process_chat_message] Adding document {i+1} to context.")
+                print(f"[process_chat_message] Adding mention-based document {i+1} to context.")
                 meeting_context += f"\nTài liệu {i + 1}:\n{doc.get('payload', {}).get('text', 'Nội dung không có sẵn')}\n"
             enhanced_content = content + meeting_context
+
+        # Perform query expansion search for ALL chat messages
+        print("[process_chat_message] Starting query expansion search...")
+        try:
+            # Get mentions from user message to pass as filters
+            user_message = db.query(ChatMessage).filter(ChatMessage.id == user_message_id).first()
+            mentions = user_message.mentions if user_message and user_message.mentions else []
+            
+            # Convert mentions to proper format if needed
+            mention_objects = []
+            if mentions:
+                from app.schemas.chat import Mention
+                for mention_data in mentions:
+                    if isinstance(mention_data, dict):
+                        mention_objects.append(Mention(**mention_data))
+                    else:
+                        mention_objects.append(mention_data)
+            
+            # Perform query expansion search
+            expansion_results = asyncio.run(perform_query_expansion_search(
+                query=content,
+                mentions=mention_objects if mention_objects else None,
+                top_k=5,
+                num_expansions=3
+            ))
+            
+            if expansion_results:
+                print(f"[process_chat_message] Found {len(expansion_results)} expansion-based results")
+                
+                # Combine mention-based and expansion-based results
+                all_results = (query_results or []) + expansion_results
+                
+                # Deduplicate by document id, keeping highest score
+                seen_ids: Dict[str, Dict[str, Any]] = {}
+                for doc in all_results:
+                    doc_id = doc.get("id")
+                    if doc_id:
+                        current_score = doc.get("score", 0.0)
+                        if doc_id not in seen_ids or current_score > seen_ids[doc_id].get("score", 0.0):
+                            seen_ids[doc_id] = doc
+                
+                # Sort by score and limit results
+                combined_results = list(seen_ids.values())
+                combined_results.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+                final_results = combined_results[:5]  # Limit to top 5 overall
+                
+                print(f"[process_chat_message] Combined and deduplicated: {len(final_results)} final documents")
+                
+                # Add expansion results to enhanced content
+                if final_results != (query_results or []):
+                    expansion_context = "\n\nThông tin bổ sung từ tìm kiếm mở rộng:\n"
+                    expansion_docs = [doc for doc in final_results if doc not in (query_results or [])]
+                    for i, doc in enumerate(expansion_docs[:2]):  # Limit to 2 expansion documents
+                        print(f"[process_chat_message] Adding expansion document {i+1} to context.")
+                        expansion_context += f"\nTài liệu mở rộng {i + 1}:\n{doc.get('payload', {}).get('text', 'Nội dung không có sẵn')}\n"
+                    enhanced_content += expansion_context
+                    
+            else:
+                print("[process_chat_message] No expansion results found")
+                
+        except Exception as expansion_error:
+            print(f"[process_chat_message] Query expansion failed: {expansion_error}")
+            # Continue with mention-based results only
 
         print("[process_chat_message] Running agent for AI response...")
         # Process message with AI agent
