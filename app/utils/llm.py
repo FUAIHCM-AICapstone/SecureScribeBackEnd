@@ -51,7 +51,6 @@ def get_agno_postgres_db() -> PostgresDb:
     return PostgresDb(db_url=str(settings.SQLALCHEMY_DATABASE_URI), session_table="conversations", memory_table="chat_messages")
 
 
-
 def create_general_chat_agent(agno_db: PostgresDb, session_id: str, user_id: str) -> Agent:
     """Create a general chat agent with Agno for conversation history and responses."""
     return Agent(

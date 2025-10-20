@@ -14,6 +14,12 @@ export * from './file';
 // Meeting API
 export * from './meeting';
 
+// Meeting Note API
+export * from './meetingNote';
+
+// Transcript API
+export * from './transcript';
+
 // Notification API
 export * from './notification';
 

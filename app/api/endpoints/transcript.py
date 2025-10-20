@@ -28,7 +28,6 @@ from app.services.transcript import (
     get_transcript,
     get_transcript_by_meeting,
     get_transcripts,
-    serialize_transcript,
     transcribe_audio_file,
     update_transcript,
 )

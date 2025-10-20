@@ -5,6 +5,8 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from .common import ApiResponse, PaginatedResponse
+from .transcript import TranscriptResponse
+from .user import MeetingNoteResponse
 
 
 class ProjectResponse(BaseModel):
@@ -71,6 +73,8 @@ class MeetingResponse(BaseModel):
 class MeetingWithProjects(MeetingResponse):
     project_count: int = 0
     member_count: int = 0
+    meeting_note: Optional[MeetingNoteResponse] = None
+    transcripts: List[TranscriptResponse] = Field(default_factory=list)
 
 
 MeetingApiResponse = ApiResponse[MeetingResponse]

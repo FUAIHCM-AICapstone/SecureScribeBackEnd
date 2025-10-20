@@ -3,7 +3,7 @@ import json
 import uuid
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -66,6 +66,7 @@ async def send_chat_message_endpoint(
             "ai_message": None,  # AI response will come via SSE
         },
     )
+
 
 # ===== SSE CHAT ENDPOINT =====
 

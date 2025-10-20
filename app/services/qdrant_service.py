@@ -399,9 +399,7 @@ async def update_file_vectors_metadata(
         if not collection_name:
             collection_name = settings.QDRANT_COLLECTION_NAME
 
-        filter_condition = qmodels.Filter(
-            must=[qmodels.FieldCondition(key="file_id", match=qmodels.MatchValue(value=file_id))]
-        )
+        filter_condition = qmodels.Filter(must=[qmodels.FieldCondition(key="file_id", match=qmodels.MatchValue(value=file_id))])
 
         # Fetch all point IDs for this file
         points, _ = client.scroll(
@@ -435,7 +433,6 @@ async def update_file_vectors_metadata(
     except Exception as e:
         print(f"🔴 \033[91mFailed to update vectors for file_id {file_id}: {e}\033[0m")
         return False
-
 
 
 async def reindex_file(
@@ -478,13 +475,7 @@ async def query_documents_by_meeting_id(
         limit = 100
 
         while True:
-            points, next_offset = client.scroll(
-                collection_name=collection_name,
-                limit=limit,
-                offset=offset,
-                with_payload=True,
-                with_vectors=False
-            )
+            points, next_offset = client.scroll(collection_name=collection_name, limit=limit, offset=offset, with_payload=True, with_vectors=False)
 
             if not points:
                 break
@@ -531,9 +522,7 @@ async def query_documents_by_project_id(
 
     client = get_qdrant_client()
 
-    filter_condition = qmodels.Filter(
-        must=[qmodels.FieldCondition(key="project_id", match=qmodels.MatchValue(value=project_id))]
-    )
+    filter_condition = qmodels.Filter(must=[qmodels.FieldCondition(key="project_id", match=qmodels.MatchValue(value=project_id))])
 
     try:
         documents: List[dict] = []
@@ -590,9 +579,7 @@ async def query_documents_by_file_id(
 
     client = get_qdrant_client()
 
-    filter_condition = qmodels.Filter(
-        must=[qmodels.FieldCondition(key="file_id", match=qmodels.MatchValue(value=file_id))]
-    )
+    filter_condition = qmodels.Filter(must=[qmodels.FieldCondition(key="file_id", match=qmodels.MatchValue(value=file_id))])
 
     try:
         documents: List[dict] = []

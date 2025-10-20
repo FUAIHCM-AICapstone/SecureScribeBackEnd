@@ -181,6 +181,7 @@ def test_auth_endpoint(request: Request) -> Dict[str, Any]:
         "token_preview": token[:20] + "..." if len(token) > 20 else token,
     }
 
+
 @app.get("/search-test")
 def get_search_test_page():
     """Serve the Search service test page"""

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Optional
 
@@ -19,6 +20,8 @@ from app.schemas.meeting import (
     MeetingUpdate,
     MeetingWithProjectsApiResponse,
 )
+from app.schemas.transcript import TranscriptResponse
+from app.schemas.user import MeetingNoteResponse
 from app.services.meeting import (
     add_meeting_to_project,
     check_delete_permissions,
@@ -32,6 +35,8 @@ from app.services.meeting import (
     update_meeting,
     validate_meeting_for_audio_operations,
 )
+from app.services.meeting_note import get_meeting_note
+from app.services.transcript import get_transcript_by_meeting
 from app.utils.auth import get_current_user
 from app.utils.meeting import get_meeting_projects
 
@@ -153,9 +158,28 @@ def get_meeting_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """Get a specific meeting by ID"""
+    logger = logging.getLogger(__name__)
     try:
         meeting = get_meeting(db, meeting_id, current_user.id, raise_404=True)
         projects = get_meeting_projects(db, meeting.id)
+
+        # Fetch meeting note with error handling
+        meeting_note = None
+        try:
+            meeting_note = get_meeting_note(db, meeting_id, current_user.id)
+        except Exception as e:
+            logger.error(f"Failed to fetch meeting note: {str(e)}")
+
+        # Fetch transcripts with error handling
+        transcripts = []
+        try:
+            transcript_data = get_transcript_by_meeting(db, meeting_id, current_user.id)
+            if transcript_data:
+                transcripts = [TranscriptResponse.model_validate(t) for t in transcript_data]
+        except Exception as e:
+            logger.error(f"Failed to fetch transcripts: {str(e)}")
+            transcripts = []
+
         response_data = {
             "id": meeting.id,
             "title": meeting.title,
@@ -172,6 +196,8 @@ def get_meeting_endpoint(
             "can_access": True,
             "project_count": len(projects),
             "member_count": 0,
+            "meeting_note": MeetingNoteResponse.model_validate(meeting_note) if meeting_note else None,
+            "transcripts": transcripts,
         }
 
         return ApiResponse(
@@ -310,7 +336,7 @@ def upload_meeting_audio_endpoint(
     """Upload an audio file to a meeting and enqueue ASR (mock) processing."""
     try:
         # Validate meeting and access control
-        meeting = validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
+        validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
 
         # Validate file size and content type (≤ 100MB)
         content = file.file.read()
@@ -373,7 +399,7 @@ def list_meeting_audio_endpoint(
 ):
     try:
         # Validate meeting and access control
-        meeting = validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
+        validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
 
         rows, total = get_meeting_audio_files(db, meeting_id, page, limit)
 

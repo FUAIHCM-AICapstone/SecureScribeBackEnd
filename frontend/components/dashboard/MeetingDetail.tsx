@@ -9,6 +9,8 @@ import { showToast } from '../../hooks/useShowToast';
 // Types are inferred from React Query data
 import FileCard from './FileCard';
 import FileUploadModal from './FileUploadModal';
+import MeetingNoteManager from './MeetingNoteManager';
+import TranscriptManager from './TranscriptManager';
 
 // MeetingDetail component for displaying meeting files
 
@@ -45,6 +47,8 @@ const MeetingDetail: React.FC<MeetingDetailProps> = ({ meetingId, onBack }) => {
     // Extract data from queries
     const meeting = meetingData || null;
     const files = filesData?.data || [];
+    const meetingNote = meetingData?.meeting_note || null;
+    const transcripts = meetingData?.transcripts || [];
 
     // Combined loading state
     const loading = meetingLoading || filesLoading;
@@ -138,6 +142,12 @@ const MeetingDetail: React.FC<MeetingDetailProps> = ({ meetingId, onBack }) => {
                         </div>
                     )}
                 </div>
+
+                {/* Meeting Notes Section */}
+                <MeetingNoteManager meetingId={meetingId} initialNote={meetingNote} />
+
+                {/* Transcripts Section */}
+                <TranscriptManager meetingId={meetingId} initialTranscripts={transcripts} />
 
                 {/* Files Section */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
