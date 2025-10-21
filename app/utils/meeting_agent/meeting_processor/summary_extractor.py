@@ -53,9 +53,9 @@ class SummaryExtractor(Agent):
         context = {
             "transcript": transcript,
             "meeting_type": meeting_type,
-            "task_prompt": get_task_extraction_prompt(meeting_type),
-            "decision_prompt": get_decision_extraction_prompt(meeting_type),
-            "question_prompt": get_question_extraction_prompt(meeting_type),
+            "task_prompt": get_task_extraction_prompt(),
+            "decision_prompt": get_decision_extraction_prompt(),
+            "question_prompt": get_question_extraction_prompt(),
         }
 
         try:

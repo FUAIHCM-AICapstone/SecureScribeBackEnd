@@ -8,7 +8,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.meeting import Meeting, ProjectMeeting, Transcript
-from app.models.project import Project
+from app.models.project import Project, UserProject
 from app.schemas.transcript import TranscriptCreate, TranscriptUpdate
 from app.services.audio_file import get_audio_file
 from app.utils.inference import transcriber
@@ -33,11 +33,12 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
     if not audio_file or not audio_file.file_url:
         return None
     bucket_name = "audio-files"
-    object_name = f"{audio_file.id}.webm"
+    object_name = audio_file.file_url.split('/')[-1].split('?')[0]
     audio_bytes = download_file_from_minio(bucket_name, object_name)
     if not audio_bytes:
         return None
-    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as temp_file:
+    file_extension = '.' + object_name.split('.')[-1] if '.' in object_name else '.webm'
+    with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
         temp_file.write(audio_bytes)
         temp_path = temp_file.name
     try:
@@ -86,7 +87,7 @@ def get_transcript_by_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.
 
 def get_transcripts(db: Session, user_id: uuid.UUID, content_search: Optional[str] = None, meeting_id: Optional[uuid.UUID] = None, page: int = 1, limit: int = 20) -> Tuple[List[Transcript], int]:
     query = db.query(Transcript).options(joinedload(Transcript.meeting), joinedload(Transcript.audio_concat_file))
-    accessible_meetings = db.query(Meeting.id).outerjoin(ProjectMeeting).outerjoin(Project).outerjoin(Project.users).filter(or_(Meeting.created_by == user_id, Meeting.is_personal == True, Project.users.any(id=user_id))).subquery()
+    accessible_meetings = db.query(Meeting.id).outerjoin(ProjectMeeting).outerjoin(Project).outerjoin(UserProject).filter(or_(Meeting.created_by == user_id, Meeting.is_personal == True, UserProject.user_id == user_id)).subquery()
     query = query.filter(Transcript.meeting_id.in_(accessible_meetings))
     if content_search:
         query = query.filter(or_(Transcript.content.ilike(f"%{content_search}%"), Transcript.extracted_text_for_search.ilike(f"%{content_search}%")))

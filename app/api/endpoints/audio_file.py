@@ -1,8 +1,8 @@
 import uuid
-import logging
-from typing import List
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
+
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
@@ -15,14 +15,12 @@ from app.schemas.audio_file import (
 from app.schemas.common import ApiResponse
 from app.services.audio_file import (
     create_audio_file,
+    delete_audio_file,
     get_audio_file,
     get_audio_files_by_meeting,
     update_audio_file,
-    delete_audio_file,
 )
 from app.utils.auth import get_current_user
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Audio Files"])
 
@@ -34,7 +32,6 @@ def upload_audio_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    logger.info(f"Audio upload attempt: filename={file.filename}, content_type={file.content_type}, size={file.size}")
 
     # Expanded list of supported audio formats including webm
     supported_formats = [
@@ -49,27 +46,28 @@ def upload_audio_file(
 
     if file.content_type not in supported_formats:
         error_msg = f"Invalid audio format: {file.content_type}. Supported formats: {', '.join(supported_formats)}"
-        logger.error(error_msg)
+        print(error_msg)
         raise HTTPException(status_code=400, detail=error_msg)
 
     try:
         file_content = file.file.read()
-        logger.info(f"Read {len(file_content)} bytes from uploaded file")
+        file.file.seek(0)  # Reset file pointer in case it's used again
 
         if len(file_content) == 0:
             error_msg = "Uploaded file is empty"
-            logger.error(error_msg)
+            print(error_msg)
             raise HTTPException(status_code=400, detail=error_msg)
 
-        audio_data = AudioFileCreate(meeting_id=meeting_id or uuid.uuid4(), uploaded_by=current_user.id)
+        audio_data = AudioFileCreate(meeting_id=meeting_id, uploaded_by=current_user.id)
         audio_file = create_audio_file(db, audio_data, file_content, file.content_type)
 
         if not audio_file:
             error_msg = "Failed to upload audio file to storage"
-            logger.error(error_msg)
+            print(error_msg)
             raise HTTPException(status_code=500, detail=error_msg)
 
-        logger.info(f"Successfully uploaded audio file: {audio_file.id}")
+        print(f"Audio file uploaded: {audio_file.id}, file_url: {audio_file.file_url}")
+
         return ApiResponse(
             success=True,
             message="Audio file uploaded successfully",
@@ -80,7 +78,7 @@ def upload_audio_file(
         raise
     except Exception as e:
         error_msg = f"Unexpected error during audio upload: {str(e)}"
-        logger.error(error_msg)
+        print(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
 
 

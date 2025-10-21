@@ -88,7 +88,8 @@ def delete_audio_file(db: Session, audio_id: uuid.UUID) -> bool:
             url_parts = audio_file.file_url.split("/")
             if len(url_parts) >= 2:
                 object_name = url_parts[-1].split("?")[0]  # Remove query params
-        except:
+        except Exception as e:
+            print(f"Failed to extract object name from URL: {e}")
             pass
 
     # Fallback: try common extensions

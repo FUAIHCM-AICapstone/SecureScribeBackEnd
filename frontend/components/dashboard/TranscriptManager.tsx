@@ -7,6 +7,7 @@ import {
     updateTranscript,
     deleteTranscript,
 } from '../../services/api/transcript';
+import { uploadAndTranscribeAudio } from '../../services/api/audio';
 import type { TranscriptResponse, TranscriptUpdate } from '../../types/transcript.type';
 
 interface TranscriptManagerProps {
@@ -22,6 +23,7 @@ const TranscriptManager: React.FC<TranscriptManagerProps> = ({ meetingId, initia
         useState<TranscriptResponse | null>(null);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editContent, setEditContent] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Use initialTranscripts if provided, otherwise fetch via API
@@ -31,6 +33,7 @@ const TranscriptManager: React.FC<TranscriptManagerProps> = ({ meetingId, initia
         enabled: !!meetingId && (!initialTranscripts || initialTranscripts.length === 0),
         initialData: initialTranscripts || [],
     });
+    console.log('Transcripts:', transcripts);
 
     const updateTranscriptMutation = useMutation({
         mutationFn: (payload: TranscriptUpdate) =>
@@ -52,6 +55,22 @@ const TranscriptManager: React.FC<TranscriptManagerProps> = ({ meetingId, initia
             });
             setIsViewerOpen(false);
             setSelectedTranscript(null);
+        },
+    });
+
+    const uploadTranscriptMutation = useMutation({
+        mutationFn: (file: File) => uploadAndTranscribeAudio(meetingId, file),
+        onSuccess: () => {
+            queryClient.invalidateQueries({
+                queryKey: ['transcripts', meetingId],
+            });
+            setIsUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        },
+        onError: () => {
+            setIsUploading(false);
         },
     });
 
@@ -85,8 +104,14 @@ const TranscriptManager: React.FC<TranscriptManagerProps> = ({ meetingId, initia
         event: React.ChangeEvent<HTMLInputElement>
     ) => {
         const file = event.target.files?.[0];
-        if (file) {
-            console.log('File selected:', file.name);
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            uploadTranscriptMutation.mutate(file);
+        } catch (error) {
+            console.error('Error uploading audio:', error);
+            setIsUploading(false);
         }
     };
 
@@ -96,9 +121,10 @@ const TranscriptManager: React.FC<TranscriptManagerProps> = ({ meetingId, initia
                 <h2 className="text-2xl font-semibold">Transcripts</h2>
                 <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-sm font-medium"
+                    disabled={isUploading || isLoading}
+                    className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                    ⬆ Upload & Transcribe
+                    {isUploading ? '⏳ Uploading...' : '⬆ Upload & Transcribe'}
                 </button>
                 <input
                     ref={fileInputRef}

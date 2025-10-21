@@ -4,17 +4,17 @@ import type {
     TranscriptResponse,
     TranscriptCreate,
     TranscriptUpdate,
-    TranscriptsPaginatedResponse,
 } from '../../types/transcript.type';
 
 export const getTranscriptsByMeeting = async (
     meetingId: string
-): Promise<TranscriptResponse[]> => {
+): Promise<[]> => {
     UuidValidator.validate(meetingId, 'Meeting ID');
-    const response = await ApiWrapper.execute<TranscriptsPaginatedResponse>(() =>
+    const response = await ApiWrapper.execute<[]>(() =>
         axiosInstance.get(`/transcripts?meeting_id=${meetingId}&limit=100`)
     );
-    return response.data || [];
+    console.log('Fetched transcripts response:', response);
+    return response || [];
 };
 
 export const getTranscript = async (

@@ -29,7 +29,7 @@ async def create_meeting_note_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = create_meeting_note(
+    result = await create_meeting_note(
         db,
         meeting_id,
         current_user.id,
