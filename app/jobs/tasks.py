@@ -16,7 +16,7 @@ from app.models.file import File
 from app.models.meeting import AudioFile, Meeting, Transcript
 from app.services.chat import perform_query_expansion_search
 from app.services.qdrant_service import reindex_file
-from app.utils.llm import create_general_chat_agent, get_agno_postgres_db
+from app.utils.llm import create_general_chat_agent, get_agno_postgres_db, optimize_contexts_with_llm
 from app.utils.redis import get_redis_client
 from app.utils.task_progress import (
     publish_task_progress_sync,
@@ -342,15 +342,15 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
         # Fetch conversation history (using sync version for Celery task)
         history = fetch_conversation_history_sync(conversation_id)
 
-        # Prepare enhanced content with meeting documents if available
-        enhanced_content = content
-        if query_results:
-            print(f"[process_chat_message] Found {len(query_results)} mention-based query_results, preparing meeting context...")
-            meeting_context = "\n\nThông tin từ tài liệu cuộc họp được tìm thấy:\n"
-            for i, doc in enumerate(query_results[:3]):  # Limit to 3 documents for context
-                print(f"[process_chat_message] Adding mention-based document {i+1} to context.")
-                meeting_context += f"\nTài liệu {i + 1}:\n{doc.get('payload', {}).get('text', 'Nội dung không có sẵn')}\n"
-            enhanced_content = content + meeting_context
+        # Prepare retrieval contexts
+        mention_docs: List[Dict[str, Any]] = list(query_results or [])
+        combined_candidates: List[Dict[str, Any]] = mention_docs.copy()
+        if mention_docs:
+            print(f"[process_chat_message] Found {len(mention_docs)} mention-based documents for initial context.")
+        else:
+            print("[process_chat_message] No mention documents provided for context.")
+
+        expansion_results: List[Dict[str, Any]] = []
 
         # Perform query expansion search for ALL chat messages
         print("[process_chat_message] Starting query expansion search...")
@@ -358,7 +358,7 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
             # Get mentions from user message to pass as filters
             user_message = db.query(ChatMessage).filter(ChatMessage.id == user_message_id).first()
             mentions = user_message.mentions if user_message and user_message.mentions else []
-            
+
             # Convert mentions to proper format if needed
             mention_objects = []
             if mentions:
@@ -368,7 +368,7 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
                         mention_objects.append(Mention(**mention_data))
                     else:
                         mention_objects.append(mention_data)
-            
+
             # Perform query expansion search
             expansion_results = asyncio.run(perform_query_expansion_search(
                 query=content,
@@ -376,44 +376,145 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
                 top_k=5,
                 num_expansions=3
             ))
-            
+
             if expansion_results:
                 print(f"[process_chat_message] Found {len(expansion_results)} expansion-based results")
-                
-                # Combine mention-based and expansion-based results
-                all_results = (query_results or []) + expansion_results
-                
-                # Deduplicate by document id, keeping highest score
-                seen_ids: Dict[str, Dict[str, Any]] = {}
-                for doc in all_results:
-                    doc_id = doc.get("id")
-                    if doc_id:
-                        current_score = doc.get("score", 0.0)
-                        if doc_id not in seen_ids or current_score > seen_ids[doc_id].get("score", 0.0):
-                            seen_ids[doc_id] = doc
-                
-                # Sort by score and limit results
-                combined_results = list(seen_ids.values())
-                combined_results.sort(key=lambda x: x.get("score", 0.0), reverse=True)
-                final_results = combined_results[:5]  # Limit to top 5 overall
-                
-                print(f"[process_chat_message] Combined and deduplicated: {len(final_results)} final documents")
-                
-                # Add expansion results to enhanced content
-                if final_results != (query_results or []):
-                    expansion_context = "\n\nThông tin bổ sung từ tìm kiếm mở rộng:\n"
-                    expansion_docs = [doc for doc in final_results if doc not in (query_results or [])]
-                    for i, doc in enumerate(expansion_docs[:2]):  # Limit to 2 expansion documents
-                        print(f"[process_chat_message] Adding expansion document {i+1} to context.")
-                        expansion_context += f"\nTài liệu mở rộng {i + 1}:\n{doc.get('payload', {}).get('text', 'Nội dung không có sẵn')}\n"
-                    enhanced_content += expansion_context
-                    
+                combined_candidates.extend(expansion_results)
             else:
                 print("[process_chat_message] No expansion results found")
-                
+
         except Exception as expansion_error:
             print(f"[process_chat_message] Query expansion failed: {expansion_error}")
+            expansion_results = []
             # Continue with mention-based results only
+
+        # Deduplicate contexts by file_id + chunk_index (fallback to doc id)
+        aggregated_contexts: Dict[str, Dict[str, Any]] = {}
+        for source_doc in combined_candidates:
+            if not isinstance(source_doc, dict):
+                continue
+
+            payload = source_doc.get("payload") or {}
+            if not isinstance(payload, dict):
+                payload = {}
+
+            file_id = payload.get("file_id")
+            chunk_index = payload.get("chunk_index")
+            doc_id = source_doc.get("id")
+
+            if file_id is not None and chunk_index is not None:
+                dedupe_key = f"{file_id}:{chunk_index}"
+            elif doc_id is not None:
+                dedupe_key = str(doc_id)
+            else:
+                digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:12]
+                dedupe_key = f"fallback:{digest}"
+
+            score = float(source_doc.get("score", 0.0) or 0.0)
+            normalized_doc = {
+                "id": doc_id if doc_id is not None else dedupe_key,
+                "score": score,
+                "payload": dict(payload),
+                "vector": source_doc.get("vector", []),
+                "key": dedupe_key,
+            }
+
+            existing_doc = aggregated_contexts.get(dedupe_key)
+            if existing_doc is None or score > existing_doc.get("score", 0.0):
+                aggregated_contexts[dedupe_key] = normalized_doc
+
+        combined_results: List[Dict[str, Any]] = sorted(
+            aggregated_contexts.values(),
+            key=lambda item: item["score"],
+            reverse=True,
+        )[:5]
+
+        print(f"[process_chat_message] Aggregated {len(combined_results)} context documents after dedupe")
+
+        # Optimization layer using LLM rerank
+        optimized_contexts: List[Dict[str, Any]] = combined_results[:]
+        if combined_results:
+            context_map = {doc["key"]: doc for doc in combined_results}
+            context_lines = []
+            for doc in combined_results:
+                snippet = (doc.get("payload", {}).get("text") or "")[:200].replace("\n", " ").strip()
+                context_lines.append(
+                    f"{doc['key']} | score={doc.get('score', 0.0):.4f} | text={snippet}"
+                )
+            context_block = "\n".join(context_lines) if context_lines else "Khong co."
+
+            history_summary_parts = []
+            for item in history[-5:]:
+                role = getattr(item, "role", "user")
+                snippet = (getattr(item, "content", "") or "")[:200].replace("\n", " ").strip()
+                history_summary_parts.append(f"{role}: {snippet}")
+            history_summary = "\n".join(history_summary_parts) if history_summary_parts else "Khong co."
+
+            desired_count = 3
+
+            try:
+                optimizer_start = time.perf_counter()
+                optimizer_response = asyncio.run(
+                    optimize_contexts_with_llm(
+                        query=content,
+                        history=history_summary,
+                        context_block=context_block,
+                        desired_count=desired_count,
+                    )
+                )
+                optimizer_duration = time.perf_counter() - optimizer_start
+                print(f"[process_chat_message] Context optimizer latency: {optimizer_duration:.2f}s")
+
+                selection_payload = None
+                if optimizer_response:
+                    if isinstance(optimizer_response, str):
+                        try:
+                            selection_payload = json.loads(optimizer_response)
+                        except json.JSONDecodeError as parse_error:
+                            print(f"[process_chat_message] Optimizer JSON parse failed: {parse_error}")
+                    elif isinstance(optimizer_response, (dict, list)):
+                        selection_payload = optimizer_response
+
+                if isinstance(selection_payload, dict) and "selected" in selection_payload:
+                    selection_items = selection_payload["selected"]
+                elif isinstance(selection_payload, list):
+                    selection_items = selection_payload
+                else:
+                    selection_items = []
+
+                optimized_contexts = []
+                for item in selection_items:
+                    if not isinstance(item, dict):
+                        continue
+                    candidate_key = item.get("id") or item.get("key")
+                    if not candidate_key:
+                        continue
+                    candidate_doc = context_map.get(candidate_key)
+                    if candidate_doc and candidate_doc not in optimized_contexts:
+                        optimized_contexts.append(candidate_doc)
+                    if len(optimized_contexts) >= desired_count:
+                        break
+
+                if not optimized_contexts:
+                    optimized_contexts = combined_results[:desired_count]
+
+            except Exception as optimizer_error:
+                print(f"[process_chat_message] Context optimization failed: {optimizer_error}")
+                optimized_contexts = combined_results[:desired_count]
+        else:
+            optimized_contexts = []
+
+        # Build enhanced content for agent prompt
+        enhanced_content = content
+        if optimized_contexts:
+            enhanced_content += "\n\nThông tin bổ sung từ tìm kiếm mở rộng:\n"
+            for idx, doc in enumerate(optimized_contexts[:3], start=1):
+                snippet = (doc.get("payload", {}).get("text") or "Nội dung không có sẵn.").strip()
+                enhanced_content += (
+                    f"\nTai lieu {idx} (score={doc.get('score', 0.0):.2f}):\n{snippet}\n"
+                )
+        else:
+            print("[process_chat_message] No context selected; agent will answer from query only.")
 
         print("[process_chat_message] Running agent for AI response...")
         # Process message with AI agent

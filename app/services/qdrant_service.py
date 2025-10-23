@@ -88,37 +88,37 @@ async def semantic_search_with_filters(
     meeting_ids: List[str] | None = None,
     project_ids: List[str] | None = None,
     file_ids: List[str] | None = None,
+    query_vector: List[float] | None = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Perform semantic vector search with optional metadata filters.
-    
-    Args:
-        query: Search query string
-        collection_name: Qdrant collection name (uses default if None)
-        top_k: Number of results to return
-        meeting_ids: List of meeting IDs to filter by
-        project_ids: List of project IDs to filter by
-        file_ids: List of file IDs to filter by
-        
-    Returns:
-        List of document dictionaries with id, score, payload, vector
-    """
+    """Perform semantic vector search with optional metadata filters.
+        Args:
+            query (str): The text query string for the search.
+            collection_name (str | None): The name of the Qdrant collection.
+            top_k (int): The number of results to return (default is 5).
+            meeting_ids (List[str] | None): List of meeting IDs to filter results.
+            project_ids (List[str] | None): List of project IDs to filter results.
+            file_ids (List[str] | None): List of file IDs to filter results.
+            query_vector (List[float] | None): The embedding vector of the query.
+        Returns:
+            List[Dict[str, Any]]: A list of found documents,
+                each containing the fields: `id`, `score`, `payload`, `vector`.
+        Notes:
+            This function supports reusing an existing embedding vector (query_vector)
+            to speed up searches, particularly useful for batch searches.
+"""
     try:
-        from app.utils.llm import embed_query
-        
         if not collection_name:
             collection_name = settings.QDRANT_COLLECTION_NAME
-        
         # Generate query embedding
-        query_vector = await embed_query(query)
-        
+        if query_vector is None:
+            from app.utils.llm import embed_query
+            query_vector = await embed_query(query)
+
         if not query_vector:
             print("🔴 \033[91mFailed to generate query embedding\033[0m")
             return []
-        
         # Build filter conditions
         filter_conditions = []
-        
         # Add meeting_ids filter (OR logic within meeting_ids)
         if meeting_ids:
             meeting_conditions = [
@@ -129,7 +129,6 @@ async def semantic_search_with_filters(
                 filter_conditions.append(meeting_conditions[0])
             else:
                 filter_conditions.append(qmodels.Filter(should=meeting_conditions))
-        
         # Add project_ids filter (OR logic within project_ids)
         if project_ids:
             project_conditions = [
@@ -140,7 +139,6 @@ async def semantic_search_with_filters(
                 filter_conditions.append(project_conditions[0])
             else:
                 filter_conditions.append(qmodels.Filter(should=project_conditions))
-        
         # Add file_ids filter (OR logic within file_ids)
         if file_ids:
             file_conditions = [
@@ -151,31 +149,28 @@ async def semantic_search_with_filters(
                 filter_conditions.append(file_conditions[0])
             else:
                 filter_conditions.append(qmodels.Filter(should=file_conditions))
-        
         # Combine all filters with AND logic
         query_filter = None
         if filter_conditions:
             query_filter = qmodels.Filter(must=filter_conditions)
-        
-        # Perform semantic search
+
         results = await search_vectors(
             collection=collection_name,
             query_vector=query_vector,
             top_k=top_k,
             query_filter=query_filter,
         )
-        
-        # Convert to consistent dict format
-        documents = []
+        # Convert to consistent format
+        documents: List[Dict[str, Any]] = []
         for result in results:
             doc = {
-                "id": result.id,
-                "score": float(result.score),
-                "payload": result.payload or {},
-                "vector": result.vector if hasattr(result, 'vector') else [],
+                'id': result.id,
+                'score': float(result.score),
+                'payload': result.payload or {},
+                'vector': result.vector if hasattr(result, 'vector') else [],
             }
             documents.append(doc)
-        
+
         print(f"🟢 \033[92mSemantic search found {len(documents)} documents\033[0m")
         return documents
         

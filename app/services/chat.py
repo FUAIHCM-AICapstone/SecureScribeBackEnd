@@ -1,3 +1,7 @@
+import hashlib
+import json
+import re
+import time
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
@@ -11,6 +15,8 @@ from app.services.qdrant_service import (
     query_documents_by_meeting_id,
     query_documents_by_project_id,
 )
+from app.utils.llm import embed_documents, expand_query_with_llm
+from app.utils.redis import get_async_redis_client
 
 
 def create_chat_message(db: Session, conversation_id: uuid.UUID, user_id: uuid.UUID, content: str, message_type: str, mentions: Optional[List] = None) -> Optional[ChatMessage]:
@@ -86,75 +92,147 @@ async def perform_query_expansion_search(
     top_k: int = 5,
     num_expansions: int = 3,
 ) -> List[Dict[str, Any]]:
-    """
-    Orchestrate query expansion and semantic search.
-    
-    Args:
-        query: Original user query
-        mentions: Optional list of mentions to filter by
-        top_k: Number of results to return
-        num_expansions: Number of expanded queries to generate
-        
-    Returns:
-        List of unique documents sorted by score
-    """
+    """Orchestrate query expansion and semantic search."""
     try:
-        from app.utils.llm import expand_query_with_llm
         from app.services.qdrant_service import semantic_search_with_filters
-        
-        print(f"🔍 \033[94mStarting query expansion search for: '{query[:50]}...'\033[0m")
-        
-        # Generate expanded queries
-        expanded_queries = await expand_query_with_llm(query, num_expansions)
-        print(f"🟢 \033[92mExpanded into {len(expanded_queries)} queries\033[0m")
-        
-        # Extract filters from mentions
-        meeting_ids = []
-        project_ids = []
-        file_ids = []
-        
+
+        print(f"Starting query expansion search for: '{query[:50]}...'")
+
+        normalized_seed = re.sub(r"\s+", " ", (query or "").strip())
+        if not normalized_seed:
+            return []
+
+        meeting_ids: List[str] = []
+        project_ids: List[str] = []
+        file_ids: List[str] = []
+        entity_tokens: List[str] = []
+
         if mentions:
             for mention in mentions:
                 if not mention.entity_id:
                     continue
-                    
+                entity_id = str(mention.entity_id)
                 if mention.entity_type == "meeting":
-                    meeting_ids.append(mention.entity_id)
+                    meeting_ids.append(entity_id)
                 elif mention.entity_type == "project":
-                    project_ids.append(mention.entity_id)
+                    project_ids.append(entity_id)
                 elif mention.entity_type == "file":
-                    file_ids.append(mention.entity_id)
-        
-        # Perform semantic search for each expanded query
-        all_results = []
-        for idx, expanded_query in enumerate(expanded_queries):
-            print(f"🔎 \033[96mSearching with query {idx+1}/{len(expanded_queries)}: '{expanded_query[:50]}...'\033[0m")
-            
-            results = await semantic_search_with_filters(
-                query=expanded_query,
-                top_k=top_k,
-                meeting_ids=meeting_ids if meeting_ids else None,
-                project_ids=project_ids if project_ids else None,
-                file_ids=file_ids if file_ids else None,
-            )
-            
-            all_results.extend(results)
-        
-        # Deduplicate by document id, keeping highest score
-        seen_ids: Dict[str, Dict[str, Any]] = {}
-        for doc in all_results:
-            doc_id = doc["id"]
-            if doc_id not in seen_ids or doc["score"] > seen_ids[doc_id]["score"]:
-                seen_ids[doc_id] = doc
-        
-        # Sort by score and return top_k
-        deduplicated_results = list(seen_ids.values())
-        deduplicated_results.sort(key=lambda x: x["score"], reverse=True)
-        final_results = deduplicated_results[:top_k]
-        
-        print(f"🟢 \033[92mQuery expansion search completed: {len(final_results)} unique documents\033[0m")
+                    file_ids.append(entity_id)
+                entity_tokens.append(entity_id)
+
+        cache_key = None
+        redis_client = None
+        expanded_queries: List[str] = []
+        try:
+            redis_client = await get_async_redis_client()
+        except Exception as redis_error:
+            print(f"Redis unavailable for expansion cache: {redis_error}")
+            redis_client = None
+
+        if normalized_seed:
+            hash_value = hashlib.sha256(normalized_seed.lower().encode("utf-8")).hexdigest()
+            key_parts = [hash_value]
+            if entity_tokens:
+                key_parts.append("-".join(sorted(set(entity_tokens))))
+            cache_key = f"expansion:{':'.join(key_parts)}"
+
+        if redis_client and cache_key:
+            try:
+                cached_value = await redis_client.get(cache_key)
+                if cached_value:
+                    expanded_queries = json.loads(cached_value)
+                    print("Expansion cache hit")
+            except Exception as cache_error:
+                print(f"Failed reading expansion cache: {cache_error}")
+                expanded_queries = []
+
+        if not expanded_queries:
+            print("Expansion cache miss")
+            expansion_start = time.perf_counter()
+            expanded_queries = await expand_query_with_llm(query, num_expansions)
+            expansion_duration = time.perf_counter() - expansion_start
+            print(f"LLM expansion latency: {expansion_duration:.2f}s")
+            if redis_client and cache_key and expanded_queries:
+                try:
+                    await redis_client.set(cache_key, json.dumps(expanded_queries), ex=86400)
+                except Exception as cache_error:
+                    print(f"Failed storing expansion cache: {cache_error}")
+        else:
+            print("Using cached expansion variants")
+
+        if not expanded_queries:
+            expanded_queries = [query]
+
+        embed_start = time.perf_counter()
+        embeddings = await embed_documents(expanded_queries)
+        embed_duration = time.perf_counter() - embed_start
+        print(f"Batch embedding latency: {embed_duration:.2f}s")
+
+        if not embeddings:
+            print("No embeddings produced for expansion queries")
+            return []
+
+        requested_top_k = max(top_k, 1)
+        aggregated: Dict[str, Dict[str, Any]] = {}
+
+        for idx, (expanded_query, vector) in enumerate(zip(expanded_queries, embeddings), start=1):
+            print(f"Searching with variant {idx}/{len(expanded_queries)}: '{expanded_query[:50]}...'")
+            try:
+                results = await semantic_search_with_filters(
+                    query=expanded_query,
+                    top_k=requested_top_k,
+                    meeting_ids=meeting_ids or None,
+                    project_ids=project_ids or None,
+                    file_ids=file_ids or None,
+                    query_vector=vector,
+                )
+            except Exception as search_error:
+                print(f"Semantic search failed for variant {idx}: {search_error}")
+                continue
+
+            for doc in results:
+                if isinstance(doc, dict):
+                    payload = doc.get("payload") or {}
+                    doc_id = doc.get("id")
+                    score = float(doc.get("score", 0.0) or 0.0)
+                    vector_data = doc.get("vector", [])
+                else:
+                    payload = getattr(doc, "payload", {}) or {}
+                    doc_id = getattr(doc, "id", None)
+                    score = float(getattr(doc, "score", 0.0) or 0.0)
+                    vector_data = getattr(doc, "vector", [])
+
+                if not isinstance(payload, dict):
+                    payload = {}
+
+                file_id = payload.get("file_id")
+                chunk_index = payload.get("chunk_index")
+                if file_id is not None and chunk_index is not None:
+                    dedupe_key = f"{file_id}:{chunk_index}"
+                elif doc_id is not None:
+                    dedupe_key = str(doc_id)
+                else:
+                    digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:12]
+                    dedupe_key = f"fallback:{idx}:{digest}"
+
+                existing = aggregated.get(dedupe_key)
+                if existing is None or score > existing.get("score", 0.0):
+                    aggregated[dedupe_key] = {
+                        "id": doc_id if doc_id is not None else dedupe_key,
+                        "score": score,
+                        "payload": payload,
+                        "vector": vector_data,
+                        "key": dedupe_key,
+                    }
+
+        if not aggregated:
+            print("No documents retrieved from expansion variants")
+            return []
+
+        final_results = sorted(aggregated.values(), key=lambda item: item["score"], reverse=True)[:requested_top_k]
+        print(f"Query expansion search completed: {len(final_results)} unique documents")
         return final_results
-        
+
     except Exception as e:
-        print(f"🔴 \033[91mQuery expansion search failed: {e}\033[0m")
+        print(f"Query expansion search failed: {e}")
         return []

@@ -1,5 +1,6 @@
+import json
 import textwrap
-from typing import List
+from typing import List, Optional
 
 from agno.agent import Agent
 from agno.db.postgres import PostgresDb
@@ -44,6 +45,62 @@ async def chat_complete(system_prompt: str, user_prompt: str) -> str:
     assistant_message = Message(role="assistant", content="")
     response = await model.ainvoke(messages, assistant_message)
     return response.content
+
+
+async def optimize_contexts_with_llm(query: str, history: str, context_block: str, desired_count: int = 3) -> Optional[str]:
+    system_prompt = textwrap.dedent(
+        """
+        Bạn là một hệ thống đánh giá mức độ liên quan của tài liệu.
+
+        Dưới đây là câu hỏi của người dùng, lịch sử hội thoại,
+        và danh sách các đoạn tài liệu có thể liên quan đến câu hỏi.
+
+        Hãy chọn ra tối đa {desired_count} đoạn phù hợp nhất để hỗ trợ trả lời.
+        """
+    ).strip().format(desired_count=desired_count)
+
+    user_prompt = textwrap.dedent(
+        f"""
+        Câu hỏi:
+        {query}
+
+        Lịch sử hội thoại (tóm tắt):
+        {history}
+
+        Các đoạn tài liệu:
+        {context_block}
+
+        Yêu cầu:
+        - Chỉ chọn các đoạn thực sự liên quan đến câu hỏi và bối cảnh hội thoại.
+        - Trả về kết quả ở định dạng JSON, chỉ gồm id và lý do.
+        Ví dụ:
+        [
+          {{"id": "file1:chunk2", "reason": "phân tích lỗi Redis timeout"}},
+          {{"id": "file1:chunk3", "reason": "mô tả nguyên nhân connection refused"}}
+        ]
+        """
+    ).strip()
+
+    try:
+        response = await chat_complete(system_prompt, user_prompt)
+    except Exception as error:
+        print(f"[optimize_contexts_with_llm] LLM call failed: {error}")
+        return None
+
+    if not response:
+        return None
+
+    candidate = response.strip()
+    if not candidate:
+        return None
+
+    try:
+        json.loads(candidate)
+    except json.JSONDecodeError as error:
+        print(f"[optimize_contexts_with_llm] Invalid JSON payload: {error}")
+        return None
+
+    return candidate
 
 
 async def expand_query_with_llm(query: str, num_expansions: int = 3) -> List[str]:
