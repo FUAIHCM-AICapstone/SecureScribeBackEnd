@@ -328,6 +328,8 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
     print(f"[process_chat_message] Start processing: conversation_id={conversation_id}, user_message_id={user_message_id}, user_id={user_id}")
     # Create database session for this task
     db = SessionLocal()
+    # Ensure user_id is always a plain string for downstream integrations (Agno expects str)
+    user_id_str = str(user_id) if user_id is not None else ""
 
     try:
         print("[process_chat_message] Getting Agno Postgres DB instance...")
@@ -336,7 +338,7 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
 
         print("[process_chat_message] Creating general chat agent...")
         # Create chat agent
-        agent = create_general_chat_agent(agno_db, conversation_id, user_id)
+        agent = create_general_chat_agent(agno_db, conversation_id, user_id_str)
 
         print("[process_chat_message] Fetching conversation history...")
         # Fetch conversation history (using sync version for Celery task)
@@ -525,7 +527,7 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
 
         # Create AI message in database
         print("[process_chat_message] Creating AI message in database...")
-        ai_message = ChatMessage(conversation_id=conversation_id, message_type=ChatMessageType.agent, content=ai_response_content, user_id=user_id)
+        ai_message = ChatMessage(conversation_id=conversation_id, message_type=ChatMessageType.agent, content=ai_response_content, user_id=user_id_str)
         db.add(ai_message)
         db.commit()
         db.refresh(ai_message)
@@ -551,7 +553,7 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
     except Exception as e:
         print(f"[process_chat_message] Exception occurred: {e}")
         # Create error message in database
-        error_message = ChatMessage(conversation_id=conversation_id, message_type=ChatMessageType.agent, content="I apologize, but I encountered an error processing your message. Please try again.", user_id=user_id)
+        error_message = ChatMessage(conversation_id=conversation_id, message_type=ChatMessageType.agent, content="I apologize, but I encountered an error processing your message. Please try again.", user_id=user_id_str)
         db.add(error_message)
         db.commit()
         print(f"[process_chat_message] Error message committed to DB with id: {error_message.id}")

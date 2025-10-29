@@ -48,7 +48,7 @@ async def send_chat_message_endpoint(
         query_results = await chat_service.query_documents_for_mentions(message_data.mentions)
 
     # Trigger background AI processing task (core Agno_chat logic)
-    task = process_chat_message.delay(conversation_id=str(conversation_id), user_message_id=str(user_message.id), content=message_data.content, user_id=current_user.id, query_results=query_results)
+    task = process_chat_message.delay(conversation_id=str(conversation_id), user_message_id=str(user_message.id), content=message_data.content, user_id=str(current_user.id), query_results=query_results)
 
     print(f"Triggered background task {task.id} for conversation_id={conversation_id}")
 
