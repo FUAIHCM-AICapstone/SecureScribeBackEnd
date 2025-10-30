@@ -1,5 +1,6 @@
+import json
 import textwrap
-from typing import List
+from typing import List, Optional
 
 from agno.agent import Agent
 from agno.db.postgres import PostgresDb
@@ -44,6 +45,120 @@ async def chat_complete(system_prompt: str, user_prompt: str) -> str:
     assistant_message = Message(role="assistant", content="")
     response = await model.ainvoke(messages, assistant_message)
     return response.content
+
+
+async def optimize_contexts_with_llm(query: str, history: str, context_block: str, desired_count: int = 3) -> Optional[str]:
+    system_prompt = (
+        textwrap.dedent(
+            """
+        Bạn là một hệ thống đánh giá mức độ liên quan của tài liệu.
+
+        Dưới đây là câu hỏi của người dùng, lịch sử hội thoại,
+        và danh sách các đoạn tài liệu có thể liên quan đến câu hỏi.
+
+        Hãy chọn ra tối đa {desired_count} đoạn phù hợp nhất để hỗ trợ trả lời.
+        """
+        )
+        .strip()
+        .format(desired_count=desired_count)
+    )
+
+    user_prompt = textwrap.dedent(
+        f"""
+        Câu hỏi:
+        {query}
+
+        Lịch sử hội thoại (tóm tắt):
+        {history}
+
+        Các đoạn tài liệu:
+        {context_block}
+
+        Yêu cầu:
+        - Chỉ chọn các đoạn thực sự liên quan đến câu hỏi và bối cảnh hội thoại.
+        - Trả về kết quả ở định dạng JSON, chỉ gồm id và lý do.
+        Ví dụ:
+        [
+          {{"id": "file1:chunk2", "reason": "phân tích lỗi Redis timeout"}},
+          {{"id": "file1:chunk3", "reason": "mô tả nguyên nhân connection refused"}}
+        ]
+        """
+    ).strip()
+
+    try:
+        response = await chat_complete(system_prompt, user_prompt)
+    except Exception as error:
+        print(f"[optimize_contexts_with_llm] LLM call failed: {error}")
+        return None
+
+    if not response:
+        return None
+
+    candidate = response.strip()
+    if not candidate:
+        return None
+
+    try:
+        json.loads(candidate)
+    except json.JSONDecodeError as error:
+        print(f"[optimize_contexts_with_llm] Invalid JSON payload: {error}")
+        return None
+
+    return candidate
+
+
+async def expand_query_with_llm(query: str, num_expansions: int = 3) -> List[str]:
+    """
+    Generate multiple reformulated queries using LLM for query expansion.
+
+    Args:
+        query: Original user query
+        num_expansions: Number of expanded queries to generate (default: 3)
+
+    Returns:
+        List of expanded queries (includes original query)
+    """
+    try:
+        system_prompt = """Bạn là một chuyên gia về mở rộng truy vấn tìm kiếm. 
+Nhiệm vụ của bạn là tạo ra các phiên bản khác nhau của câu truy vấn để tìm kiếm hiệu quả hơn trong cơ sở dữ liệu tài liệu.
+
+Quy tắc:
+1. Tạo ra các câu truy vấn có nghĩa tương tự nhưng diễn đạt khác nhau
+2. Thêm từ đồng nghĩa và các thuật ngữ liên quan
+3. Trích xuất và mở rộng các thực thể chính (tên, địa điểm, khái niệm)
+4. Giữ nguyên ngôn ngữ của câu truy vấn gốc (tiếng Việt hoặc tiếng Anh)
+5. Mỗi câu truy vấn mở rộng trên một dòng riêng biệt
+6. KHÔNG thêm số thứ tự, dấu đầu dòng, hoặc ký tự đặc biệt
+7. KHÔNG giải thích hoặc thêm bất kỳ văn bản nào khác"""
+
+        user_prompt = f"""Hãy tạo {num_expansions} phiên bản mở rộng của câu truy vấn sau:
+
+"{query}"
+
+Trả về CHỈ {num_expansions} câu truy vấn mở rộng, mỗi câu trên một dòng."""
+
+        response = await chat_complete(system_prompt, user_prompt)
+
+        # Parse response - each line is an expanded query
+        expanded_queries = [line.strip() for line in response.strip().split("\n") if line.strip()]
+
+        # Filter out empty strings and ensure we have valid queries
+        expanded_queries = [q for q in expanded_queries if q and len(q) > 3]
+
+        # Always include original query
+        if query not in expanded_queries:
+            expanded_queries.insert(0, query)
+
+        # Limit to requested number + original
+        expanded_queries = expanded_queries[: num_expansions + 1]
+
+        print(f"🟢 \033[92mGenerated {len(expanded_queries)} expanded queries from original query\033[0m")
+        return expanded_queries
+
+    except Exception as e:
+        print(f"🔴 \033[91mQuery expansion failed: {e}. Using original query.\033[0m")
+        # Fallback to original query
+        return [query]
 
 
 def get_agno_postgres_db() -> PostgresDb:

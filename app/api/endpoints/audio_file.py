@@ -32,7 +32,6 @@ def upload_audio_file(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-
     # Expanded list of supported audio formats including webm
     supported_formats = [
         "audio/webm",

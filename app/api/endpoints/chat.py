@@ -17,13 +17,9 @@ from app.schemas.chat import (
     ChatMessageCreate,
 )
 from app.schemas.common import ApiResponse
-from app.services.chat import (
-    create_chat_message,
-    query_documents_for_mentions,
-)
+from app.services import chat as chat_service
 from app.services.conversation import get_conversation
 from app.utils.auth import get_current_user
-from app.utils.redis import get_async_redis_client
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Chat"])
 
@@ -37,7 +33,7 @@ async def send_chat_message_endpoint(
 ):
     """Send a message to a conversation and trigger background AI processing"""
     # Create user message with mentions (existing logic)
-    user_message = create_chat_message(db=db, conversation_id=conversation_id, user_id=current_user.id, content=message_data.content, message_type=ChatMessageType.user, mentions=message_data.mentions)
+    user_message = chat_service.create_chat_message(db=db, conversation_id=conversation_id, user_id=current_user.id, content=message_data.content, message_type=ChatMessageType.user, mentions=message_data.mentions)
     if not user_message:
         raise HTTPException(status_code=404, detail="Conversation not found or inactive")
 
@@ -49,10 +45,10 @@ async def send_chat_message_endpoint(
     # Handle mention-based querying (adapted from Agno_chat)
     query_results = []
     if message_data.mentions:
-        query_results = await query_documents_for_mentions(message_data.mentions)
+        query_results = await chat_service.query_documents_for_mentions(message_data.mentions, current_user_id=str(current_user.id), db=db)
 
     # Trigger background AI processing task (core Agno_chat logic)
-    task = process_chat_message.delay(conversation_id=str(conversation_id), user_message_id=str(user_message.id), content=message_data.content, user_id=current_user.id, query_results=query_results)
+    task = process_chat_message.delay(conversation_id=str(conversation_id), user_message_id=str(user_message.id), content=message_data.content, user_id=str(current_user.id), query_results=query_results)
 
     print(f"Triggered background task {task.id} for conversation_id={conversation_id}")
 
@@ -98,7 +94,7 @@ async def chat_sse_endpoint(
         yield f"data: {json.dumps({'type': 'connected', 'conversation_id': str(conversation_id)})}\n\n"
 
         # Subscribe to Redis channel for this conversation
-        redis_client = await get_async_redis_client()
+        redis_client = await chat_service.get_async_redis_client()
         # For now, we'll use a general channel - in production you'd want user-specific channels
         channel = f"conversation:{conversation_id}:messages"
 

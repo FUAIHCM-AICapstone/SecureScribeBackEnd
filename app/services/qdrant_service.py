@@ -6,8 +6,12 @@ from typing import Any, Dict, List
 
 from chonkie import CodeChunker, SentenceChunker
 from qdrant_client import models as qmodels
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.services.file import check_file_access, get_file
+from app.services.meeting import get_meeting
+from app.services.project import is_user_in_project
 from app.utils.qdrant import get_qdrant_client
 
 
@@ -78,6 +82,96 @@ async def search_vectors(
 
     except Exception as e:
         print(f"🔴 \033[91mSearch failed: {e}\033[0m")
+        return []
+
+
+async def semantic_search_with_filters(
+    query: str,
+    collection_name: str | None = None,
+    top_k: int = 5,
+    meeting_ids: List[str] | None = None,
+    project_ids: List[str] | None = None,
+    file_ids: List[str] | None = None,
+    query_vector: List[float] | None = None,
+) -> List[Dict[str, Any]]:
+    """Perform semantic vector search with optional metadata filters.
+    Args:
+        query (str): The text query string for the search.
+        collection_name (str | None): The name of the Qdrant collection.
+        top_k (int): The number of results to return (default is 5).
+        meeting_ids (List[str] | None): List of meeting IDs to filter results.
+        project_ids (List[str] | None): List of project IDs to filter results.
+        file_ids (List[str] | None): List of file IDs to filter results.
+        query_vector (List[float] | None): The embedding vector of the query.
+    Returns:
+        List[Dict[str, Any]]: A list of found documents,
+            each containing the fields: `id`, `score`, `payload`, `vector`.
+    Notes:
+        This function supports reusing an existing embedding vector (query_vector)
+        to speed up searches, particularly useful for batch searches.
+    """
+    try:
+        if not collection_name:
+            collection_name = settings.QDRANT_COLLECTION_NAME
+        # Generate query embedding
+        if query_vector is None:
+            from app.utils.llm import embed_query
+
+            query_vector = await embed_query(query)
+
+        if not query_vector:
+            print("🔴 \033[91mFailed to generate query embedding\033[0m")
+            return []
+        # Build filter conditions
+        filter_conditions = []
+        # Add meeting_ids filter (OR logic within meeting_ids)
+        if meeting_ids:
+            meeting_conditions = [qmodels.FieldCondition(key="meeting_id", match=qmodels.MatchValue(value=mid)) for mid in meeting_ids]
+            if len(meeting_conditions) == 1:
+                filter_conditions.append(meeting_conditions[0])
+            else:
+                filter_conditions.append(qmodels.Filter(should=meeting_conditions))
+        # Add project_ids filter (OR logic within project_ids)
+        if project_ids:
+            project_conditions = [qmodels.FieldCondition(key="project_id", match=qmodels.MatchValue(value=pid)) for pid in project_ids]
+            if len(project_conditions) == 1:
+                filter_conditions.append(project_conditions[0])
+            else:
+                filter_conditions.append(qmodels.Filter(should=project_conditions))
+        # Add file_ids filter (OR logic within file_ids)
+        if file_ids:
+            file_conditions = [qmodels.FieldCondition(key="file_id", match=qmodels.MatchValue(value=fid)) for fid in file_ids]
+            if len(file_conditions) == 1:
+                filter_conditions.append(file_conditions[0])
+            else:
+                filter_conditions.append(qmodels.Filter(should=file_conditions))
+        # Combine all filters with AND logic
+        query_filter = None
+        if filter_conditions:
+            query_filter = qmodels.Filter(must=filter_conditions)
+
+        results = await search_vectors(
+            collection=collection_name,
+            query_vector=query_vector,
+            top_k=top_k,
+            query_filter=query_filter,
+        )
+        # Convert to consistent format
+        documents: List[Dict[str, Any]] = []
+        for result in results:
+            doc = {
+                "id": result.id,
+                "score": float(result.score),
+                "payload": result.payload or {},
+                "vector": result.vector if hasattr(result, "vector") else [],
+            }
+            documents.append(doc)
+
+        print(f"🟢 \033[92mSemantic search found {len(documents)} documents\033[0m")
+        return documents
+
+    except Exception as e:
+        print(f"🔴 \033[91mSemantic search with filters failed: {e}\033[0m")
         return []
 
 
@@ -462,8 +556,21 @@ async def query_documents_by_meeting_id(
     meeting_id: str,
     collection_name: str | None = None,
     top_k: int = 10,
-) -> List[dict]:
+    db: Session | None = None,
+    user_id: str | None = None,
+) -> List[Dict[str, Any]]:
     """Query all documents for a specific meeting_id"""
+    # Validate access if db and user_id provided
+    if db and user_id:
+        try:
+            from uuid import UUID
+
+            meeting = get_meeting(db, UUID(meeting_id), UUID(user_id))
+            if not meeting:
+                return []
+        except Exception:
+            return []
+
     if not collection_name:
         collection_name = settings.QDRANT_COLLECTION_NAME
 
@@ -512,8 +619,20 @@ async def query_documents_by_project_id(
     project_id: str,
     collection_name: str | None = None,
     top_k: int = 10,
-) -> List[dict]:
+    db: Session | None = None,
+    user_id: str | None = None,
+) -> List[Dict[str, Any]]:
     """Query documents scoped to a specific project_id"""
+    # Validate access if db and user_id provided
+    if db and user_id:
+        try:
+            from uuid import UUID
+
+            if not is_user_in_project(db, UUID(project_id), UUID(user_id)):
+                return []
+        except Exception:
+            return []
+
     if not project_id:
         return []
 
@@ -569,8 +688,21 @@ async def query_documents_by_file_id(
     file_id: str,
     collection_name: str | None = None,
     top_k: int = 10,
-) -> List[dict]:
+    db: Session | None = None,
+    user_id: str | None = None,
+) -> List[Dict[str, Any]]:
     """Query documents scoped to a specific file_id"""
+    # Validate access if db and user_id provided
+    if db and user_id:
+        try:
+            from uuid import UUID
+
+            file_obj = get_file(db, UUID(file_id))
+            if not file_obj or not check_file_access(db, file_obj, UUID(user_id)):
+                return []
+        except Exception:
+            return []
+
     if not file_id:
         return []
 

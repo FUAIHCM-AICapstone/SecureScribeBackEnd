@@ -33,11 +33,11 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
     if not audio_file or not audio_file.file_url:
         return None
     bucket_name = "audio-files"
-    object_name = audio_file.file_url.split('/')[-1].split('?')[0]
+    object_name = audio_file.file_url.split("/")[-1].split("?")[0]
     audio_bytes = download_file_from_minio(bucket_name, object_name)
     if not audio_bytes:
         return None
-    file_extension = '.' + object_name.split('.')[-1] if '.' in object_name else '.webm'
+    file_extension = "." + object_name.split(".")[-1] if "." in object_name else ".webm"
     with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
         temp_file.write(audio_bytes)
         temp_path = temp_file.name
