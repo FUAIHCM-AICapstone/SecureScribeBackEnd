@@ -8,6 +8,10 @@ class TokenResponse(BaseModel):
     expires_in: int
 
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
 class GoogleAuthRequest(BaseModel):
     id_token: str
 

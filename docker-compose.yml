@@ -25,6 +25,7 @@ services:
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=5432
       - AGNO_TELEMETRY=false
+      - SECRET_KEY=securescribe_jwt_secret_key_2025_fixed_for_development
     restart: unless-stopped
     networks:
       - securescribe-network
@@ -44,6 +45,7 @@ services:
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=5432
       - AGNO_TELEMETRY=false
+      - SECRET_KEY=securescribe_jwt_secret_key_2025_fixed_for_development
     restart: unless-stopped
     networks:
       - securescribe-network

@@ -8,6 +8,7 @@ from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
     GoogleAuthRequest,
+    RefreshTokenRequest,
 )
 from app.schemas.common import ApiResponse
 from app.schemas.user import UserUpdate
@@ -24,23 +25,33 @@ security = HTTPBearer()
 
 
 @router.post("/auth/refresh", response_model=ApiResponse[dict])
-def refresh_token_endpoint(refresh_token: str):
-    payload = verify_token(refresh_token)
-    if not payload or payload.get("type") != "refresh":
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid token payload")
-    access_token = create_access_token({"sub": user_id})
-    return ApiResponse(
-        success=True,
-        message="Token refreshed",
-        data={
-            "access_token": access_token,
-            "token_type": "bearer",
-            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        },
-    )
+def refresh_token_endpoint(request: RefreshTokenRequest):
+    refresh_token = request.refresh_token
+
+    try:
+        payload = verify_token(refresh_token)
+
+        if not payload or payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+        user_id = payload.get("sub")
+
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+
+        access_token = create_access_token({"sub": user_id})
+
+        return ApiResponse(
+            success=True,
+            message="Token refreshed",
+            data={
+                "access_token": access_token,
+                "token_type": "bearer",
+                "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            },
+        )
+    except Exception:
+        raise
 
 
 @router.get("/me", response_model=ApiResponse[dict])

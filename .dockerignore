@@ -26,3 +26,5 @@ coverage.xml
 *.swp
 *.swo
 *~
+.venv/
+venv/
