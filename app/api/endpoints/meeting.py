@@ -113,7 +113,7 @@ def get_meetings_endpoint(
             tag_ids=tag_id_list,
             project_id=project_id,
         )
-
+        print(f"Filters applied: {project_id}")
         meetings, total = get_meetings(db=db, user_id=current_user.id, filters=filters, page=page, limit=limit)
 
         # Format response data
