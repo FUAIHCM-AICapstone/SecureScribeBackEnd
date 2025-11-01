@@ -86,6 +86,7 @@ def get_meetings_endpoint(
     status: Optional[str] = Query(None),
     is_personal: Optional[bool] = Query(None),
     created_by: Optional[str] = Query(None),
+    project_id: Optional[uuid.UUID] = Query(None),
     tag_ids: str = Query("", description="Comma-separated tag IDs"),
 ):
     """Get meetings with filtering and pagination"""
@@ -110,6 +111,7 @@ def get_meetings_endpoint(
             is_personal=is_personal,
             created_by=created_by_uuid,
             tag_ids=tag_id_list,
+            project_id=project_id,
         )
 
         meetings, total = get_meetings(db=db, user_id=current_user.id, filters=filters, page=page, limit=limit)
