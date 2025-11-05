@@ -54,7 +54,8 @@ def get_meeting_projects(db: Session, meeting_id: uuid.UUID) -> List[uuid.UUID]:
     from app.models.meeting import ProjectMeeting
 
     project_meetings = db.query(ProjectMeeting).filter(ProjectMeeting.meeting_id == meeting_id).all()
-    return [pm.project_id for pm in project_meetings]
+    project_ids = [pm.project_id for pm in project_meetings]
+    return project_ids
 
 
 def can_delete_meeting(db: Session, meeting: Meeting, user_id: uuid.UUID) -> bool:

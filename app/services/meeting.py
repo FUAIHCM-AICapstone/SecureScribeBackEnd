@@ -81,6 +81,12 @@ def get_meetings(
     limit: int = 20,
 ) -> Tuple[List[Meeting], int]:
     """Get meetings with filtering and pagination"""
+    print("\033[96m🌟 [GET_MEETINGS] Function called\033[0m")
+    print(f"\033[94m👤 User ID: {user_id}\033[0m")
+    print(f"\033[95m🔍 Filters: {filters}\033[0m")
+    print(f"\033[93m📄 Page: {page}, Limit: {limit}\033[0m")
+
+    print("\033[92m🏗️ Building base query...\033[0m")
     query = (
         db.query(Meeting)
         .options(
@@ -89,10 +95,14 @@ def get_meetings(
         )
         .filter(Meeting.is_deleted == False)
     )
+    print("\033[92m✅ Base query built with joined loads\033[0m")
 
-    # Access control filter
+    print("\033[95m🔐 Applying access control filters...\033[0m")
+    print(f"\033[94m👥 Getting personal meetings for user {user_id}...\033[0m")
     personal_meetings = db.query(Meeting.id).filter(Meeting.is_personal == True, Meeting.created_by == user_id).subquery()
+    print("\033[94m✅ Personal meetings subquery created\033[0m")
 
+    print(f"\033[95m🏢 Getting accessible projects for user {user_id}...\033[0m")
     accessible_projects = (
         db.query(ProjectMeeting.meeting_id)
         .join(
@@ -104,10 +114,13 @@ def get_meetings(
         )
         .subquery()
     )
+    print("\033[95m✅ Accessible projects subquery created\033[0m")
 
-    # Meetings with no linked projects (accessible to everyone)
+    print("\033[96m🌍 Getting public meetings (no linked projects)...\033[0m")
     meetings_no_projects = db.query(Meeting.id).filter(Meeting.is_personal == False).outerjoin(ProjectMeeting).group_by(Meeting.id).having(func.count(ProjectMeeting.project_id) == 0).subquery()
+    print("\033[96m✅ Public meetings subquery created\033[0m")
 
+    print("\033[92m🔗 Combining access control filters...\033[0m")
     query = query.filter(
         or_(
             Meeting.id.in_(personal_meetings),
@@ -115,39 +128,71 @@ def get_meetings(
             Meeting.id.in_(meetings_no_projects),
         )
     )
+    print("\033[92m✅ Access control filters applied\033[0m")
 
     # Apply filters
     if filters:
+        print("\033[93m🎯 Applying additional filters...\033[0m")
         if filters.title:
+            print(f"\033[95m📝 Filtering by title: '{filters.title}'\033[0m")
             query = query.filter(Meeting.title.ilike(f"%{filters.title}%"))
         if filters.description:
+            print(f"\033[95m📝 Filtering by description: '{filters.description}'\033[0m")
             query = query.filter(Meeting.description.ilike(f"%{filters.description}%"))
         if filters.status:
+            print(f"\033[93m📊 Filtering by status: '{filters.status}'\033[0m")
             query = query.filter(Meeting.status == filters.status)
         if filters.is_personal is not None:
+            print(f"\033[94m👤 Filtering by is_personal: {filters.is_personal}\033[0m")
             query = query.filter(Meeting.is_personal == filters.is_personal)
         if filters.created_by:
+            print(f"\033[91m👨‍💼 Filtering by created_by: {filters.created_by}\033[0m")
             query = query.filter(Meeting.created_by == filters.created_by)
         if filters.start_time_gte:
+            print(f"\033[92m📅 Filtering by start_time >= {filters.start_time_gte}\033[0m")
             query = query.filter(Meeting.start_time >= filters.start_time_gte)
         if filters.start_time_lte:
+            print(f"\033[92m📅 Filtering by start_time <= {filters.start_time_lte}\033[0m")
             query = query.filter(Meeting.start_time <= filters.start_time_lte)
 
-        # Project filter
         if filters.project_id:
-            query = query.join(ProjectMeeting).filter(ProjectMeeting.project_id == filters.project_id)
+            print(f"\033[95m🏢 Applying project filter: {filters.project_id}\033[0m")
+            user_is_member = db.query(UserProject).filter(
+                UserProject.user_id == user_id,
+                UserProject.project_id == filters.project_id
+            ).first() is not None
 
-        # Tag filter
+            if not user_is_member:
+                print(f"\033[91m❌ User is not member of project {filters.project_id}, returning empty result\033[0m")
+                query = query.filter(False)
+            else:
+                print(f"\033[92m✅ User is member of project {filters.project_id}, joining with ProjectMeeting\033[0m")
+                query = query.join(ProjectMeeting).filter(ProjectMeeting.project_id == filters.project_id)
+
         if filters.tag_ids:
+            print(f"\033[96m🏷️ Applying tag filter: {filters.tag_ids}\033[0m")
             from app.models.meeting import MeetingTag
-
             query = query.join(MeetingTag).filter(MeetingTag.tag_id.in_(filters.tag_ids))
+        print("\033[93m✅ All filters applied\033[0m")
+    else:
+        print("\033[93m⏭️ No additional filters to apply\033[0m")
 
-    # Additional filtering can be added here if needed
-
+    print("\033[96m🔢 Executing count query...\033[0m")
     total = query.count()
-    meetings = query.offset((page - 1) * limit).limit(limit).all()
+    print(f"\033[96m📊 Total meetings found: {total}\033[0m")
 
+    print(f"\033[92m📋 Executing main query (offset: {(page - 1) * limit}, limit: {limit})...\033[0m")
+    meetings = query.offset((page - 1) * limit).limit(limit).all()
+    print(f"\033[92m📦 Retrieved {len(meetings)} meetings\033[0m")
+
+    if meetings:
+        print("\033[94m📝 Meeting details:\033[0m")
+        for i, meeting in enumerate(meetings[:5]):  # Show first 5 meetings
+            print(f"\033[94m  {i+1}. ID: {meeting.id}, Title: '{meeting.title}', Personal: {meeting.is_personal}\033[0m")
+        if len(meetings) > 5:
+            print(f"\033[94m  ... and {len(meetings) - 5} more meetings\033[0m")
+
+    print("\033[92m🎉 Function completed successfully!\033[0m")
     return meetings, total
 
 

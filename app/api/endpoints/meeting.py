@@ -90,6 +90,9 @@ def get_meetings_endpoint(
     tag_ids: str = Query("", description="Comma-separated tag IDs"),
 ):
     """Get meetings with filtering and pagination"""
+    print(f"[DEBUG] get_meetings_endpoint called by user: {current_user.id}")
+    print(f"[DEBUG] Query params - page: {page}, limit: {limit}, project_id: {project_id}, title: {title}, status: {status}")
+
     try:
         # Parse UUID fields
         created_by_uuid = None
@@ -115,31 +118,45 @@ def get_meetings_endpoint(
         )
         print(f"Filters applied: {project_id}")
         meetings, total = get_meetings(db=db, user_id=current_user.id, filters=filters, page=page, limit=limit)
+        print(f"[DEBUG] get_meetings returned {len(meetings)} meetings out of {total} total")
 
         # Format response data
         meetings_data = []
-        for meeting in meetings:
-            _ = get_meeting_projects(db, meeting.id)
-            meetings_data.append(
-                {
-                    "id": meeting.id,
-                    "title": meeting.title,
-                    "description": meeting.description,
-                    "url": meeting.url,
-                    "start_time": meeting.start_time,
-                    "created_by": meeting.created_by,
-                    "is_personal": meeting.is_personal,
-                    "status": meeting.status,
-                    "is_deleted": meeting.is_deleted,
-                    "created_at": meeting.created_at,
-                    "updated_at": meeting.updated_at,
-                    "projects": [],
-                    "can_access": True,
-                }
-            )
+        for i, meeting in enumerate(meetings):
+            print(f"[DEBUG] Processing meeting {i+1}/{len(meetings)}: {meeting.id} - {meeting.title}")
+            try:
+                meeting_projects = get_meeting_projects(db, meeting.id)
+                print(f"[DEBUG] Meeting {meeting.id} belongs to projects: {meeting_projects}")
+                print(f"[DEBUG] Meeting projects type: {type(meeting_projects)}, length: {len(meeting_projects)}")
+                if meeting_projects:
+                    print(f"[DEBUG] First project UUID: {meeting_projects[0]}, type: {type(meeting_projects[0])}")
+
+                meetings_data.append(
+                    {
+                        "id": meeting.id,
+                        "title": meeting.title,
+                        "description": meeting.description,
+                        "url": meeting.url,
+                        "start_time": meeting.start_time,
+                        "created_by": meeting.created_by,
+                        "is_personal": meeting.is_personal,
+                        "status": meeting.status,
+                        "is_deleted": meeting.is_deleted,
+                        "created_at": meeting.created_at,
+                        "updated_at": meeting.updated_at,
+                        "projects": [],  # BUG: Always empty, should use meeting_projects
+                        "can_access": True,
+                    }
+                )
+                print(f"[DEBUG] Added meeting {meeting.id} to response with empty projects array")
+            except Exception as e:
+                print(f"[DEBUG] Error processing meeting {meeting.id}: {str(e)}")
+                print(f"[DEBUG] Exception type: {type(e)}")
+                raise
 
         pagination_meta = create_pagination_meta(page, limit, total)
 
+        print(f"[DEBUG] Returning {len(meetings_data)} meetings in response")
         return PaginatedResponse(
             success=True,
             message="Meetings retrieved successfully",
@@ -149,6 +166,8 @@ def get_meetings_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[DEBUG] Exception in get_meetings_endpoint: {str(e)}")
+        print(f"[DEBUG] Exception type: {type(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 

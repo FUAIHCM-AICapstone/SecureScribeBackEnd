@@ -83,20 +83,16 @@ def get_projects_endpoint(
     name: Optional[str] = Query(None),
     is_archived: Optional[bool] = Query(None),
     created_by: Optional[str] = Query(None),
-    member_id: Optional[str] = Query(None),
     created_at_gte: Optional[str] = Query(None),
     created_at_lte: Optional[str] = Query(None),
-    my_projects_only: bool = Query(False, description="Only show projects where current user is a member"),
 ):
     """
     Get projects with filtering and pagination
 
     Query Parameters:
-    - my_projects_only: Only show projects where current user is a member
     - name: Filter by project name (partial match)
     - is_archived: Filter by archived status
     - created_by: Filter by creator user ID
-    - member_id: Filter by member user ID
     - created_at_gte: Filter by creation date >=
     - created_at_lte: Filter by creation date <=
     - page: Page number (default: 1)
@@ -113,16 +109,7 @@ def get_projects_endpoint(
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid created_by UUID format")
 
-        member_id_uuid = None
-        if member_id:
-            try:
-                member_id_uuid = uuid.UUID(member_id)
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid member_id UUID format")
-
-        # Override member_id if my_projects_only is True
-        if my_projects_only:
-            member_id_uuid = current_user.id
+        member_id_uuid = current_user.id
 
         # Create filter object
         filters = ProjectFilter(
