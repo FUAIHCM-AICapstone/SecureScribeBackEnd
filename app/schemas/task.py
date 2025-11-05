@@ -14,6 +14,7 @@ class TaskCreate(BaseModel):
     assignee_id: Optional[uuid.UUID] = None
     meeting_id: Optional[uuid.UUID] = None
     project_ids: List[uuid.UUID] = []
+    status: Optional[str] = "todo"
     due_date: Optional[datetime] = None
     reminder_at: Optional[datetime] = None
 
