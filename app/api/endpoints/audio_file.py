@@ -1,4 +1,6 @@
 import uuid
+from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -21,6 +23,8 @@ from app.services.audio_file import (
     update_audio_file,
 )
 from app.utils.auth import get_current_user
+from app.services.meeting import create_meeting, validate_meeting_for_audio_operations
+from app.schemas.meeting import MeetingCreate
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Audio Files"])
 
@@ -28,7 +32,7 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["Audio Files"])
 @router.post("/audio-files/upload", response_model=AudioFileApiResponse)
 def upload_audio_file(
     file: UploadFile = File(...),
-    meeting_id: uuid.UUID = None,
+    meeting_id: Optional[uuid.UUID] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -47,6 +51,24 @@ def upload_audio_file(
         error_msg = f"Invalid audio format: {file.content_type}. Supported formats: {', '.join(supported_formats)}"
         print(error_msg)
         raise HTTPException(status_code=400, detail=error_msg)
+
+    # Handle meeting_id: auto-create personal meeting or validate RBAC
+    if meeting_id is None:
+        # Auto-create a personal meeting
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+        meeting_data = MeetingCreate(
+            title=f"Audio Upload - {timestamp}",
+            description="Auto-created meeting from audio upload",
+            is_personal=True,
+            project_ids=[]
+        )
+        new_meeting = create_meeting(db, meeting_data, current_user.id)
+        meeting_id = new_meeting.id
+        print(f"Auto-created personal meeting: {meeting_id}")
+    else:
+        # Validate RBAC for existing meeting
+        validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
+        print(f"Validated access to meeting: {meeting_id}")
 
     try:
         file_content = file.file.read()
