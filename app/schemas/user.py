@@ -212,20 +212,20 @@ class UserResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     # Relationships
-    uploaded_files: List[FileResponse] = []
-    uploaded_audio_files: List[AudioFileResponse] = []
-    created_tags: List[TagResponse] = []
-    devices: List[UserDeviceResponse] = []
-    projects: List[UserProjectResponse] = []
-    created_projects: List[ProjectResponse] = []
-    created_meetings: List[MeetingResponse] = []
-    created_tasks: List[TaskResponse] = []
-    assigned_tasks: List[TaskResponse] = []
-    notifications: List[NotificationResponse] = []
-    audit_logs: List[AuditLogResponse] = []
-    edited_notes: List[MeetingNoteResponse] = []
-    created_bots: List[MeetingBotResponse] = []
-    identities: List[UserIdentityResponse] = []
+    # uploaded_files: List[FileResponse] = []
+    # uploaded_audio_files: List[AudioFileResponse] = []
+    # created_tags: List[TagResponse] = []
+    # devices: List[UserDeviceResponse] = []
+    # projects: List[UserProjectResponse] = []
+    # created_projects: List[ProjectResponse] = []
+    # created_meetings: List[MeetingResponse] = []
+    # created_tasks: List[TaskResponse] = []
+    # assigned_tasks: List[TaskResponse] = []
+    # notifications: List[NotificationResponse] = []
+    # audit_logs: List[AuditLogResponse] = []
+    # edited_notes: List[MeetingNoteResponse] = []
+    # created_bots: List[MeetingBotResponse] = []
+    # identities: List[UserIdentityResponse] = []
 
     class Config:
         from_attributes = True

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from .common import ApiResponse, PaginatedResponse
 from .transcript import TranscriptResponse
-from .user import MeetingNoteResponse
+from .user import MeetingNoteResponse, UserResponse
 
 
 class ProjectResponse(BaseModel):
@@ -64,6 +64,7 @@ class MeetingResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     projects: List[ProjectResponse] = Field(default_factory=list)
+    creator: Optional[UserResponse] = None
     can_access: bool = True
 
     class Config:

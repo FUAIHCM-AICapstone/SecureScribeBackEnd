@@ -31,6 +31,7 @@ from app.services.meeting import (
     get_meeting_audio_files,
     get_meetings,
     remove_meeting_from_project,
+    serialize_meeting,
     update_meeting,
     validate_meeting_for_audio_operations,
 )
@@ -51,21 +52,8 @@ def create_meeting_endpoint(
     """Create a new meeting"""
     try:
         new_meeting = create_meeting(db, meeting, current_user.id)
-        response_data = {
-            "id": new_meeting.id,
-            "title": new_meeting.title,
-            "description": new_meeting.description,
-            "url": new_meeting.url,
-            "start_time": new_meeting.start_time,
-            "created_by": new_meeting.created_by,
-            "is_personal": new_meeting.is_personal,
-            "status": new_meeting.status,
-            "is_deleted": new_meeting.is_deleted,
-            "created_at": new_meeting.created_at,
-            "updated_at": new_meeting.updated_at,
-            "projects": [],
-            "can_access": True,
-        }
+        new_meeting = get_meeting(db, new_meeting.id, current_user.id)
+        response_data = serialize_meeting(new_meeting)
 
         return ApiResponse(
             success=True,
@@ -121,38 +109,7 @@ def get_meetings_endpoint(
         print(f"[DEBUG] get_meetings returned {len(meetings)} meetings out of {total} total")
 
         # Format response data
-        meetings_data = []
-        for i, meeting in enumerate(meetings):
-            print(f"[DEBUG] Processing meeting {i+1}/{len(meetings)}: {meeting.id} - {meeting.title}")
-            try:
-                meeting_projects = get_meeting_projects(db, meeting.id)
-                print(f"[DEBUG] Meeting {meeting.id} belongs to projects: {meeting_projects}")
-                print(f"[DEBUG] Meeting projects type: {type(meeting_projects)}, length: {len(meeting_projects)}")
-                if meeting_projects:
-                    print(f"[DEBUG] First project UUID: {meeting_projects[0]}, type: {type(meeting_projects[0])}")
-
-                meetings_data.append(
-                    {
-                        "id": meeting.id,
-                        "title": meeting.title,
-                        "description": meeting.description,
-                        "url": meeting.url,
-                        "start_time": meeting.start_time,
-                        "created_by": meeting.created_by,
-                        "is_personal": meeting.is_personal,
-                        "status": meeting.status,
-                        "is_deleted": meeting.is_deleted,
-                        "created_at": meeting.created_at,
-                        "updated_at": meeting.updated_at,
-                        "projects": [],  # BUG: Always empty, should use meeting_projects
-                        "can_access": True,
-                    }
-                )
-                print(f"[DEBUG] Added meeting {meeting.id} to response with empty projects array")
-            except Exception as e:
-                print(f"[DEBUG] Error processing meeting {meeting.id}: {str(e)}")
-                print(f"[DEBUG] Exception type: {type(e)}")
-                raise
+        meetings_data = [serialize_meeting(meeting) for meeting in meetings]
 
         pagination_meta = create_pagination_meta(page, limit, total)
 
@@ -195,25 +152,11 @@ def get_meeting_endpoint(
             print(f"Error fetching transcripts: {e}")
             transcripts = []
 
-        response_data = {
-            "id": meeting.id,
-            "title": meeting.title,
-            "description": meeting.description,
-            "url": meeting.url,
-            "start_time": meeting.start_time,
-            "created_by": meeting.created_by,
-            "is_personal": meeting.is_personal,
-            "status": meeting.status,
-            "is_deleted": meeting.is_deleted,
-            "created_at": meeting.created_at,
-            "updated_at": meeting.updated_at,
-            "projects": [],
-            "can_access": True,
-            "project_count": len(projects),
-            "member_count": 0,
-            "meeting_note": MeetingNoteResponse.model_validate(meeting_note) if meeting_note else None,
-            "transcripts": transcripts,
-        }
+        response_data = serialize_meeting(meeting)
+        response_data.project_count = len(projects)
+        response_data.member_count = 0
+        response_data.meeting_note = MeetingNoteResponse.model_validate(meeting_note) if meeting_note else None
+        response_data.transcripts = transcripts
 
         return ApiResponse(
             success=True,
@@ -240,21 +183,8 @@ def update_meeting_endpoint(
         if not updated_meeting:
             raise HTTPException(status_code=400, detail="Failed to update meeting")
 
-        response_data = {
-            "id": updated_meeting.id,
-            "title": updated_meeting.title,
-            "description": updated_meeting.description,
-            "url": updated_meeting.url,
-            "start_time": updated_meeting.start_time,
-            "created_by": updated_meeting.created_by,
-            "is_personal": updated_meeting.is_personal,
-            "status": updated_meeting.status,
-            "is_deleted": updated_meeting.is_deleted,
-            "created_at": updated_meeting.created_at,
-            "updated_at": updated_meeting.updated_at,
-            "projects": [],
-            "can_access": True,
-        }
+        updated_meeting = get_meeting(db, updated_meeting.id, current_user.id)
+        response_data = serialize_meeting(updated_meeting)
 
         return ApiResponse(
             success=True,

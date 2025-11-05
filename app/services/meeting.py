@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.config import settings
 from app.models.meeting import AudioFile, Meeting, ProjectMeeting
 from app.models.project import UserProject
-from app.schemas.meeting import MeetingCreate, MeetingFilter, MeetingUpdate
+from app.schemas.meeting import MeetingCreate, MeetingFilter, MeetingResponse, MeetingUpdate
+from app.schemas.user import UserResponse
 from app.utils.meeting import (
     can_delete_meeting,
     check_meeting_access,
@@ -396,3 +397,28 @@ def get_meeting_audio_files(db: Session, meeting_id: uuid.UUID, page: int = 1, l
     total = q.count()
     rows = q.offset((page - 1) * limit).limit(limit).all()
     return rows, total
+
+
+def serialize_meeting(meeting: Meeting) -> MeetingResponse:
+    """Map a Meeting ORM object to MeetingResponse with expanded creator information.
+
+    Ensures creator is a full UserResponse object and projects are properly formatted.
+    """
+    creator = UserResponse.model_validate(meeting.created_by_user, from_attributes=True) if getattr(meeting, "created_by_user", None) else None
+
+    return MeetingResponse(
+        id=meeting.id,
+        title=meeting.title,
+        description=meeting.description,
+        url=meeting.url,
+        start_time=meeting.start_time,
+        created_by=meeting.created_by,
+        is_personal=meeting.is_personal,
+        status=meeting.status,
+        is_deleted=meeting.is_deleted,
+        created_at=meeting.created_at,
+        updated_at=meeting.updated_at,
+        projects=[],
+        creator=creator,
+        can_access=True,
+    )
