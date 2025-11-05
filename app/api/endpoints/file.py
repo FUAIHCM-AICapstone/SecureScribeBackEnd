@@ -28,6 +28,7 @@ from app.schemas.file import (
 from app.services.file import (
     bulk_delete_files,
     bulk_move_files,
+    check_delete_permissions,
     check_file_access,
     create_file,
     delete_file,
@@ -207,8 +208,7 @@ def update_file_endpoint(
         if not file:
             raise HTTPException(status_code=404, detail="File not found")
 
-        if file.uploaded_by != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        check_delete_permissions(db, file, current_user.id)
 
         updated_file = update_file(db, file_id, updates)
         if not updated_file:
@@ -249,8 +249,7 @@ async def move_file_endpoint(
         if not file:
             raise HTTPException(status_code=404, detail="File not found")
 
-        if file.uploaded_by != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        check_delete_permissions(db, file, current_user.id)
 
         # Check if user has access to target project/meeting
         if move_request.project_id:
@@ -331,8 +330,7 @@ def delete_file_endpoint(
         if not file:
             raise HTTPException(status_code=404, detail="File not found")
 
-        if file.uploaded_by != current_user.id:
-            raise HTTPException(status_code=403, detail="Access denied")
+        check_delete_permissions(db, file, current_user.id)
 
         success = delete_file(db, file_id)
         if not success:
@@ -389,13 +387,14 @@ async def bulk_files_endpoint(
 def get_project_files_endpoint(
     project_id: uuid.UUID,
     db: Session = Depends(get_db),
+    filename: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     page: int = 1,
     limit: int = 20,
 ):
     """Get files for a specific project with project info"""
     try:
-        files, project_name, total = get_project_files_with_info(db, project_id, current_user.id, page, limit)
+        files, project_name, total = get_project_files_with_info(db, project_id, current_user.id, page, limit, filename)
 
         if files is None:
             raise HTTPException(status_code=403, detail="Access denied")

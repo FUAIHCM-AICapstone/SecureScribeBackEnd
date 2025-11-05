@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.file import File
 from app.models.meeting import Meeting
-from app.models.project import Project
+from app.models.project import Project, UserProject
 from app.schemas.file import FileCreate, FileFilter, FileUpdate
 from app.utils.meeting import check_meeting_access as check_meeting_access_utils
 from app.utils.minio import (
@@ -203,6 +203,64 @@ def check_file_access(db: Session, file: File, user_id: uuid.UUID) -> bool:
     return False
 
 
+def check_delete_permissions(db: Session, file: File, current_user_id: uuid.UUID) -> File:
+    """Check if user can delete file and raise HTTPException if not.
+
+    Permission rules:
+    - File owner (uploaded_by) can always delete their own file
+    - If file has project_id: project admin/owner can delete
+    - If file has meeting_id: user must be admin/owner of a project linked to the meeting
+    """
+    from fastapi import HTTPException
+
+    # Rule 1: File owner can always delete
+    if file.uploaded_by == current_user_id:
+        return file
+
+    # Rule 2: Project admin/owner can delete files in their project
+    if file.project_id:
+        user_project = (
+            db.query(UserProject)
+            .filter(
+                UserProject.user_id == current_user_id,
+                UserProject.project_id == file.project_id,
+                UserProject.role.in_(["admin", "owner"]),
+            )
+            .first()
+        )
+        if user_project:
+            return file
+
+    # Rule 3: For meeting files, check if user is admin/owner of linked project
+    if file.meeting_id:
+        from app.models.meeting import ProjectMeeting
+
+        linked_projects = (
+            db.query(ProjectMeeting.project_id)
+            .filter(ProjectMeeting.meeting_id == file.meeting_id)
+            .all()
+        )
+
+        for (project_id,) in linked_projects:
+            user_project = (
+                db.query(UserProject)
+                .filter(
+                    UserProject.user_id == current_user_id,
+                    UserProject.project_id == project_id,
+                    UserProject.role.in_(["admin", "owner"]),
+                )
+                .first()
+            )
+            if user_project:
+                return file
+
+    # No permission found
+    raise HTTPException(
+        status_code=403,
+        detail="You don't have permission to delete this file",
+    )
+
+
 def validate_file(filename: str, mime_type: str, file_size: int) -> bool:
     """Validate file size and type in single function"""
     # Check file size
@@ -221,6 +279,7 @@ def get_project_files_with_info(
     user_id: uuid.UUID,
     page: int = 1,
     limit: int = 20,
+    filename: Optional[str] = None,
 ) -> Tuple[List[File], str, int]:
     """Get files for a project with project name and pagination"""
     from app.services.project import get_project, is_user_in_project
@@ -232,7 +291,7 @@ def get_project_files_with_info(
     project = get_project(db, project_id)
     project_name = project.name if project else None
     # Get files
-    filters = FileFilter(project_id=project_id)
+    filters = FileFilter(project_id=project_id, filename=filename)
     files, total = get_files(db, filters, page, limit, user_id)
     return files, project_name, total
 
