@@ -45,6 +45,9 @@ def get_users(db: Session, **kwargs) -> Tuple[List[User], int]:
     if "created_at_lte" in kwargs and kwargs["created_at_lte"]:
         lte = datetime.fromisoformat(kwargs["created_at_lte"])
         query = query.filter(User.created_at <= lte)
+    if "project_id" in kwargs and kwargs["project_id"]:
+        project_id = kwargs["project_id"]
+        query = query.join(UserProject).filter(UserProject.project_id == project_id)
 
     # Get total count before pagination
     total = query.count()

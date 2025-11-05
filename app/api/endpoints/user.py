@@ -40,6 +40,7 @@ def get_users_endpoint(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     order_by: str = Query("created_at"),
+    project_id: Optional[uuid.UUID] = Query(None),
     dir: str = Query("desc"),
     name: Optional[str] = Query(None),
     email: Optional[str] = Query(None),
@@ -57,6 +58,7 @@ def get_users_endpoint(
         "position": position,
         "created_at_gte": created_at_gte,
         "created_at_lte": created_at_lte,
+        "project_id": project_id,
     }
     users, total = get_users(db, **kwargs)
 
