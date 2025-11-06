@@ -28,12 +28,13 @@ security = HTTPBearer()
 def refresh_token_endpoint(request: RefreshTokenRequest):
     refresh_token = request.refresh_token
 
-    print(f"\033[94m[INFO]\033[0m 🔄 Refresh token endpoint called")
+    print("\033[94m[INFO]\033[0m 🔄 Refresh token endpoint called")
     print(f"\033[93m[DEBUG]\033[0m Received refresh token: {refresh_token[:20]}...")
 
     try:
         payload = verify_token(refresh_token)
-
+        print("\033[92m[SUCCESS]\033[0m ✅ Refresh token verified successfully with payload:")
+        print(payload)
         if not payload or payload.get("type") != "refresh":
             print("\033[91m[ERROR]\033[0m ❌ Invalid refresh token - missing or wrong type")
             raise HTTPException(status_code=401, detail="Invalid refresh token")

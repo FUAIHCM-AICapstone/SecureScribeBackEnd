@@ -32,6 +32,7 @@ from app.services.meeting import (
     get_meetings,
     remove_meeting_from_project,
     serialize_meeting,
+    serialize_meeting_with_projects,
     update_meeting,
     validate_meeting_for_audio_operations,
 )
@@ -152,11 +153,13 @@ def get_meeting_endpoint(
             print(f"Error fetching transcripts: {e}")
             transcripts = []
 
-        response_data = serialize_meeting(meeting)
-        response_data.project_count = len(projects)
-        response_data.member_count = 0
-        response_data.meeting_note = MeetingNoteResponse.model_validate(meeting_note) if meeting_note else None
-        response_data.transcripts = transcripts
+        response_data = serialize_meeting_with_projects(
+            meeting=meeting,
+            project_count=len(projects),
+            member_count=0,
+            meeting_note=MeetingNoteResponse.model_validate(meeting_note) if meeting_note else None,
+            transcripts=transcripts,
+        )
 
         return ApiResponse(
             success=True,

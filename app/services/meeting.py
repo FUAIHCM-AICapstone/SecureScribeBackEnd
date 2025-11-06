@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.config import settings
 from app.models.meeting import AudioFile, Meeting, ProjectMeeting
 from app.models.project import UserProject
-from app.schemas.meeting import MeetingCreate, MeetingFilter, MeetingResponse, MeetingUpdate
+from app.schemas.meeting import MeetingCreate, MeetingFilter, MeetingResponse, MeetingUpdate, MeetingWithProjects, ProjectResponse
 from app.schemas.user import UserResponse
 from app.utils.meeting import (
     can_delete_meeting,
@@ -406,6 +406,15 @@ def serialize_meeting(meeting: Meeting) -> MeetingResponse:
     """
     creator = UserResponse.model_validate(meeting.created_by_user, from_attributes=True) if getattr(meeting, "created_by_user", None) else None
 
+    # Map projects from ProjectMeeting relationships to ProjectResponse objects
+    projects = []
+    if hasattr(meeting, 'projects') and meeting.projects:
+        projects = [
+            ProjectResponse.model_validate(project_meeting.project, from_attributes=True)
+            for project_meeting in meeting.projects
+            if project_meeting.project
+        ]
+
     return MeetingResponse(
         id=meeting.id,
         title=meeting.title,
@@ -418,7 +427,51 @@ def serialize_meeting(meeting: Meeting) -> MeetingResponse:
         is_deleted=meeting.is_deleted,
         created_at=meeting.created_at,
         updated_at=meeting.updated_at,
-        projects=[],
+        projects=projects,
         creator=creator,
         can_access=True,
+    )
+
+
+def serialize_meeting_with_projects(
+    meeting: Meeting,
+    project_count: int = 0,
+    member_count: int = 0,
+    meeting_note=None,
+    transcripts=None
+) -> MeetingWithProjects:
+    """Map a Meeting ORM object to MeetingWithProjects with expanded information.
+
+    Includes additional fields like project_count, member_count, meeting_note, and transcripts.
+    """
+    creator = UserResponse.model_validate(meeting.created_by_user, from_attributes=True) if getattr(meeting, "created_by_user", None) else None
+
+    # Map projects from ProjectMeeting relationships to ProjectResponse objects
+    projects = []
+    if hasattr(meeting, 'projects') and meeting.projects:
+        projects = [
+            ProjectResponse.model_validate(project_meeting.project, from_attributes=True)
+            for project_meeting in meeting.projects
+            if project_meeting.project
+        ]
+
+    return MeetingWithProjects(
+        id=meeting.id,
+        title=meeting.title,
+        description=meeting.description,
+        url=meeting.url,
+        start_time=meeting.start_time,
+        created_by=meeting.created_by,
+        is_personal=meeting.is_personal,
+        status=meeting.status,
+        is_deleted=meeting.is_deleted,
+        created_at=meeting.created_at,
+        updated_at=meeting.updated_at,
+        projects=projects,
+        creator=creator,
+        can_access=True,
+        project_count=project_count,
+        member_count=member_count,
+        meeting_note=meeting_note,
+        transcripts=transcripts or [],
     )
