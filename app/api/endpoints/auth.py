@@ -28,18 +28,27 @@ security = HTTPBearer()
 def refresh_token_endpoint(request: RefreshTokenRequest):
     refresh_token = request.refresh_token
 
+    print(f"\033[94m[INFO]\033[0m 🔄 Refresh token endpoint called")
+    print(f"\033[93m[DEBUG]\033[0m Received refresh token: {refresh_token[:20]}...")
+
     try:
         payload = verify_token(refresh_token)
 
         if not payload or payload.get("type") != "refresh":
+            print("\033[91m[ERROR]\033[0m ❌ Invalid refresh token - missing or wrong type")
             raise HTTPException(status_code=401, detail="Invalid refresh token")
 
         user_id = payload.get("sub")
 
         if not user_id:
+            print("\033[91m[ERROR]\033[0m ❌ Invalid token payload - no user ID")
             raise HTTPException(status_code=401, detail="Invalid token payload")
 
+        print(f"\033[92m[SUCCESS]\033[0m ✅ Token verified for user: {user_id}")
         access_token = create_access_token({"sub": user_id})
+
+        print("\033[92m[SUCCESS]\033[0m ✅ New access token generated")
+        print(f"\033[96m[INFO]\033[0m 📅 Token expires in {settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60} seconds")
 
         return ApiResponse(
             success=True,
@@ -50,7 +59,8 @@ def refresh_token_endpoint(request: RefreshTokenRequest):
                 "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             },
         )
-    except Exception:
+    except Exception as e:
+        print(f"\033[91m[ERROR]\033[0m 💥 Exception during token refresh: {str(e)}")
         raise
 
 
