@@ -3,6 +3,7 @@
 
 import type { ApiResponse, PaginatedResponse } from './common.type';
 import type { TranscriptResponse } from './transcript.type';
+import type { MeetingNoteResponse } from './meeting_note.type';
 
 export interface ProjectResponse {
     id: string;
@@ -84,26 +85,8 @@ export interface MeetingQueryParams {
     tag_ids?: string;
 }
 
-// Meeting Note Types
-export interface MeetingNoteResponse {
-    id: string;
-    content?: string;
-    last_edited_at?: string;
-    created_at: string;
-    updated_at?: string;
-}
-
-export interface MeetingNoteRequest {
-    content?: string;
-    sections?: string[];
-}
-
-export interface MeetingNoteSummaryResponse {
-    note: MeetingNoteResponse;
-    content: string;
-    summaries: Record<string, string>;
-    sections: string[];
-}
+// Re-export Meeting Note Types from meeting_note.type for backward compatibility
+export type { MeetingNoteResponse, MeetingNoteRequest, MeetingNoteSummaryResponse } from './meeting_note.type';
 
 export const PREDEFINED_SECTIONS = [
     'Key Points',

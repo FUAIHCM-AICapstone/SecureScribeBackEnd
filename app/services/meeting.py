@@ -158,10 +158,7 @@ def get_meetings(
 
         if filters.project_id:
             print(f"\033[95m🏢 Applying project filter: {filters.project_id}\033[0m")
-            user_is_member = db.query(UserProject).filter(
-                UserProject.user_id == user_id,
-                UserProject.project_id == filters.project_id
-            ).first() is not None
+            user_is_member = db.query(UserProject).filter(UserProject.user_id == user_id, UserProject.project_id == filters.project_id).first() is not None
 
             if not user_is_member:
                 print(f"\033[91m❌ User is not member of project {filters.project_id}, returning empty result\033[0m")
@@ -173,6 +170,7 @@ def get_meetings(
         if filters.tag_ids:
             print(f"\033[96m🏷️ Applying tag filter: {filters.tag_ids}\033[0m")
             from app.models.meeting import MeetingTag
+
             query = query.join(MeetingTag).filter(MeetingTag.tag_id.in_(filters.tag_ids))
         print("\033[93m✅ All filters applied\033[0m")
     else:
@@ -189,7 +187,7 @@ def get_meetings(
     if meetings:
         print("\033[94m📝 Meeting details:\033[0m")
         for i, meeting in enumerate(meetings[:5]):  # Show first 5 meetings
-            print(f"\033[94m  {i+1}. ID: {meeting.id}, Title: '{meeting.title}', Personal: {meeting.is_personal}\033[0m")
+            print(f"\033[94m  {i + 1}. ID: {meeting.id}, Title: '{meeting.title}', Personal: {meeting.is_personal}\033[0m")
         if len(meetings) > 5:
             print(f"\033[94m  ... and {len(meetings) - 5} more meetings\033[0m")
 
@@ -408,12 +406,8 @@ def serialize_meeting(meeting: Meeting) -> MeetingResponse:
 
     # Map projects from ProjectMeeting relationships to ProjectResponse objects
     projects = []
-    if hasattr(meeting, 'projects') and meeting.projects:
-        projects = [
-            ProjectResponse.model_validate(project_meeting.project, from_attributes=True)
-            for project_meeting in meeting.projects
-            if project_meeting.project
-        ]
+    if hasattr(meeting, "projects") and meeting.projects:
+        projects = [ProjectResponse.model_validate(project_meeting.project, from_attributes=True) for project_meeting in meeting.projects if project_meeting.project]
 
     return MeetingResponse(
         id=meeting.id,
@@ -433,13 +427,7 @@ def serialize_meeting(meeting: Meeting) -> MeetingResponse:
     )
 
 
-def serialize_meeting_with_projects(
-    meeting: Meeting,
-    project_count: int = 0,
-    member_count: int = 0,
-    meeting_note=None,
-    transcripts=None
-) -> MeetingWithProjects:
+def serialize_meeting_with_projects(meeting: Meeting, project_count: int = 0, member_count: int = 0, meeting_note=None, transcripts=None) -> MeetingWithProjects:
     """Map a Meeting ORM object to MeetingWithProjects with expanded information.
 
     Includes additional fields like project_count, member_count, meeting_note, and transcripts.
@@ -448,12 +436,8 @@ def serialize_meeting_with_projects(
 
     # Map projects from ProjectMeeting relationships to ProjectResponse objects
     projects = []
-    if hasattr(meeting, 'projects') and meeting.projects:
-        projects = [
-            ProjectResponse.model_validate(project_meeting.project, from_attributes=True)
-            for project_meeting in meeting.projects
-            if project_meeting.project
-        ]
+    if hasattr(meeting, "projects") and meeting.projects:
+        projects = [ProjectResponse.model_validate(project_meeting.project, from_attributes=True) for project_meeting in meeting.projects if project_meeting.project]
 
     return MeetingWithProjects(
         id=meeting.id,

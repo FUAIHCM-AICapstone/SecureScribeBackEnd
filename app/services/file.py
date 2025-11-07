@@ -235,11 +235,7 @@ def check_delete_permissions(db: Session, file: File, current_user_id: uuid.UUID
     if file.meeting_id:
         from app.models.meeting import ProjectMeeting
 
-        linked_projects = (
-            db.query(ProjectMeeting.project_id)
-            .filter(ProjectMeeting.meeting_id == file.meeting_id)
-            .all()
-        )
+        linked_projects = db.query(ProjectMeeting.project_id).filter(ProjectMeeting.meeting_id == file.meeting_id).all()
 
         for (project_id,) in linked_projects:
             user_project = (

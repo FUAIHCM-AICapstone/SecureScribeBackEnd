@@ -9,7 +9,7 @@ import {
     deleteMeetingNote,
 } from '../../services/api/meetingNote';
 import { PREDEFINED_SECTIONS } from '../../types/meeting.type';
-import type { MeetingNoteRequest, MeetingNoteResponse } from '../../types/meeting.type';
+import type { MeetingNoteResponse } from '../../types/meeting_note.type';
 
 interface MeetingNoteManagerProps {
     meetingId: string;
@@ -43,7 +43,7 @@ const MeetingNoteManager: React.FC<MeetingNoteManagerProps> = ({
     }, [note]);
 
     const createMutation = useMutation({
-        mutationFn: () => createMeetingNote(meetingId),
+        mutationFn: () => createMeetingNote({ meeting_id: meetingId }),
         onSuccess: (data) => {
             setContent(data.content);
             setSummaryPreview(data.content);
@@ -55,8 +55,8 @@ const MeetingNoteManager: React.FC<MeetingNoteManagerProps> = ({
     });
 
     const updateMutation = useMutation({
-        mutationFn: (payload: MeetingNoteRequest) =>
-            updateMeetingNote(meetingId, payload),
+        mutationFn: (content: string) =>
+            updateMeetingNote(meetingId, { content }),
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: ['meeting-note', meetingId],
@@ -89,10 +89,7 @@ const MeetingNoteManager: React.FC<MeetingNoteManagerProps> = ({
     };
 
     const handleSaveNote = () => {
-        updateMutation.mutate({
-            content: content || undefined,
-            sections: selectedSections.length > 0 ? selectedSections : undefined,
-        });
+        updateMutation.mutate(content || '');
     };
 
     const handleDeleteNote = () => {
