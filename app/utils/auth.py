@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -31,6 +31,7 @@ def verify_firebase_token(id_token: str) -> dict:
             raise ValueError(f"Invalid JWT format: expected 3 parts, got {len(token_parts)}")
 
         # Verify the token with Firebase
+        time.sleep(2)  # Small delay to avoid rapid-fire requests in case of retries
         decoded_token = firebase_auth.verify_id_token(id_token)
         return decoded_token
     except ValueError as e:
