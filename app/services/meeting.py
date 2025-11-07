@@ -327,7 +327,7 @@ def check_delete_permissions(db: Session, meeting: Meeting, current_user_id: uui
 
 
 def _get_next_seq_order(db: Session, meeting_id: uuid.UUID) -> int:
-    last = db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id).order_by(AudioFile.seq_order.desc().nullslast(), AudioFile.created_at.desc()).first()
+    last = db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id, AudioFile.is_deleted == False).order_by(AudioFile.seq_order.desc().nullslast(), AudioFile.created_at.desc()).first()
     if not last or last.seq_order is None:
         return 1
     return int(last.seq_order) + 1
@@ -389,7 +389,7 @@ def create_audio_file(
 
 
 def get_meeting_audio_files(db: Session, meeting_id: uuid.UUID, page: int = 1, limit: int = 20) -> Tuple[List[AudioFile], int]:
-    q = db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id)
+    q = db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id, AudioFile.is_deleted == False)
     # Order by seq_order ASC (NULLS LAST), then created_at ASC
     q = q.order_by(AudioFile.seq_order.asc().nullslast(), AudioFile.created_at.asc())
     total = q.count()

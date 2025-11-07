@@ -53,15 +53,15 @@ def create_audio_file(
 
 
 def get_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[AudioFile]:
-    return db.query(AudioFile).filter(AudioFile.id == audio_id).first()
+    return db.query(AudioFile).filter(AudioFile.id == audio_id, AudioFile.is_deleted == False).first()
 
 
 def get_audio_files_by_meeting(db: Session, meeting_id: uuid.UUID) -> List[AudioFile]:
-    return db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id).order_by(AudioFile.seq_order, AudioFile.created_at).all()
+    return db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id, AudioFile.is_deleted == False).order_by(AudioFile.seq_order, AudioFile.created_at).all()
 
 
 def update_audio_file(db: Session, audio_id: uuid.UUID, updates: AudioFileUpdate) -> Optional[AudioFile]:
-    audio_file = db.query(AudioFile).filter(AudioFile.id == audio_id).first()
+    audio_file = db.query(AudioFile).filter(AudioFile.id == audio_id, AudioFile.is_deleted == False).first()
     if not audio_file:
         return None
 
@@ -75,7 +75,7 @@ def update_audio_file(db: Session, audio_id: uuid.UUID, updates: AudioFileUpdate
 
 
 def delete_audio_file(db: Session, audio_id: uuid.UUID) -> bool:
-    audio_file = db.query(AudioFile).filter(AudioFile.id == audio_id).first()
+    audio_file = db.query(AudioFile).filter(AudioFile.id == audio_id, AudioFile.is_deleted == False).first()
     if not audio_file:
         return False
 
@@ -103,6 +103,7 @@ def delete_audio_file(db: Session, audio_id: uuid.UUID) -> bool:
     if object_name:
         delete_file_from_minio(bucket_name, object_name)
 
-    db.delete(audio_file)
+    # Soft delete: mark as deleted instead of hard delete
+    audio_file.is_deleted = True
     db.commit()
     return True

@@ -110,6 +110,7 @@ class AudioFile(SQLModel, table=True):
     seq_order: Optional[int] = Field(default=None, sa_column=Column(Integer))
     duration_seconds: Optional[int] = Field(default=None, sa_column=Column(Integer))
     is_concatenated: bool = Field(default=False, sa_column=Column(Boolean))
+    is_deleted: bool = Field(default=False, sa_column=Column(Boolean))
 
     # Relationships
     meeting: Meeting = Relationship(back_populates="audio_files")
