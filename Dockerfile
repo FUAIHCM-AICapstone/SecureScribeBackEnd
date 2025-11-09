@@ -30,6 +30,10 @@ RUN apt-get update && apt-get install -y \
 
 # Copy application code
 COPY app/ ./app/
+COPY start.sh ./start.sh
+
+# Make start.sh executable, fix line endings, and set ownership
+RUN chmod +x start.sh && sed -i 's/\r$//' start.sh && chown appuser:appuser start.sh
 
 VOLUME ["/app/config"]
 
@@ -39,5 +43,4 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Run the application with hot reload
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app"]
+CMD ["/bin/bash", "-c", "exec ./start.sh"]

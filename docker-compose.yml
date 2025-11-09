@@ -26,32 +26,14 @@ services:
       - POSTGRES_PORT=5432
       - AGNO_TELEMETRY=false
       - SECRET_KEY=securescribe_jwt_secret_key_2025_fixed_for_development
+      - TRANSCRIBE_API_BASE_URL=http://s2t_api:9998/api/v1
     restart: unless-stopped
     networks:
       - securescribe-network
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
       - db
       - redis
       - minio
-    volumes:
-      - ./config:/app/config:rw
-
-  celery_worker:
-    image: luongnguyenminhan/securescribe:backend
-    command: celery -A app.jobs.celery_worker worker --loglevel=info
-    environment:
-      - ENV=production
-      - POSTGRES_SERVER=db
-      - POSTGRES_PORT=5432
-      - AGNO_TELEMETRY=false
-      - SECRET_KEY=securescribe_jwt_secret_key_2025_fixed_for_development
-    restart: unless-stopped
-    networks:
-      - securescribe-network
-    depends_on:
-      - db
-      - redis
     volumes:
       - ./config:/app/config:rw
 
