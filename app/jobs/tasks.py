@@ -14,9 +14,10 @@ from app.core.config import settings
 from app.jobs.celery_worker import celery_app
 from app.models.chat import ChatMessage, ChatMessageType
 from app.models.file import File
-from app.models.meeting import AudioFile, Meeting, Transcript
+from app.models.meeting import AudioFile, Meeting
 from app.services.chat import perform_query_expansion_search
 from app.services.qdrant_service import reindex_file
+from app.services.transcript import transcribe_audio_file
 from app.utils.llm import create_general_chat_agent, get_agno_postgres_db, optimize_contexts_with_llm
 from app.utils.redis import get_redis_client
 from app.utils.task_progress import (
@@ -251,17 +252,10 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
         update_task_progress(task_id, actor_user_id, 75, "transcribing", task_type="audio_asr")
         _broadcast(75, "transcribing", "20s")
 
-        now_iso = datetime.utcnow().isoformat() + "Z"
-        mock_content = f"Mock transcript generated at {now_iso} for meeting {meeting_id}.\nThis is placeholder content for ASR processing of audio {audio_file_id}."
-
-        transcript = db.query(Transcript).filter(Transcript.meeting_id == meeting_id).first()
+        # Perform real audio transcription
+        transcript = transcribe_audio_file(db, uuid.UUID(audio_file_id))
         if not transcript:
-            transcript = Transcript(meeting_id=meeting_id, content=mock_content)
-            db.add(transcript)
-        else:
-            transcript.content = mock_content
-        db.commit()
-        db.refresh(transcript)
+            raise Exception(f"Failed to transcribe audio file {audio_file_id}")
 
         try:
             from app.core.config import settings as _settings

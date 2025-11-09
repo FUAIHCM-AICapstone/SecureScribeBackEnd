@@ -55,6 +55,19 @@ services:
     volumes:
       - ./config:/app/config:rw
 
+  s2t_api:
+    image: luongnguyenminhan/securescribe:s2t
+    ports:
+      - "9998:9998"
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - REDIS_DB_S2T=${REDIS_DB_S2T}
+    restart: unless-stopped
+    networks:
+      - securescribe-network
+    depends_on:
+      - redis
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped

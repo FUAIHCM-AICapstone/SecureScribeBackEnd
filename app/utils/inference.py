@@ -7,18 +7,6 @@ from app.core.config import settings
 
 
 def transcriber(audio_path):
-    """
-    Transcribes an audio file using the external transcription API.
-
-    Args:
-        audio_path (str): Path to the audio file to transcribe
-
-    Returns:
-        str: Formatted transcription text
-
-    Raises:
-        Exception: If transcription fails or polling times out
-    """
     # Submit the audio file for transcription
     url = f"{settings.TRANSCRIBE_API_BASE_URL}/transcribe"
 
@@ -41,8 +29,9 @@ def transcriber(audio_path):
     poll_count = 0
 
     while poll_count < max_polls:
+        print("Polling transcription status...")
         response = requests.get(polling_url)
-
+        print(f"Poll response: {response.text}")
         if response.status_code != 200:
             raise Exception(f"Failed to poll transcription status: {response.text}")
 
@@ -58,8 +47,7 @@ def transcriber(audio_path):
             error_msg = data["data"].get("error", "Unknown error")
             raise Exception(f"Transcription failed: {error_msg}")
 
-        # Wait before polling again
-        time.sleep(30)  # Poll every 30 seconds
+        time.sleep(30)
         poll_count += 1
 
     if poll_count >= max_polls:

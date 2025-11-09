@@ -44,6 +44,7 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
     try:
         transcript_text = transcriber(temp_path)
         transcript_data = TranscriptCreate(meeting_id=audio_file.meeting_id, content=transcript_text, audio_concat_file_id=audio_file.id)
+        print(transcript_data)
         transcript = create_transcript(db, transcript_data, audio_file.uploaded_by)
         return transcript
     finally:

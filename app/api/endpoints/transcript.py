@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import get_db
+from app.jobs.tasks import process_audio_task
 from app.models.user import User
 from app.schemas.common import ApiResponse, create_pagination_meta
 from app.schemas.transcript import (
@@ -19,6 +20,8 @@ from app.schemas.transcript import (
     TranscriptsPaginatedResponse,
     TranscriptUpdate,
 )
+from app.services.audio_file import get_audio_file
+from app.services.meeting import validate_meeting_for_audio_operations
 from app.services.transcript import (
     bulk_create_transcripts,
     bulk_delete_transcripts,
@@ -28,7 +31,6 @@ from app.services.transcript import (
     get_transcript,
     get_transcript_by_meeting,
     get_transcripts,
-    transcribe_audio_file,
     update_transcript,
 )
 from app.utils.auth import get_current_user
@@ -36,12 +38,33 @@ from app.utils.auth import get_current_user
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Transcripts"])
 
 
-@router.post("/transcripts/transcribe/{audio_id}", response_model=TranscriptApiResponse)
+@router.post("/transcripts/transcribe/{audio_id}", response_model=ApiResponse[dict])
 def transcribe_audio_endpoint(audio_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    transcript = transcribe_audio_file(db, audio_id)
-    if not transcript:
-        raise HTTPException(status_code=404, detail="Audio file not found or transcription failed")
-    return ApiResponse(success=True, message="Audio transcribed successfully", data=TranscriptResponse.model_validate(transcript))
+    """Transcribe audio file and enqueue ASR processing."""
+    try:
+        # Get audio file to find meeting_id
+        audio_file = get_audio_file(db, audio_id)
+        if not audio_file:
+            raise HTTPException(status_code=404, detail="Audio file not found")
+
+        # Validate meeting access for audio operations
+        validate_meeting_for_audio_operations(db, audio_file.meeting_id, current_user.id)
+
+        # Enqueue Celery task for transcription
+        async_result = process_audio_task.delay(str(audio_id), str(current_user.id))
+
+        return ApiResponse(
+            success=True,
+            message="Audio transcription started successfully",
+            data={
+                "audio_file_id": str(audio_id),
+                "task_id": async_result.id if async_result else None,
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/transcripts", response_model=TranscriptsPaginatedResponse)

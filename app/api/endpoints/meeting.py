@@ -79,8 +79,6 @@ def get_meetings_endpoint(
     tag_ids: str = Query("", description="Comma-separated tag IDs"),
 ):
     """Get meetings with filtering and pagination"""
-    print(f"[DEBUG] get_meetings_endpoint called by user: {current_user.id}")
-    print(f"[DEBUG] Query params - page: {page}, limit: {limit}, project_id: {project_id}, title: {title}, status: {status}")
 
     try:
         # Parse UUID fields
@@ -105,16 +103,13 @@ def get_meetings_endpoint(
             tag_ids=tag_id_list,
             project_id=project_id,
         )
-        print(f"Filters applied: {project_id}")
         meetings, total = get_meetings(db=db, user_id=current_user.id, filters=filters, page=page, limit=limit)
-        print(f"[DEBUG] get_meetings returned {len(meetings)} meetings out of {total} total")
 
         # Format response data
         meetings_data = [serialize_meeting(meeting) for meeting in meetings]
 
         pagination_meta = create_pagination_meta(page, limit, total)
 
-        print(f"[DEBUG] Returning {len(meetings_data)} meetings in response")
         return PaginatedResponse(
             success=True,
             message="Meetings retrieved successfully",
@@ -124,8 +119,6 @@ def get_meetings_endpoint(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[DEBUG] Exception in get_meetings_endpoint: {str(e)}")
-        print(f"[DEBUG] Exception type: {type(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 

@@ -28,6 +28,7 @@ services:
       - POSTGRES_PORT=5432
       - AGNO_TELEMETRY=false
       - SECRET_KEY=securescribe_jwt_secret_key_2025_fixed_for_development
+      - TRANSCRIBE_API_BASE_URL=http://s2t_api:9998/api/v1
     restart: unless-stopped
     networks:
       - securescribe-network
@@ -102,6 +103,19 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - RIPORT=5540
+    restart: unless-stopped
+    networks:
+      - securescribe-network
+    depends_on:
+      - redis
+
+  s2t_api:
+    image: luongnguyenminhan/securescribe:s2t
+    ports:
+      - "9998:9998"
+    environment:
+      - HF_TOKEN=${HF_TOKEN}
+      - REDIS_DB_S2T=${REDIS_DB_S2T}
     restart: unless-stopped
     networks:
       - securescribe-network
