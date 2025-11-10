@@ -34,11 +34,11 @@ echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 # Build the Docker image (standalone - no code mounting required)
 echo "🔨 Building standalone Docker image..."
 echo "📦 This image contains all application code and can run anywhere"
-docker build -t "$FULL_IMAGE_NAME" -f Dockerfile .
+docker build --platform linux/amd64 -t "$FULL_IMAGE_NAME" -f Dockerfile .
 
 # Push the image to registry
 echo "⬆️  Pushing image to registry..."
-docker push "$FULL_IMAGE_NAME"
+docker push --platform linux/amd64 "$FULL_IMAGE_NAME"
 
 echo ""
 echo "✅ Successfully built and pushed image: $FULL_IMAGE_NAME"

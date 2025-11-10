@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.firebase import initialize_firebase
 from app.db import get_db
 from app.utils.auth import get_current_user_from_token
+from app.utils.throttling import ThrottlingMiddleware
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -116,7 +117,24 @@ async def shutdown_event():
 async def log_requests(request, call_next):
     print(f"[REQUEST] {request.method} {request.url}")
     response = await call_next(request)
-    print(f"[RESPONSE] {response}")
+    print(f"\033[92m[RESPONSE]\033[0m {response.__class__.__name__}({response.status_code if hasattr(response, 'status_code') else 'streaming'}, {getattr(response, 'media_type', 'unknown')})")
+
+    # Optional: Log response body for debugging (uncomment to enable)
+    try:
+        if hasattr(response, 'body'):
+            body_content = response.body.decode('utf-8', errors='ignore')
+            # Limit body size to avoid flooding logs
+            if len(body_content) > 500:
+                body_content = body_content[:500] + "..."
+            print(f"\033[93m[RESPONSE BODY]\033[0m {body_content}")
+        elif hasattr(response, 'content') and response.content:
+            body_content = response.content.decode('utf-8', errors='ignore')
+            if len(body_content) > 500:
+                body_content = body_content[:500] + "..."
+            print(f"\033[93m[RESPONSE BODY]\033[0m {body_content}")
+    except Exception as e:
+        print(f"\033[91m[BODY LOG ERROR]\033[0m Could not read response body: {e}")
+
     return response
 
 
@@ -138,6 +156,9 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers including Authorization
     expose_headers=["*"],  # Expose all headers for EventSource
 )
+
+# Add throttling middleware for rate limiting
+app.add_middleware(ThrottlingMiddleware)
 
 app.include_router(api_router)
 

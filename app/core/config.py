@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     WEBSOCKET_CONNECTION_TIMEOUT: int = 300  # 5 minutes inactive timeout
     WEBSOCKET_CLEANUP_INTERVAL: int = 60  # 1 minute cleanup interval
 
+    # Throttling Configuration
+    THROTTLING_ENABLED: bool = True
+    THROTTLING_WINDOW_SECONDS: int = 60  # 1 minute sliding window
+    THROTTLING_MAX_REQUESTS_API: int = 30  # API endpoints: 30 requests per minute
+    THROTTLING_MAX_REQUESTS_HEALTH: int = 100  # Health endpoints: 100 requests per minute
+    THROTTLING_MAX_REQUESTS_UPLOAD: int = 10  # Upload endpoints: 10 requests per minute
+    THROTTLING_REDIS_KEY_PREFIX: str = "rate_limit"
+    THROTTLING_CLEANUP_INTERVAL: int = 300  # Clean up old entries every 5 minutes
+
     # MinIO Configuration
     MINIO_ENDPOINT: str = "minio:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
