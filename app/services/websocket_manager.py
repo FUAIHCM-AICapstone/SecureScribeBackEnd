@@ -86,6 +86,15 @@ class WebSocketConnectionManager:
                 await websocket.send_json(message_data)
                 sent_count += 1
                 self._metrics["messages_sent"] += 1
+            except RuntimeError as e:
+                # Handle closed WebSocket connections specifically
+                if "close message has been sent" in str(e):
+                    logger.debug("WebSocket connection for user %s is already closed, removing from connections", user_id)
+                    failed_connections.append(websocket)
+                else:
+                    logger.exception("RuntimeError sending message to user %s: %s", user_id, e)
+                    failed_connections.append(websocket)
+                    self._metrics["websocket_errors"] += 1
             except Exception as e:
                 logger.exception("Failed to send message to user %s: %s", user_id, e)
                 failed_connections.append(websocket)
@@ -241,6 +250,13 @@ class WebSocketConnectionManager:
                 for message in recent_messages:
                     try:
                         await websocket.send_json(message)
+                    except RuntimeError as e:
+                        # Handle closed WebSocket connections specifically
+                        if "close message has been sent" in str(e):
+                            logger.debug("WebSocket connection for user %s is already closed during replay", user_id)
+                        else:
+                            logger.exception("RuntimeError replaying message to user %s: %s", user_id, e)
+                        break
                     except Exception as e:
                         logger.exception("Failed to replay message to user %s: %s", user_id, e)
                         break
