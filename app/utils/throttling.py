@@ -1,10 +1,9 @@
 import asyncio
 import logging
 import time
-from typing import Dict, Optional, Tuple
+from typing import Tuple
 
-from fastapi import HTTPException, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi import Request
 
 from app.core.config import settings
 from app.utils.redis import get_async_redis_client

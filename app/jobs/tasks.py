@@ -15,6 +15,7 @@ from app.jobs.celery_worker import celery_app
 from app.models.chat import ChatMessage, ChatMessageType
 from app.models.file import File
 from app.models.meeting import AudioFile, Meeting
+from app.schemas.notification import NotificationCreate
 from app.services.chat import perform_query_expansion_search
 from app.services.notification import create_notifications_bulk, send_fcm_notification
 from app.services.qdrant_service import reindex_file
@@ -184,6 +185,27 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         # Step 8: Completed
         update_task_progress(task_id, user_id, 100, "completed", task_type="file_indexing")
         publish_task_progress_sync(user_id, 100, "completed", "0s", "file_indexing", task_id)
+
+        # Create notification for task completion
+        notification_data = NotificationCreate(
+            user_ids=[uuid.UUID(user_id)],
+            type="task.file_indexing.completed",
+            payload={
+                "task_id": task_id,
+                "file_id": file_id,
+                "filename": file.filename,
+                "task_type": "file_indexing",
+                "status": "completed",
+            },
+            channel="in_app",
+        )
+        create_notifications_bulk(
+            db,
+            notification_data.user_ids,
+            type=notification_data.type,
+            payload=notification_data.payload,
+            channel=notification_data.channel,
+        )
 
         # Get filename before closing session
         filename = file.filename
@@ -582,6 +604,27 @@ def process_chat_message(
         print(f"[process_chat_message] Broadcasting AI message to Redis channel: {channel}")
         # Use sync Redis client for broadcasting in Celery task
         sync_redis_client.publish(channel, json.dumps(message_data))
+
+        # Create notification for task completion
+        notification_data = NotificationCreate(
+            user_ids=[uuid.UUID(user_id_str)],
+            type="task.chat_processing.completed",
+            payload={
+                "conversation_id": conversation_id,
+                "user_message_id": user_message_id,
+                "ai_message_id": str(ai_message.id),
+                "task_type": "chat_processing",
+                "status": "completed",
+            },
+            channel="in_app",
+        )
+        create_notifications_bulk(
+            db,
+            notification_data.user_ids,
+            type=notification_data.type,
+            payload=notification_data.payload,
+            channel=notification_data.channel,
+        )
 
         print("[process_chat_message] Processing complete. Returning success response.")
         return {

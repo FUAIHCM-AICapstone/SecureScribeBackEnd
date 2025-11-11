@@ -119,7 +119,6 @@ async def log_requests(request, call_next):
     response = await call_next(request)
     print(f"\033[92m[RESPONSE]\033[0m {response.__class__.__name__}({response.status_code if hasattr(response, 'status_code') else 'streaming'}, {getattr(response, 'media_type', 'unknown')})")
 
-    # Optional: Log response body for debugging (uncomment to enable)
     try:
         if hasattr(response, "body"):
             body_content = response.body.decode("utf-8", errors="ignore")

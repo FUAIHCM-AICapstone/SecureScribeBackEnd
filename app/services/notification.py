@@ -62,9 +62,11 @@ def create_notifications_bulk(
 ) -> List[Notification]:
     notifications = []
     for user_id in user_ids:
+        print(f"[create_notifications_bulk] Creating notification for user: {user_id}")
         notification = Notification(user_id=user_id, **kwargs)
         db.add(notification)
         notifications.append(notification)
+    print(f"[create_notifications_bulk] Committing {len(notifications)} notifications to the database")
     db.commit()
     for notification in notifications:
         db.refresh(notification)

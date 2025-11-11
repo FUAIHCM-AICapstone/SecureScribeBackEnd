@@ -65,12 +65,12 @@ class Settings(BaseSettings):
 
     # Throttling Configuration
     THROTTLING_ENABLED: bool = True
-    THROTTLING_WINDOW_SECONDS: int = 60  # 1 minute sliding window
-    THROTTLING_MAX_REQUESTS_API: int = 30  # API endpoints: 30 requests per minute
-    THROTTLING_MAX_REQUESTS_HEALTH: int = 100  # Health endpoints: 100 requests per minute
-    THROTTLING_MAX_REQUESTS_UPLOAD: int = 10  # Upload endpoints: 10 requests per minute
+    THROTTLING_WINDOW_SECONDS: int = 10
+    THROTTLING_MAX_REQUESTS_API: int = 30
+    THROTTLING_MAX_REQUESTS_HEALTH: int = 100
+    THROTTLING_MAX_REQUESTS_UPLOAD: int = 100
     THROTTLING_REDIS_KEY_PREFIX: str = "rate_limit"
-    THROTTLING_CLEANUP_INTERVAL: int = 300  # Clean up old entries every 5 minutes
+    THROTTLING_CLEANUP_INTERVAL: int = 300
 
     # MinIO Configuration
     MINIO_ENDPOINT: str = "minio:9000"
