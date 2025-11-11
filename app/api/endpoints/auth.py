@@ -28,7 +28,6 @@ security = HTTPBearer()
 def refresh_token_endpoint(request: RefreshTokenRequest):
     refresh_token = request.refresh_token
 
-
     try:
         payload = verify_token(refresh_token)
         if not payload or payload.get("type") != "refresh":
@@ -40,7 +39,6 @@ def refresh_token_endpoint(request: RefreshTokenRequest):
             raise HTTPException(status_code=401, detail="Invalid token payload")
 
         access_token = create_access_token({"sub": user_id})
-
 
         return ApiResponse(
             success=True,

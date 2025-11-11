@@ -10,7 +10,9 @@ from app.models.notification import Notification
 from app.models.user import User, UserDevice
 
 
-def get_notifications(db: Session, user_id: uuid.UUID, **kwargs) -> Tuple[List[Notification], int]:
+def get_notifications(
+    db: Session, user_id: uuid.UUID, **kwargs
+) -> Tuple[List[Notification], int]:
     query = db.query(Notification).filter(Notification.user_id == user_id)
 
     if "is_read" in kwargs and kwargs["is_read"] is not None:
@@ -34,8 +36,14 @@ def get_notifications(db: Session, user_id: uuid.UUID, **kwargs) -> Tuple[List[N
     return notifications, total
 
 
-def get_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID) -> Notification:
-    notification = db.query(Notification).filter(Notification.id == notification_id, Notification.user_id == user_id).first()
+def get_notification(
+    db: Session, notification_id: uuid.UUID, user_id: uuid.UUID
+) -> Notification:
+    notification = (
+        db.query(Notification)
+        .filter(Notification.id == notification_id, Notification.user_id == user_id)
+        .first()
+    )
     if not notification:
         raise HTTPException(status_code=404, detail="Notification not found")
     return notification
@@ -49,7 +57,9 @@ def create_notification(db: Session, user_id: uuid.UUID, **kwargs) -> Notificati
     return notification
 
 
-def create_notifications_bulk(db: Session, user_ids: List[uuid.UUID], **kwargs) -> List[Notification]:
+def create_notifications_bulk(
+    db: Session, user_ids: List[uuid.UUID], **kwargs
+) -> List[Notification]:
     notifications = []
     for user_id in user_ids:
         notification = Notification(user_id=user_id, **kwargs)
@@ -67,7 +77,9 @@ def create_global_notification(db: Session, **kwargs) -> List[Notification]:
     return create_notifications_bulk(db, user_ids, **kwargs)
 
 
-def update_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID, **kwargs) -> Notification:
+def update_notification(
+    db: Session, notification_id: uuid.UUID, user_id: uuid.UUID, **kwargs
+) -> Notification:
     notification = get_notification(db, notification_id, user_id)
     for key, value in kwargs.items():
         if value is not None:
@@ -78,7 +90,9 @@ def update_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.U
     return notification
 
 
-def delete_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID) -> None:
+def delete_notification(
+    db: Session, notification_id: uuid.UUID, user_id: uuid.UUID
+) -> None:
     notification = get_notification(db, notification_id, user_id)
     db.delete(notification)
     db.commit()
@@ -90,17 +104,31 @@ def send_fcm_notification(
     body: str,
     data: Optional[Dict[str, Any]] = None,
 ) -> None:
+    print(
+        f"[FCM] Starting FCM notification send to {len(user_ids)} users. Title: '{title}'"
+    )
     from app.db import SessionLocal
 
     db = SessionLocal()
     try:
         tokens = []
         for user_id in user_ids:
-            devices = db.query(UserDevice).filter(UserDevice.user_id == user_id, UserDevice.is_active == True).all()
-            user_tokens = [device.fcm_token for device in devices if device.fcm_token and device.fcm_token.strip()]
+            devices = (
+                db.query(UserDevice)
+                .filter(UserDevice.user_id == user_id, UserDevice.is_active == True)
+                .all()
+            )
+            user_tokens = [
+                device.fcm_token
+                for device in devices
+                if device.fcm_token and device.fcm_token.strip()
+            ]
             tokens.extend(user_tokens)
+            print(f"[FCM] User {user_id}: Found {len(user_tokens)} active FCM tokens")
 
+        print(f"[FCM] Total FCM tokens collected: {len(tokens)}")
         if not tokens:
+            print("[FCM] No active FCM tokens found, skipping notification send")
             return
 
         # Ensure all data values are strings as required by FCM
@@ -108,20 +136,34 @@ def send_fcm_notification(
         if data:
             for key, value in data.items():
                 fcm_data[str(key)] = str(value)
+            print(f"[FCM] Prepared FCM data payload with {len(fcm_data)} fields")
 
         message = messaging.MulticastMessage(
             notification=messaging.Notification(title=title, body=body),
             data=fcm_data,
             tokens=tokens,
         )
+        print(f"[FCM] Prepared multicast message for {len(tokens)} tokens")
 
         try:
+            print("[FCM] Sending FCM notification...")
             response = messaging.send_each_for_multicast(message)
+            success_count = sum(1 for resp in response.responses if not resp.exception)
+            failure_count = sum(1 for resp in response.responses if resp.exception)
+
+            print(
+                f"[FCM] Notification send completed. Success: {success_count}, Failures: {failure_count}"
+            )
+
             for i, resp in enumerate(response.responses):
                 if resp.exception:
-                    print(f"FCM device {i} failed: {resp.exception}")
+                    print(f"[FCM] Device {i} failed: {resp.exception}")
+
+            if success_count > 0:
+                print("[FCM] FCM notification sent successfully to at least one device")
         except Exception as e:
-            print(f"Failed to send FCM notification: {str(e)}")
+            print(f"[FCM] Failed to send FCM notification: {str(e)}")
             raise
     finally:
         db.close()
+        print("[FCM] FCM notification task completed")

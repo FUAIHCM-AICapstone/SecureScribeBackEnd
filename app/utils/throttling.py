@@ -46,7 +46,7 @@ class RateLimiter:
 
             # Remove old entries outside the sliding window
             min_score = current_time - self.window_seconds
-            await client.zremrangebyscore(key, '-inf', min_score)
+            await client.zremrangebyscore(key, "-inf", min_score)
 
             # Count current requests in the window
             request_count = await client.zcard(key)
@@ -91,7 +91,7 @@ class RateLimiter:
 
             for key in keys:
                 # Remove entries older than 2x window
-                await client.zremrangebyscore(key, '-inf', min_score)
+                await client.zremrangebyscore(key, "-inf", min_score)
 
                 # If key is empty, it will expire naturally due to TTL
         except Exception as e:
@@ -107,15 +107,15 @@ class ThrottlingMiddleware:
     def __init__(self, app):
         self.app = app
         self.rate_limiters = {
-            'health': RateLimiter(
+            "health": RateLimiter(
                 max_requests=settings.THROTTLING_MAX_REQUESTS_HEALTH,
                 window_seconds=settings.THROTTLING_WINDOW_SECONDS,
             ),
-            'upload': RateLimiter(
+            "upload": RateLimiter(
                 max_requests=settings.THROTTLING_MAX_REQUESTS_UPLOAD,
                 window_seconds=settings.THROTTLING_WINDOW_SECONDS,
             ),
-            'api': RateLimiter(
+            "api": RateLimiter(
                 max_requests=settings.THROTTLING_MAX_REQUESTS_API,
                 window_seconds=settings.THROTTLING_WINDOW_SECONDS,
             ),
@@ -139,49 +139,49 @@ class ThrottlingMiddleware:
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP address from request headers."""
         # Check for forwarded headers (common in proxy setups)
-        forwarded_for = request.headers.get('x-forwarded-for')
+        forwarded_for = request.headers.get("x-forwarded-for")
         if forwarded_for:
             # Take the first IP if there are multiple
-            return forwarded_for.split(',')[0].strip()
+            return forwarded_for.split(",")[0].strip()
 
         # Check for other proxy headers
-        real_ip = request.headers.get('x-real-ip')
+        real_ip = request.headers.get("x-real-ip")
         if real_ip:
             return real_ip.strip()
 
         # Fallback to direct client IP
-        return request.client.host if request.client else 'unknown'
+        return request.client.host if request.client else "unknown"
 
     def _get_client_ip_from_scope(self, scope) -> str:
         """Extract client IP address from ASGI scope."""
-        headers = dict(scope.get('headers', []))
+        headers = dict(scope.get("headers", []))
 
         # Check for forwarded headers (common in proxy setups)
-        forwarded_for = headers.get(b'x-forwarded-for')
+        forwarded_for = headers.get(b"x-forwarded-for")
         if forwarded_for:
             # Decode and take the first IP if there are multiple
-            forwarded_str = forwarded_for.decode('utf-8', errors='ignore')
-            return forwarded_str.split(',')[0].strip()
+            forwarded_str = forwarded_for.decode("utf-8", errors="ignore")
+            return forwarded_str.split(",")[0].strip()
 
         # Check for other proxy headers
-        real_ip = headers.get(b'x-real-ip')
+        real_ip = headers.get(b"x-real-ip")
         if real_ip:
-            return real_ip.decode('utf-8', errors='ignore').strip()
+            return real_ip.decode("utf-8", errors="ignore").strip()
 
         # Fallback to direct client IP from scope
-        client = scope.get('client')
+        client = scope.get("client")
         if client and len(client) >= 1:
             return client[0]
-        return 'unknown'
+        return "unknown"
 
     def _get_endpoint_type(self, path: str) -> str:
         """Determine endpoint type based on path."""
-        if path.startswith('/be/health'):
-            return 'health'
-        elif any(path.startswith(prefix) for prefix in ['/be/api/v1/files', '/be/api/v1/audio']):
-            return 'upload'
+        if path.startswith("/be/health"):
+            return "health"
+        elif any(path.startswith(prefix) for prefix in ["/be/api/v1/files", "/be/api/v1/audio"]):
+            return "upload"
         else:
-            return 'api'
+            return "api"
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -193,11 +193,11 @@ class ThrottlingMiddleware:
 
         # Skip throttling for certain paths (like static files, WebSocket endpoints, etc.)
         path = scope.get("path", "")
-        headers = dict(scope.get('headers', []))
+        headers = dict(scope.get("headers", []))
 
         # Skip throttling for WebSocket handshake requests (Upgrade: websocket header)
-        upgrade_header = headers.get(b'upgrade', b'').decode('utf-8', errors='ignore').lower()
-        if path in ['/be/search-test', '/be/test-auth'] or path.endswith('/ws') or upgrade_header == 'websocket':
+        upgrade_header = headers.get(b"upgrade", b"").decode("utf-8", errors="ignore").lower()
+        if path in ["/be/search-test", "/be/test-auth"] or path.endswith("/ws") or upgrade_header == "websocket":
             return await self.app(scope, receive, send)
 
         # Extract client IP from ASGI scope
@@ -209,10 +209,7 @@ class ThrottlingMiddleware:
         is_allowed, remaining, reset_time = await limiter.is_allowed(client_ip)
 
         if not is_allowed:
-            logger.warning(
-                "Rate limit exceeded for IP %s on %s endpoint. Remaining: %d, Reset in: %.1fs",
-                client_ip, endpoint_type, remaining, reset_time
-            )
+            logger.warning("Rate limit exceeded for IP %s on %s endpoint. Remaining: %d, Reset in: %.1fs", client_ip, endpoint_type, remaining, reset_time)
 
             # Send rate limit exceeded response
             response_body = {
@@ -223,37 +220,44 @@ class ThrottlingMiddleware:
                 "window_seconds": limiter.window_seconds,
             }
             import json
-            response_bytes = json.dumps(response_body).encode('utf-8')
 
-            await send({
-                'type': 'http.response.start',
-                'status': 429,
-                'headers': [
-                    [b'content-type', b'application/json'],
-                    [b'retry-after', str(int(reset_time)).encode()],
-                    [b'x-ratelimit-limit', str(limiter.max_requests).encode()],
-                    [b'x-ratelimit-remaining', str(remaining).encode()],
-                    [b'x-ratelimit-reset', str(int(time.time() + reset_time)).encode()],
-                ],
-            })
-            await send({
-                'type': 'http.response.body',
-                'body': response_bytes,
-            })
+            response_bytes = json.dumps(response_body).encode("utf-8")
+
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 429,
+                    "headers": [
+                        [b"content-type", b"application/json"],
+                        [b"retry-after", str(int(reset_time)).encode()],
+                        [b"x-ratelimit-limit", str(limiter.max_requests).encode()],
+                        [b"x-ratelimit-remaining", str(remaining).encode()],
+                        [b"x-ratelimit-reset", str(int(time.time() + reset_time)).encode()],
+                    ],
+                }
+            )
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": response_bytes,
+                }
+            )
             return
 
         # Wrap the send function to add rate limit headers
         original_send = send
 
         async def send_with_headers(message):
-            if message['type'] == 'http.response.start':
-                headers = list(message.get('headers', []))
-                headers.extend([
-                    [b'x-ratelimit-limit', str(limiter.max_requests).encode()],
-                    [b'x-ratelimit-remaining', str(remaining).encode()],
-                    [b'x-ratelimit-reset', str(int(time.time() + reset_time)).encode()],
-                ])
-                message['headers'] = headers
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.extend(
+                    [
+                        [b"x-ratelimit-limit", str(limiter.max_requests).encode()],
+                        [b"x-ratelimit-remaining", str(remaining).encode()],
+                        [b"x-ratelimit-reset", str(int(time.time() + reset_time)).encode()],
+                    ]
+                )
+                message["headers"] = headers
             await original_send(message)
 
         return await self.app(scope, receive, send_with_headers)

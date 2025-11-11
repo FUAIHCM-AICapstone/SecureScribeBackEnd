@@ -16,9 +16,14 @@ from app.models.chat import ChatMessage, ChatMessageType
 from app.models.file import File
 from app.models.meeting import AudioFile, Meeting
 from app.services.chat import perform_query_expansion_search
+from app.services.notification import create_notifications_bulk, send_fcm_notification
 from app.services.qdrant_service import reindex_file
 from app.services.transcript import transcribe_audio_file
-from app.utils.llm import create_general_chat_agent, get_agno_postgres_db, optimize_contexts_with_llm
+from app.utils.llm import (
+    create_general_chat_agent,
+    get_agno_postgres_db,
+    optimize_contexts_with_llm,
+)
 from app.utils.redis import get_redis_client
 from app.utils.task_progress import (
     publish_task_progress_sync,
@@ -290,6 +295,28 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
         update_task_progress(task_id, actor_user_id, 100, "completed", task_type="audio_asr")
         _broadcast(100, "completed", "0s")
 
+        # Create notifications and send FCM to meeting members
+        create_notifications_bulk(
+            db,
+            target_user_ids,
+            type="audio_processing_completed",
+            payload={
+                "audio_file_id": audio_file_id,
+                "meeting_id": str(meeting_id),
+                "processed_by": actor_user_id,
+            },
+        )
+        send_fcm_notification(
+            target_user_ids,
+            "Audio Processing Completed",
+            f"Audio processing has been completed for meeting: {meeting_id}",
+            {
+                "audio_file_id": audio_file_id,
+                "meeting_id": str(meeting_id),
+                "type": "audio_processing_completed",
+            },
+        )
+
         return {
             "status": "success",
             "audio_file_id": audio_file_id,
@@ -313,7 +340,14 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
 
 
 @celery_app.task(bind=True)
-def process_chat_message(self, conversation_id: str, user_message_id: str, content: str, user_id: str, query_results: Optional[List[dict]] = None) -> Dict[str, Any]:
+def process_chat_message(
+    self,
+    conversation_id: str,
+    user_message_id: str,
+    content: str,
+    user_id: str,
+    query_results: Optional[List[dict]] = None,
+) -> Dict[str, Any]:
     """
     Process chat message in background and broadcast response via SSE.
 
@@ -368,7 +402,14 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
                         mention_objects.append(mention_data)
 
             # Perform query expansion search
-            expansion_results = asyncio.run(perform_query_expansion_search(query=content, mentions=mention_objects if mention_objects else None, top_k=5, num_expansions=3))
+            expansion_results = asyncio.run(
+                perform_query_expansion_search(
+                    query=content,
+                    mentions=mention_objects if mention_objects else None,
+                    top_k=5,
+                    num_expansions=3,
+                )
+            )
 
             if expansion_results:
                 print(f"[process_chat_message] Found {len(expansion_results)} expansion-based results")
@@ -514,7 +555,12 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
 
         # Create AI message in database
         print("[process_chat_message] Creating AI message in database...")
-        ai_message = ChatMessage(conversation_id=conversation_id, message_type=ChatMessageType.agent, content=ai_response_content, user_id=user_id_str)
+        ai_message = ChatMessage(
+            conversation_id=conversation_id,
+            message_type=ChatMessageType.agent,
+            content=ai_response_content,
+            user_id=user_id_str,
+        )
         db.add(ai_message)
         db.commit()
         db.refresh(ai_message)
@@ -522,7 +568,16 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
 
         # Broadcast message via Redis to SSE channel
         channel = f"conversation:{conversation_id}:messages"
-        message_data = {"type": "chat_message", "conversation_id": conversation_id, "message": {"id": str(ai_message.id), "content": ai_response_content, "message_type": "agent", "created_at": ai_message.created_at.isoformat()}}
+        message_data = {
+            "type": "chat_message",
+            "conversation_id": conversation_id,
+            "message": {
+                "id": str(ai_message.id),
+                "content": ai_response_content,
+                "message_type": "agent",
+                "created_at": ai_message.created_at.isoformat(),
+            },
+        }
 
         print(f"[process_chat_message] Broadcasting AI message to Redis channel: {channel}")
         # Use sync Redis client for broadcasting in Celery task
@@ -540,14 +595,29 @@ def process_chat_message(self, conversation_id: str, user_message_id: str, conte
     except Exception as e:
         print(f"[process_chat_message] Exception occurred: {e}")
         # Create error message in database
-        error_message = ChatMessage(conversation_id=conversation_id, message_type=ChatMessageType.agent, content="I apologize, but I encountered an error processing your message. Please try again.", user_id=user_id_str)
+        error_message = ChatMessage(
+            conversation_id=conversation_id,
+            message_type=ChatMessageType.agent,
+            content="I apologize, but I encountered an error processing your message. Please try again.",
+            user_id=user_id_str,
+        )
         db.add(error_message)
         db.commit()
         print(f"[process_chat_message] Error message committed to DB with id: {error_message.id}")
 
         # Try to broadcast error message
         channel = f"conversation:{conversation_id}:messages"
-        error_data = {"type": "chat_message", "conversation_id": conversation_id, "message": {"id": str(error_message.id), "content": error_message.content, "message_type": "agent", "created_at": error_message.created_at.isoformat(), "error": True}}
+        error_data = {
+            "type": "chat_message",
+            "conversation_id": conversation_id,
+            "message": {
+                "id": str(error_message.id),
+                "content": error_message.content,
+                "message_type": "agent",
+                "created_at": error_message.created_at.isoformat(),
+                "error": True,
+            },
+        }
 
         print(f"[process_chat_message] Broadcasting error message to Redis channel: {channel}")
         # Use sync Redis client for error broadcasting

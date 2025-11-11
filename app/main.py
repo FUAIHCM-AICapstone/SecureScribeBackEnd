@@ -121,14 +121,14 @@ async def log_requests(request, call_next):
 
     # Optional: Log response body for debugging (uncomment to enable)
     try:
-        if hasattr(response, 'body'):
-            body_content = response.body.decode('utf-8', errors='ignore')
+        if hasattr(response, "body"):
+            body_content = response.body.decode("utf-8", errors="ignore")
             # Limit body size to avoid flooding logs
             if len(body_content) > 500:
                 body_content = body_content[:500] + "..."
             print(f"\033[93m[RESPONSE BODY]\033[0m {body_content}")
-        elif hasattr(response, 'content') and response.content:
-            body_content = response.content.decode('utf-8', errors='ignore')
+        elif hasattr(response, "content") and response.content:
+            body_content = response.content.decode("utf-8", errors="ignore")
             if len(body_content) > 500:
                 body_content = body_content[:500] + "..."
             print(f"\033[93m[RESPONSE BODY]\033[0m {body_content}")
