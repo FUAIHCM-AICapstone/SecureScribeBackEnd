@@ -267,7 +267,7 @@ def bulk_add_members_endpoint(
         if not user_role or user_role not in ["admin", "owner"]:
             raise HTTPException(status_code=403, detail="Admin access required")
 
-        results = bulk_add_users_to_project(db, project_id, bulk_data.users)
+        results = bulk_add_users_to_project(db, project_id, bulk_data.users, current_user.id)
 
         total_processed = len(results)
         total_success = sum(1 for r in results if r["success"])
@@ -366,7 +366,7 @@ def add_member_to_project_endpoint(
         if not user_role or user_role not in ["admin", "owner"]:
             raise HTTPException(status_code=403, detail="Admin access required")
 
-        user_project = add_user_to_project(db, project_id, member_data.user_id, member_data.role)
+        user_project = add_user_to_project(db, project_id, member_data.user_id, member_data.role, current_user.id)
         if not user_project:
             raise HTTPException(status_code=400, detail="Failed to add user to project")
 
@@ -414,7 +414,7 @@ def remove_member_from_project_endpoint(
                     detail="Admin access required to remove other members",
                 )
 
-        success = remove_user_from_project(db, project_id, user_id)
+        success = remove_user_from_project(db, project_id, user_id, current_user.id, is_self_removal)
         if not success:
             raise HTTPException(status_code=404, detail="User not found in project")
 

@@ -200,7 +200,7 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
 
 
 # User-Project relationship management
-def add_user_to_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, role: str = "member") -> Optional[UserProject]:
+def add_user_to_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, role: str = "member", added_by_user_id: uuid.UUID = None) -> Optional[UserProject]:
     """
     Add a user to a project
     """
@@ -225,15 +225,26 @@ def add_user_to_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, 
         project_id=project_id,
         role=role,
     )
-
     db.add(user_project)
     db.commit()
     db.refresh(user_project)
 
+    if added_by_user_id:
+        from app.events.project_events import UserAddedToProjectEvent
+        from app.services.event_manager import EventManager
+
+        event = UserAddedToProjectEvent(
+            project_id=project_id,
+            user_id=user_id,
+            added_by_user_id=added_by_user_id,
+            db=db,
+        )
+        EventManager.emit(event)
+
     return user_project
 
 
-def remove_user_from_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def remove_user_from_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, removed_by_user_id: uuid.UUID = None, is_self_removal: bool = False) -> bool:
     """
     Remove a user from a project
     """
@@ -244,6 +255,20 @@ def remove_user_from_project(db: Session, project_id: uuid.UUID, user_id: uuid.U
 
     db.delete(user_project)
     db.commit()
+
+    if removed_by_user_id:
+        from app.events.project_events import UserRemovedFromProjectEvent
+        from app.services.event_manager import EventManager
+
+        event = UserRemovedFromProjectEvent(
+            project_id=project_id,
+            user_id=user_id,
+            removed_by_user_id=removed_by_user_id,
+            db=db,
+            is_self_removal=is_self_removal,
+        )
+        EventManager.emit(event)
+
     return True
 
 
@@ -287,7 +312,7 @@ def get_user_role_in_project(db: Session, project_id: uuid.UUID, user_id: uuid.U
 
 
 # Bulk operations
-def bulk_add_users_to_project(db: Session, project_id: uuid.UUID, users_data: List[UserProjectCreate]) -> List[Dict[str, Any]]:
+def bulk_add_users_to_project(db: Session, project_id: uuid.UUID, users_data: List[UserProjectCreate], added_by_user_id: uuid.UUID = None) -> List[Dict[str, Any]]:
     """
     Bulk add users to a project
     """
@@ -295,7 +320,7 @@ def bulk_add_users_to_project(db: Session, project_id: uuid.UUID, users_data: Li
 
     for user_data in users_data:
         try:
-            user_project = add_user_to_project(db, project_id, user_data.user_id, user_data.role)
+            user_project = add_user_to_project(db, project_id, user_data.user_id, user_data.role, added_by_user_id)
             if user_project:
                 results.append(
                     {

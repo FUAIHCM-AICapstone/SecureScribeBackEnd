@@ -363,7 +363,7 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
 
 @celery_app.task(bind=True)
 def process_chat_message(
-    self,
+    self,  # noqa: ARG001
     conversation_id: str,
     user_message_id: str,
     content: str,
@@ -677,3 +677,82 @@ def process_chat_message(
     finally:
         # Cleanup database session
         db.close()
+
+
+@celery_app.task(soft_time_limit=60, time_limit=120)
+def publish_notification_to_redis_task(user_ids: list, notification_type: str, payload: dict, channel: str):
+    """
+    Celery task to publish notifications to Redis for WebSocket real-time delivery.
+    """
+    import asyncio
+
+    from app.utils.redis import publish_to_user_channel
+
+    try:
+        async def publish_all():
+            """Helper async function to publish to all users."""
+            success_count = 0
+            for user_id in user_ids:
+                message = {
+                    "type": "notification",
+                    "data": {
+                        "notification_type": notification_type,
+                        "payload": payload,
+                        "channel": channel,
+                        "timestamp": asyncio.get_event_loop().time(),
+                    },
+                }
+                try:
+                    success = await publish_to_user_channel(str(user_id), message)
+                    if success:
+                        success_count += 1
+                except Exception as e:
+                    print(f"Failed to publish to user {user_id}: {e}")
+
+            return success_count
+
+        # Run async publishing within worker's event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            success_count = loop.run_until_complete(publish_all())
+            print(f"Published notifications to {success_count}/{len(user_ids)} users via Redis")
+            return {"status": "success", "published": success_count, "total": len(user_ids)}
+        finally:
+            loop.close()
+
+    except Exception as e:
+        print(f"Error in publish_notification_to_redis_task: {e}")
+        raise
+
+
+@celery_app.task(soft_time_limit=120, time_limit=240)
+def send_fcm_notification_background_task(
+    user_ids: list,
+    title: str,
+    body: str,
+    payload: dict,
+    icon: str = None,
+    badge: str = None,
+    sound: str = None,
+    ttl: int = None,
+):
+    """
+    Celery task to send FCM push notifications in background.
+    """
+    try:
+        send_fcm_notification(
+            user_ids,
+            title,
+            body,
+            payload,
+            icon=icon,
+            badge=badge,
+            sound=sound,
+            ttl=ttl,
+        )
+        print(f"FCM notifications sent successfully to {len(user_ids)} users")
+        return {"status": "success", "users_count": len(user_ids)}
+    except Exception as e:
+        print(f"Error in send_fcm_notification_background_task: {e}")
+        raise

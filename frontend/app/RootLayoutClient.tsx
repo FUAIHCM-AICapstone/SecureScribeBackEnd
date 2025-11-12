@@ -7,8 +7,6 @@ import { NextIntlClientProvider } from 'next-intl';
 import { ReactQueryProvider } from '@/context/ReactQueryProvider';
 import { Provider } from 'react-redux';
 import store from '@/store/index';
-import 'antd/dist/reset.css';
-import '@/styles/globals.css';
 import { Providers } from './providers';
 import Header from '@/components/layout/Header';
 import { usePathname, useSearchParams } from 'next/navigation';

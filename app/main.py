@@ -12,6 +12,9 @@ from app.api import api_router
 from app.core.config import settings
 from app.core.firebase import initialize_firebase
 from app.db import get_db
+from app.events.listeners.notification_listener import NotificationListener
+from app.events.listeners.websocket_listener import WebSocketListener
+from app.services.event_manager import EventManager
 from app.utils.auth import get_current_user_from_token
 from app.utils.throttling import ThrottlingMiddleware
 
@@ -97,6 +100,9 @@ async def startup_event():
 
     init_database()
 
+    EventManager.register(NotificationListener())
+    EventManager.register(WebSocketListener())
+
     # Start WebSocket manager Redis listener
     from app.services.websocket_manager import websocket_manager
 
@@ -137,10 +143,9 @@ async def log_requests(request, call_next):
     return response
 
 
-# Override the default OpenAPI schema generator
 app.openapi = custom_openapi
 
-# Configure CORS for cross-origin requests with Authorization headers
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=(["*"]),
@@ -151,9 +156,9 @@ app.add_middleware(
         "PUT",
         "DELETE",
         "OPTIONS",
-    ],  # Explicitly allow methods
-    allow_headers=["*"],  # Allow all headers including Authorization
-    expose_headers=["*"],  # Expose all headers for EventSource
+    ],
+    allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Add throttling middleware for rate limiting
@@ -161,51 +166,7 @@ app.add_middleware(ThrottlingMiddleware)
 
 app.include_router(api_router)
 
-
-# Initialize Firebase SDK
 initialize_firebase()
-
-
-@app.get("/test-auth")
-def test_auth_endpoint(request: Request) -> Dict[str, Any]:
-    auth_header = request.headers.get("authorization", "")
-
-    if not auth_header:
-        return {
-            "message": "No Authorization header found",
-            "usage": "Add 'Authorization: Bearer <token>' to your request headers",
-            "example": "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-        }
-
-    if not auth_header.lower().startswith("bearer "):
-        return {
-            "message": "Invalid Authorization header format",
-            "usage": "Header must start with 'Bearer '",
-            "example": "Authorization: Bearer <your_jwt_token>",
-        }
-
-    token = auth_header[len("bearer ") :] if auth_header.lower().startswith("bearer ") else auth_header[len("Bearer ") :]
-    user_id = get_current_user_from_token(token)
-
-    if not user_id:
-        return {
-            "message": "Invalid or expired token",
-            "token_valid": False,
-            "user_id": None,
-        }
-
-    return {
-        "message": "Token validated successfully",
-        "token_valid": True,
-        "user_id": user_id,
-        "token_preview": token[:20] + "..." if len(token) > 20 else token,
-    }
-
-
-@app.get("/search-test")
-def get_search_test_page():
-    """Serve the Search service test page"""
-    return FileResponse("app/static/search-test.html", media_type="text/html")
 
 
 @app.get("/health")

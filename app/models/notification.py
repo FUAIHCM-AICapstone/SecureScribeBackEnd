@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, String, func
+from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -32,6 +32,10 @@ class Notification(SQLModel, table=True):
     payload: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     is_read: bool = Field(default=False, sa_column=Column(Boolean))
     channel: Optional[str] = Field(default=None, sa_column=Column(String))
+    icon: Optional[str] = Field(default=None, sa_column=Column(String))
+    badge: Optional[str] = Field(default=None, sa_column=Column(String))
+    sound: Optional[str] = Field(default=None, sa_column=Column(String))
+    ttl: Optional[int] = Field(default=None, sa_column=Column(Integer))
 
     # Relationships
     user: "User" = Relationship(

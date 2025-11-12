@@ -7,16 +7,14 @@ from uuid import UUID
 # Third-party imports
 from fastapi import APIRouter, Depends, Query, WebSocket
 from sqlalchemy.orm import Session
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 # Local imports
 from app.core.config import settings
 from app.db import SessionLocal, get_db
+from app.jobs.tasks import (
+    publish_notification_to_redis_task,
+    send_fcm_notification_background_task,
+)
 from app.models.user import User
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.notification import (
@@ -31,13 +29,11 @@ from app.services.notification import (
     delete_notification,
     get_notification,
     get_notifications,
-    send_fcm_notification,
     update_notification,
 )
 from app.services.user import get_user_by_id
 from app.services.websocket_manager import websocket_manager
 from app.utils.auth import get_current_user, get_current_user_from_token
-from app.utils.redis import publish_to_user_channel
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Notification"])
 
@@ -96,44 +92,34 @@ def send_notification_endpoint(
         type=notification_data.type,
         payload=notification_data.payload,
         channel=notification_data.channel,
+        icon=notification_data.icon,
+        badge=notification_data.badge,
+        sound=notification_data.sound,
+        ttl=notification_data.ttl,
     )
 
     # Publish to Redis channels for real-time WebSocket delivery
-    import asyncio
-
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=0.5, min=0.5, max=5),
-        retry=retry_if_exception_type(Exception),
+    publish_notification_to_redis_task.delay(
+        notification_data.user_ids,
+        notification_data.type,
+        notification_data.payload,
+        notification_data.channel,
     )
-    async def publish_notifications():
-        """Publish notifications to Redis with retry logic"""
-        for user_id in notification_data.user_ids:
-            message = {
-                "type": "notification",
-                "data": {
-                    "notification_type": notification_data.type,
-                    "payload": notification_data.payload,
-                    "channel": notification_data.channel,
-                    "timestamp": asyncio.get_event_loop().time(),
-                },
-            }
-            success = await publish_to_user_channel(str(user_id), message)
-            if not success:
-                print(f"Failed to publish notification to user {user_id} after retries")
 
-    # Run async publishing in background with error handling
-    try:
-        asyncio.create_task(publish_notifications())
-    except Exception as e:
-        print(f"Failed to start notification publishing task: {e}")
-        # Continue with FCM even if Redis publishing fails
-
-    # Send FCM notifications
+    # Send FCM notifications with extended parameters
     if notification_data.payload:
         title = notification_data.payload.get("title", "Notification")
         body = notification_data.payload.get("body", "")
-        send_fcm_notification(notification_data.user_ids, title, body, notification_data.payload)
+        send_fcm_notification_background_task.delay(
+            notification_data.user_ids,
+            title,
+            body,
+            notification_data.payload,
+            icon=notification_data.icon,
+            badge=notification_data.badge,
+            sound=notification_data.sound,
+            ttl=notification_data.ttl,
+        )
 
     return ApiResponse(
         success=True,
@@ -152,52 +138,36 @@ def send_global_notification_endpoint(
         type=notification_data.type,
         payload=notification_data.payload,
         channel=notification_data.channel,
+        icon=notification_data.icon,
+        badge=notification_data.badge,
+        sound=notification_data.sound,
+        ttl=notification_data.ttl,
     )
 
     user_ids = [n.user_id for n in notifications]
 
     # Publish to Redis channels for real-time WebSocket delivery
-    import asyncio
-
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=0.5, min=0.5, max=5),
-        retry=retry_if_exception_type(Exception),
+    publish_notification_to_redis_task.delay(
+        user_ids,
+        notification_data.type,
+        notification_data.payload,
+        notification_data.channel,
     )
-    async def publish_global_notifications():
-        """Publish global notifications to Redis with retry logic"""
-        success_count = 0
-        for user_id in user_ids:
-            message = {
-                "type": "notification",
-                "data": {
-                    "notification_type": notification_data.type,
-                    "payload": notification_data.payload,
-                    "channel": notification_data.channel,
-                    "is_global": True,
-                    "timestamp": asyncio.get_event_loop().time(),
-                },
-            }
-            success = await publish_to_user_channel(str(user_id), message)
-            if success:
-                success_count += 1
-            else:
-                print(f"Failed to publish global notification to user {user_id} after retries")
 
-        print(f"Published global notifications to {success_count}/{len(user_ids)} users")
-
-    # Run async publishing in background with error handling
-    try:
-        asyncio.create_task(publish_global_notifications())
-    except Exception as e:
-        print(f"Failed to start global notification publishing task: {e}")
-        # Continue with FCM even if Redis publishing fails
-
-    # Send FCM notifications
+    # Send FCM notifications with extended parameters
     if notification_data.payload:
         title = notification_data.payload.get("title", "Global Notification")
         body = notification_data.payload.get("body", "")
-        send_fcm_notification(user_ids, title, body, notification_data.payload)
+        send_fcm_notification_background_task.delay(
+            user_ids,
+            title,
+            body,
+            notification_data.payload,
+            icon=notification_data.icon,
+            badge=notification_data.badge,
+            sound=notification_data.sound,
+            ttl=notification_data.ttl,
+        )
 
     return ApiResponse(
         success=True,

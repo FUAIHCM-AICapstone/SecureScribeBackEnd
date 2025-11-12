@@ -10,9 +10,7 @@ from app.models.notification import Notification
 from app.models.user import User, UserDevice
 
 
-def get_notifications(
-    db: Session, user_id: uuid.UUID, **kwargs
-) -> Tuple[List[Notification], int]:
+def get_notifications(db: Session, user_id: uuid.UUID, **kwargs) -> Tuple[List[Notification], int]:
     query = db.query(Notification).filter(Notification.user_id == user_id)
 
     if "is_read" in kwargs and kwargs["is_read"] is not None:
@@ -36,14 +34,8 @@ def get_notifications(
     return notifications, total
 
 
-def get_notification(
-    db: Session, notification_id: uuid.UUID, user_id: uuid.UUID
-) -> Notification:
-    notification = (
-        db.query(Notification)
-        .filter(Notification.id == notification_id, Notification.user_id == user_id)
-        .first()
-    )
+def get_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID) -> Notification:
+    notification = db.query(Notification).filter(Notification.id == notification_id, Notification.user_id == user_id).first()
     if not notification:
         raise HTTPException(status_code=404, detail="Notification not found")
     return notification
@@ -57,9 +49,7 @@ def create_notification(db: Session, user_id: uuid.UUID, **kwargs) -> Notificati
     return notification
 
 
-def create_notifications_bulk(
-    db: Session, user_ids: List[uuid.UUID], **kwargs
-) -> List[Notification]:
+def create_notifications_bulk(db: Session, user_ids: List[uuid.UUID], **kwargs) -> List[Notification]:
     notifications = []
     for user_id in user_ids:
         print(f"[create_notifications_bulk] Creating notification for user: {user_id}")
@@ -79,9 +69,7 @@ def create_global_notification(db: Session, **kwargs) -> List[Notification]:
     return create_notifications_bulk(db, user_ids, **kwargs)
 
 
-def update_notification(
-    db: Session, notification_id: uuid.UUID, user_id: uuid.UUID, **kwargs
-) -> Notification:
+def update_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID, **kwargs) -> Notification:
     notification = get_notification(db, notification_id, user_id)
     for key, value in kwargs.items():
         if value is not None:
@@ -92,9 +80,7 @@ def update_notification(
     return notification
 
 
-def delete_notification(
-    db: Session, notification_id: uuid.UUID, user_id: uuid.UUID
-) -> None:
+def delete_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID) -> None:
     notification = get_notification(db, notification_id, user_id)
     db.delete(notification)
     db.commit()
@@ -105,6 +91,10 @@ def send_fcm_notification(
     title: str,
     body: str,
     data: Optional[Dict[str, Any]] = None,
+    icon: Optional[str] = None,
+    badge: Optional[str] = None,
+    sound: Optional[str] = None,
+    ttl: Optional[int] = None,
 ) -> None:
     print(
         f"[FCM] Starting FCM notification send to {len(user_ids)} users. Title: '{title}'"
@@ -115,16 +105,8 @@ def send_fcm_notification(
     try:
         tokens = []
         for user_id in user_ids:
-            devices = (
-                db.query(UserDevice)
-                .filter(UserDevice.user_id == user_id, UserDevice.is_active == True)
-                .all()
-            )
-            user_tokens = [
-                device.fcm_token
-                for device in devices
-                if device.fcm_token and device.fcm_token.strip()
-            ]
+            devices: List[UserDevice] = db.query(UserDevice).filter(UserDevice.user_id == user_id, UserDevice.is_active == True).all()
+            user_tokens = [device.fcm_token for device in devices if device.fcm_token and device.fcm_token.strip()]
             tokens.extend(user_tokens)
             print(f"[FCM] User {user_id}: Found {len(user_tokens)} active FCM tokens")
 
@@ -139,6 +121,29 @@ def send_fcm_notification(
             for key, value in data.items():
                 fcm_data[str(key)] = str(value)
             print(f"[FCM] Prepared FCM data payload with {len(fcm_data)} fields")
+
+        # Build webpush notification
+        notification_kwargs = {"title": title, "body": body}
+
+        if icon:
+            notification_kwargs["icon"] = icon
+
+        if badge:
+            notification_kwargs["badge"] = badge
+
+        if sound:
+            notification_kwargs["sound"] = sound
+
+        webpush_notification = messaging.WebpushNotification(**notification_kwargs)
+
+        # Build webpush config
+        webpush_kwargs = {"notification": webpush_notification}
+
+        if ttl:
+            headers = {}
+            headers["TTL"] = str(ttl)
+
+            webpush_kwargs["headers"] = headers
 
         message = messaging.MulticastMessage(
             notification=messaging.Notification(title=title, body=body),

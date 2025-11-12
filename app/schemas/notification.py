@@ -9,6 +9,10 @@ class NotificationBase(BaseModel):
     type: Optional[str] = None
     payload: Optional[Dict[str, Any]] = None
     channel: Optional[str] = None
+    icon: Optional[str] = None
+    badge: Optional[str] = None
+    sound: Optional[str] = None
+    ttl: Optional[int] = None
 
     class Config:
         from_attributes = True

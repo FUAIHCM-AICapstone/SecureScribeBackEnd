@@ -100,13 +100,11 @@ def publish_task_progress_sync(
     base_delay = 0.2
 
     for attempt in range(max_retries):
+        loop = None
         try:
-            # Create event loop if one doesn't exist
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+            # Create fresh event loop for each attempt
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
             # Prepare message
             message_data = {
@@ -141,6 +139,17 @@ def publish_task_progress_sync(
                 if attempt < max_retries - 1:
                     time.sleep(base_delay * (2**attempt))  # Exponential backoff
 
+        except (RuntimeError, asyncio.InvalidStateError) as e:
+            logger.warning(
+                "Event loop error publishing task progress for user %s (attempt %d/%d): %s",
+                user_id,
+                attempt + 1,
+                max_retries,
+                e,
+            )
+            if attempt < max_retries - 1:
+                time.sleep(base_delay * (2**attempt))  # Exponential backoff
+
         except Exception as e:
             logger.exception(
                 "Error publishing task progress for user %s (attempt %d/%d): %s",
@@ -151,5 +160,10 @@ def publish_task_progress_sync(
             )
             if attempt < max_retries - 1:
                 time.sleep(base_delay * (2**attempt))  # Exponential backoff
+
+        finally:
+            # Always close the loop to prevent resource leaks
+            if loop is not None and not loop.is_closed():
+                loop.close()
 
     return False

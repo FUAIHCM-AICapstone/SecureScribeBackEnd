@@ -99,6 +99,8 @@ services:
 
   redis_insight:
     image: redis/redisinsight:latest
+    ports:
+      - "5540:5540"
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
