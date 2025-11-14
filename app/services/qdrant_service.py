@@ -213,15 +213,15 @@ def chunk_text(text: str, chunk_size: int = 1000) -> List[str]:
 
     # Initialize chunkers
     sent_chunker = SentenceChunker(
-        tokenizer=_gemini_token_counter,
+        tokenizer_or_token_counter=_gemini_token_counter,
         chunk_size=chunk_size,
         chunk_overlap=overlap_tokens,
         min_sentences_per_chunk=1,
     )
     code_chunker = CodeChunker(
-        language="markdown",
-        tokenizer=_gemini_token_counter,
+        tokenizer_or_token_counter=_gemini_token_counter,
         chunk_size=chunk_size,
+        language="markdown",
         include_nodes=False,
     )
 
@@ -751,4 +751,116 @@ async def query_documents_by_file_id(
 
     except Exception as e:
         print(f"Error querying documents for file_id {file_id}: {e}")
+        return []
+
+
+async def index_meeting_content(
+    content_type: str,
+    content_id: str,
+    meeting_id: str,
+    content_text: str,
+    created_by: str,
+    project_ids: List[str] | None = None,
+    collection_name: str | None = None,
+) -> List[str]:
+    """
+    Index meeting content (transcript or meeting note) in Qdrant.
+    
+    Args:
+        content_type: Type of content - "transcript" or "meeting_note"
+        content_id: UUID of the transcript or meeting note
+        meeting_id: UUID of the associated meeting
+        content_text: The actual content text to index
+        created_by: UUID of the user who created the content
+        project_ids: Optional list of project UUIDs associated with the meeting
+        collection_name: Optional collection name (defaults to settings.QDRANT_COLLECTION_NAME)
+    
+    Returns:
+        List of Qdrant point IDs (as strings) that were created
+    """
+    try:
+        # Step 1: Input Validation
+        if not content_text or not content_text.strip():
+            print("🟡 \033[93mNo content provided for indexing\033[0m")
+            return []
+        
+        # Validate content_type
+        if content_type not in ["transcript", "meeting_note"]:
+            print(f"🔴 \033[91mInvalid content_type: {content_type}. Must be 'transcript' or 'meeting_note'\033[0m")
+            return []
+        
+        # Step 2: Set Default Collection Name
+        if not collection_name:
+            collection_name = settings.QDRANT_COLLECTION_NAME
+        
+        # Step 3: Chunk the Content
+        chunks = chunk_text(content_text)
+        
+        # Check if chunks were generated
+        if not chunks:
+            print("🟡 \033[93mNo chunks generated from content\033[0m")
+            return []
+        
+        # Step 4: Generate Embeddings
+        from app.utils.llm import embed_documents
+        
+        embeddings = await embed_documents(chunks)
+        
+        # Check if embeddings were generated
+        if not embeddings:
+            print("🔴 \033[91mFailed to generate embeddings\033[0m")
+            return []
+        
+        # Step 5: Ensure Collection Exists
+        vector_dim = len(embeddings[0])
+        await create_collection_if_not_exist(collection_name, vector_dim)
+        
+        # Step 6: Build Payloads for Each Chunk
+        payloads = []
+        for i, chunk in enumerate(chunks):
+            payload = {
+                "content_type": content_type,
+                "content_id": content_id,
+                "meeting_id": meeting_id,
+                "project_ids": project_ids or [],
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+                "text": chunk,
+                "created_by": created_by,
+                "version": 1,
+                "is_archived": False,
+            }
+            payloads.append(payload)
+        
+        # Step 7: Create Point Structures
+        point_ids = []
+        points = []
+        for i, embedding in enumerate(embeddings):
+            point_id = str(uuid.uuid4())
+            point_ids.append(point_id)
+            
+            point = qmodels.PointStruct(
+                id=point_id,
+                vector=embedding,
+                payload=payloads[i]
+            )
+            points.append(point)
+        
+        # Step 8: Upsert to Qdrant
+        client = get_qdrant_client()
+        try:
+            client.upsert(
+                collection_name=collection_name,
+                points=points
+            )
+            print(f"🟢 \033[92mSuccessfully indexed {len(points)} chunks for {content_type} {content_id}\033[0m")
+        except Exception as e:
+            print(f"🔴 \033[91mFailed to upsert {content_type} vectors: {e}\033[0m")
+            return []
+        
+        # Step 9: Return Point IDs
+        return point_ids
+        
+    except Exception as e:
+        print(f"🔴 \033[91mFailed to index {content_type}: {e}\033[0m")
         return []
