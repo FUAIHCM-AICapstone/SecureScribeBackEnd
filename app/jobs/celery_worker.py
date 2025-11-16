@@ -79,6 +79,7 @@ def send_test_notification_task(self, user_id: str):
         }
     except Exception as exc:
         # Publish failure state
+        print(f"[Celery] send_test_notification_task failed: {exc}")
         update_task_progress(task_id, user_id, 0, "failed")
         publish_task_progress_sync(user_id, 0, "failed", "", "test_notification", task_id)
         raise

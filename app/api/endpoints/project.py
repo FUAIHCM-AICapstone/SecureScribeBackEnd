@@ -199,7 +199,7 @@ def update_project_endpoint(
         if not user_role or user_role not in ["admin", "owner"]:
             raise HTTPException(status_code=403, detail="Admin access required")
 
-        updated_project = update_project(db, project_id, updates)
+        updated_project = update_project(db, project_id, updates, current_user.id)
         if not updated_project:
             raise HTTPException(status_code=404, detail="Project not found")
 
@@ -231,7 +231,7 @@ def delete_project_endpoint(
         if not user_role or user_role not in ["admin", "owner"]:
             raise HTTPException(status_code=403, detail="Admin access required")
 
-        success = delete_project(db, project_id)
+        success = delete_project(db, project_id, current_user.id)
         if not success:
             raise HTTPException(status_code=404, detail="Project not found")
 
@@ -456,7 +456,7 @@ def update_member_role_endpoint(
             if admin_count <= 1:
                 raise HTTPException(status_code=400, detail="Cannot change role of the last admin")
 
-        updated_user_project = update_user_role_in_project(db, project_id, user_id, role_update.role)
+        updated_user_project = update_user_role_in_project(db, project_id, user_id, role_update.role, current_user.id)
         if not updated_user_project:
             raise HTTPException(status_code=404, detail="User not found in project")
 

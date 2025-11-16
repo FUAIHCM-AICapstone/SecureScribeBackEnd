@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from agno.models.message import Message
+from celery import shared_task
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -16,6 +17,7 @@ from app.models.chat import ChatMessage, ChatMessageType
 from app.models.file import File
 from app.models.meeting import AudioFile, Meeting
 from app.schemas.notification import NotificationCreate
+from app.services.audit_service import AuditLogService
 from app.services.chat import perform_query_expansion_search
 from app.services.notification import create_notifications_bulk, send_fcm_notification
 from app.services.qdrant_service import reindex_file
@@ -32,10 +34,32 @@ from app.utils.task_progress import (
 )
 
 # Database setup for tasks
-engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
+engine = create_engine(
+    str(settings.SQLALCHEMY_DATABASE_URI),
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Attempt to establish Redis connection, but fall back to a no-op client in test
 sync_redis_client = get_redis_client()
+
+
+# --- Domain Event Processing (Audit) ---
+@shared_task(name="process_domain_event")
+def process_domain_event(event_dict: dict) -> None:
+    """Minimal Celery task to persist a domain event as an audit log.
+
+    This task is intentionally light-weight and must not perform business logic.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        service = AuditLogService()
+        service.write_log(event_dict)
+    except Exception as e:
+        logger.error(f"Domain event task failed: {type(e).__name__}: {str(e)}")
 
 
 def fetch_conversation_history_sync(conversation_id: str, limit: int = 10) -> List[Message]:
@@ -689,6 +713,7 @@ def publish_notification_to_redis_task(user_ids: list, notification_type: str, p
     from app.utils.redis import publish_to_user_channel
 
     try:
+
         async def publish_all():
             """Helper async function to publish to all users."""
             success_count = 0

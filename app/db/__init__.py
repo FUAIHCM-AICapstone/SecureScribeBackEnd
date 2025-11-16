@@ -119,6 +119,7 @@ def create_tables() -> None:
         # Use SQLModel.metadata.create_all() - this includes all registered tables
         SQLModel.metadata.create_all(bind=engine)
     except Exception:
+        print("[Database] Error creating tables")
         raise
 
 
@@ -133,24 +134,11 @@ def init_database() -> None:
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            # Always try to create tables on startup (simpler and more reliable)
             create_tables()
-
-            # Try to verify users table exists (but don't fail if check fails)
-            try:
-                if table_exists("users"):
-                    return
-                else:
-                    return
-            except Exception:
-                return
-
+            return
         except Exception:
             if attempt < max_retries - 1:
                 time.sleep(2)
-            else:
-                try:
-                    create_tables()
-                    return
-                except Exception:
-                    raise
+
+    # If all retries failed, try one more time
+    create_tables()

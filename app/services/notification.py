@@ -96,9 +96,7 @@ def send_fcm_notification(
     sound: Optional[str] = None,
     ttl: Optional[int] = None,
 ) -> None:
-    print(
-        f"[FCM] Starting FCM notification send to {len(user_ids)} users. Title: '{title}'"
-    )
+    print(f"[FCM] Starting FCM notification send to {len(user_ids)} users. Title: '{title}'")
     from app.db import SessionLocal
 
     db = SessionLocal()
@@ -158,9 +156,7 @@ def send_fcm_notification(
             success_count = sum(1 for resp in response.responses if not resp.exception)
             failure_count = sum(1 for resp in response.responses if resp.exception)
 
-            print(
-                f"[FCM] Notification send completed. Success: {success_count}, Failures: {failure_count}"
-            )
+            print(f"[FCM] Notification send completed. Success: {success_count}, Failures: {failure_count}")
 
             for i, resp in enumerate(response.responses):
                 if resp.exception:

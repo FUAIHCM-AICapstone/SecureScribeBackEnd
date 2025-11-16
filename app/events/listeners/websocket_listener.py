@@ -75,11 +75,7 @@ class WebSocketListener(BaseListener):
 
             confirmation_message = {
                 "type": "you_added_to_project",
-                "data": {
-                    "project_id": str(event.project_id),
-                    "added_by_user_id": str(event.added_by_user_id),
-                    "message": f"You were added to project {event.project_id}"
-                },
+                "data": {"project_id": str(event.project_id), "added_by_user_id": str(event.added_by_user_id), "message": f"You were added to project {event.project_id}"},
             }
             print(f"{self.colors.CYAN}[WebSocketListener]{self.colors.RESET} {self.colors.BLUE}   ┌─ Prepared confirmation message for added user: {confirmation_message}{self.colors.RESET}")
 
@@ -151,12 +147,7 @@ class WebSocketListener(BaseListener):
 
             removal_confirmation_message = {
                 "type": "you_removed_from_project",
-                "data": {
-                    "project_id": str(event.project_id),
-                    "removed_by_user_id": str(event.removed_by_user_id),
-                    "is_self_removal": event.is_self_removal,
-                    "message": f"You were removed from project {event.project_id}" if not event.is_self_removal else f"You left project {event.project_id}"
-                },
+                "data": {"project_id": str(event.project_id), "removed_by_user_id": str(event.removed_by_user_id), "is_self_removal": event.is_self_removal, "message": f"You were removed from project {event.project_id}" if not event.is_self_removal else f"You left project {event.project_id}"},
             }
             print(f"{self.colors.CYAN}[WebSocketListener]{self.colors.RESET} {self.colors.BLUE}   ┌─ Prepared removal confirmation message: {removal_confirmation_message}{self.colors.RESET}")
 
@@ -200,4 +191,3 @@ class WebSocketListener(BaseListener):
             print(f"{self.colors.CYAN}[WebSocketListener]{self.colors.RESET} {self.colors.RED}✗ Redis removal publishing failed after {total_time:.3f}s{self.colors.RESET}")
             print(f"{self.colors.CYAN}[WebSocketListener]{self.colors.RESET} {self.colors.RED}   └─ Error: {e}{self.colors.RESET}")
             print(f"{self.colors.CYAN}[WebSocketListener]{self.colors.RESET} {self.colors.RED}   └─ Error type: {type(e).__name__}{self.colors.RESET}")
-

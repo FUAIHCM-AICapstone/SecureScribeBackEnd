@@ -4,7 +4,9 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.events.domain_events import BaseDomainEvent
 from app.models.meeting import MeetingNote
+from app.services.event_manager import EventManager
 from app.services.meeting import get_meeting
 from app.services.transcript import get_transcript_by_meeting
 from app.utils.meeting_agent import MeetingAnalyzer
@@ -30,11 +32,29 @@ async def create_meeting_note(
 
     existing = db.query(MeetingNote).filter(MeetingNote.meeting_id == meeting_id).first()
     if existing:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting_note.create_failed",
+                actor_user_id=user_id,
+                target_type="meeting_note",
+                target_id=meeting_id,
+                metadata={"reason": "already_exists"},
+            )
+        )
         print("\033[93m[create_meeting_note] ABORT - note already exists\033[0m")
         return None
 
     transcript = get_transcript_by_meeting(db, meeting_id, user_id)
     if not transcript or not transcript.content:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting_note.create_failed",
+                actor_user_id=user_id,
+                target_type="meeting_note",
+                target_id=meeting_id,
+                metadata={"reason": "no_transcript"},
+            )
+        )
         print("\033[93m[create_meeting_note] ABORT - no transcript found\033[0m")
         return None
     print(f"\033[92m[create_meeting_note] Transcript found, content length: {len(transcript.content)}\033[0m")
@@ -47,6 +67,15 @@ async def create_meeting_note(
     )
 
     if not ai_result.get("content"):
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting_note.create_failed",
+                actor_user_id=user_id,
+                target_type="meeting_note",
+                target_id=meeting_id,
+                metadata={"reason": "generation_failed"},
+            )
+        )
         print("\033[93m[create_meeting_note] ABORT - AI generation failed\033[0m")
         return None
     print(f"\033[92m[create_meeting_note] AI note generated, content length: {len(ai_result['content'])}\033[0m")
@@ -56,6 +85,15 @@ async def create_meeting_note(
     db.add(note)
     db.commit()
     db.refresh(note)
+    EventManager.emit_domain_event(
+        BaseDomainEvent(
+            event_name="meeting_note.created",
+            actor_user_id=user_id,
+            target_type="meeting_note",
+            target_id=meeting_id,
+            metadata={"content_length": len(note.content)},
+        )
+    )
     print(f"\033[92m[create_meeting_note] END - note saved: {note.id}\033[0m")
 
     return {
@@ -124,11 +162,22 @@ def update_meeting_note(
     if not note:
         print("\033[95m[update_meeting_note] ABORT - note not found\033[0m")
         return None
+    original_content = note.content
     note.content = content
     note.last_editor_id = user_id
     note.last_edited_at = datetime.utcnow()
     db.commit()
     db.refresh(note)
+    if original_content != note.content:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting_note.updated",
+                actor_user_id=user_id,
+                target_type="meeting_note",
+                target_id=meeting_id,
+                metadata={"diff": {"content": [original_content, note.content]}},
+            )
+        )
     print(f"\033[95m[update_meeting_note] END - note updated: {note.id}\033[0m")
     return note
 
@@ -137,9 +186,27 @@ def delete_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> bool:
     print(f"\033[91m[delete_meeting_note] START - meeting_id: {meeting_id}, user_id: {user_id}\033[0m")
     note = get_meeting_note(db, meeting_id, user_id)
     if not note:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting_note.delete_failed",
+                actor_user_id=user_id,
+                target_type="meeting_note",
+                target_id=meeting_id,
+                metadata={"reason": "not_found"},
+            )
+        )
         print("\033[91m[delete_meeting_note] ABORT - note not found\033[0m")
         return False
     db.delete(note)
     db.commit()
+    EventManager.emit_domain_event(
+        BaseDomainEvent(
+            event_name="meeting_note.deleted",
+            actor_user_id=user_id,
+            target_type="meeting_note",
+            target_id=meeting_id,
+            metadata={},
+        )
+    )
     print("\033[91m[delete_meeting_note] END - note deleted\033[0m")
     return True

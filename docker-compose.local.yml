@@ -124,6 +124,19 @@ services:
     depends_on:
       - redis
 
+  test:
+    build: .
+    environment:
+      - ENV=development
+    volumes:
+      - .:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+    command: pytest tests/ -v --tb=short
+    profiles:
+      - test
+
+
 networks:
   securescribe-network:
     driver: bridge

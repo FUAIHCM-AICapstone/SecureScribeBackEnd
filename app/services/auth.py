@@ -1,8 +1,12 @@
+import uuid
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.events.domain_events import BaseDomainEvent
 from app.models.user import User
+from app.services.event_manager import EventManager
 from app.services.user import create_user
 from app.utils.auth import (
     create_access_token,
@@ -16,6 +20,15 @@ def firebase_login(db: Session, id_token: str):
         user_info = get_firebase_user_info(id_token)
         email = user_info.get("email")
         if not email:
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="auth.login_failed",
+                    actor_user_id=uuid.uuid4(),  # anonymous actor (token invalid)
+                    target_type="auth",
+                    target_id=None,
+                    metadata={"reason": "email_missing"},
+                )
+            )
             raise HTTPException(status_code=400, detail="Email not found in Firebase token")
 
         user = db.query(User).filter(User.email == email).first()
@@ -75,11 +88,29 @@ def firebase_login(db: Session, id_token: str):
         except Exception as e:
             print(f"\033[91mError initiating Google Calendar OAuth: {e}\033[0m")
             pass
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="auth.login_succeeded",
+                actor_user_id=user.id,
+                target_type="user",
+                target_id=user.id,
+                metadata={"provider": "google"},
+            )
+        )
         return result
     except HTTPException:
         raise
     except Exception as e:
         print(f"\033[91mError in firebase_login: {e}\033[0m")
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="auth.login_failed",
+                actor_user_id=uuid.uuid4(),
+                target_type="auth",
+                target_id=None,
+                metadata={"reason": "exception", "detail": str(e)},
+            )
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Google login service temporarily unavailable",

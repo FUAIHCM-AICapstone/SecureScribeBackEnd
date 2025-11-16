@@ -7,10 +7,12 @@ from fastapi import HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.events.domain_events import BaseDomainEvent, build_diff
 from app.models.meeting import Meeting, ProjectMeeting, Transcript
 from app.models.project import Project, UserProject
 from app.schemas.transcript import TranscriptCreate, TranscriptUpdate
 from app.services.audio_file import get_audio_file
+from app.services.event_manager import EventManager
 from app.utils.inference import transcriber
 from app.utils.meeting import check_meeting_access
 from app.utils.minio import download_file_from_minio
@@ -30,12 +32,41 @@ def check_transcript_access(db: Session, transcript_id: uuid.UUID, user_id: uuid
 
 def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcript]:
     audio_file = get_audio_file(db, audio_id)
-    if not audio_file or not audio_file.file_url:
+    if not audio_file:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="transcript.transcribe_failed",
+                actor_user_id=None,
+                target_type="audio_file",
+                target_id=audio_id,
+                metadata={"reason": "audio_file_not_found"},
+            )
+        )
+        return None
+    if not audio_file.file_url:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="transcript.transcribe_failed",
+                actor_user_id=audio_file.uploaded_by,
+                target_type="audio_file",
+                target_id=audio_id,
+                metadata={"reason": "missing_file_url"},
+            )
+        )
         return None
     bucket_name = "audio-files"
     object_name = audio_file.file_url.split("/")[-1].split("?")[0]
     audio_bytes = download_file_from_minio(bucket_name, object_name)
     if not audio_bytes:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="transcript.transcribe_failed",
+                actor_user_id=audio_file.uploaded_by,
+                target_type="audio_file",
+                target_id=audio_id,
+                metadata={"reason": "download_failed"},
+            )
+        )
         return None
     file_extension = "." + object_name.split(".")[-1] if "." in object_name else ".webm"
     with tempfile.NamedTemporaryFile(suffix=file_extension, delete=False) as temp_file:
@@ -46,6 +77,16 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
         transcript_data = TranscriptCreate(meeting_id=audio_file.meeting_id, content=transcript_text, audio_concat_file_id=audio_file.id)
         print(transcript_data)
         transcript = create_transcript(db, transcript_data, audio_file.uploaded_by)
+        if transcript:
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="transcript.transcribed",
+                    actor_user_id=audio_file.uploaded_by,
+                    target_type="transcript",
+                    target_id=transcript.id,
+                    metadata={"audio_id": str(audio_id), "meeting_id": str(transcript.meeting_id)},
+                )
+            )
         return transcript
     finally:
         os.unlink(temp_path)
@@ -54,20 +95,68 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
 def create_transcript(db: Session, transcript_data: TranscriptCreate, user_id: uuid.UUID) -> Transcript:
     meeting = get_meeting(db, transcript_data.meeting_id, user_id)
     if not meeting:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="transcript.create_failed",
+                actor_user_id=user_id,
+                target_type="meeting",
+                target_id=transcript_data.meeting_id,
+                metadata={"reason": "not_found"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
     if not check_meeting_access(db, meeting, user_id):
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="transcript.create_failed",
+                actor_user_id=user_id,
+                target_type="meeting",
+                target_id=transcript_data.meeting_id,
+                metadata={"reason": "permission_denied"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to meeting")
     existing = db.query(Transcript).filter(Transcript.meeting_id == transcript_data.meeting_id).first()
     if existing:
+        original = {
+            "content": existing.content,
+            "audio_concat_file_id": existing.audio_concat_file_id,
+        }
         existing.content = transcript_data.content
         existing.audio_concat_file_id = transcript_data.audio_concat_file_id
         db.commit()
         db.refresh(existing)
+        diff = build_diff(
+            original,
+            {
+                "content": existing.content,
+                "audio_concat_file_id": existing.audio_concat_file_id,
+            },
+        )
+        if diff:
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="transcript.updated",
+                    actor_user_id=user_id,
+                    target_type="transcript",
+                    target_id=existing.id,
+                    metadata={"diff": diff},
+                )
+            )
         return existing
     transcript = Transcript(**transcript_data.model_dump())
     db.add(transcript)
     db.commit()
     db.refresh(transcript)
+    EventManager.emit_domain_event(
+        BaseDomainEvent(
+            event_name="transcript.created",
+            actor_user_id=user_id,
+            target_type="transcript",
+            target_id=transcript.id,
+            metadata={"meeting_id": str(transcript.meeting_id)},
+        )
+    )
     return transcript
 
 
@@ -102,27 +191,84 @@ def get_transcripts(db: Session, user_id: uuid.UUID, content_search: Optional[st
 
 def update_transcript(db: Session, transcript_id: uuid.UUID, transcript_data: TranscriptUpdate, user_id: uuid.UUID) -> Transcript:
     if not check_transcript_access(db, transcript_id, user_id):
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="transcript.update_failed",
+                actor_user_id=user_id,
+                target_type="transcript",
+                target_id=transcript_id,
+                metadata={"reason": "permission_denied"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to transcript")
     transcript = db.query(Transcript).filter(Transcript.id == transcript_id).first()
     if not transcript:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="transcript.update_failed",
+                actor_user_id=user_id,
+                target_type="transcript",
+                target_id=transcript_id,
+                metadata={"reason": "not_found"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
     updates = transcript_data.model_dump(exclude_unset=True)
+    original = {k: getattr(transcript, k, None) for k in updates.keys() if hasattr(transcript, k)}
     for key, value in updates.items():
         if hasattr(transcript, key):
             setattr(transcript, key, value)
     db.commit()
     db.refresh(transcript)
+    diff = build_diff(original, {k: getattr(transcript, k, None) for k in original.keys()})
+    if diff:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="transcript.updated",
+                actor_user_id=user_id,
+                target_type="transcript",
+                target_id=transcript.id,
+                metadata={"diff": diff},
+            )
+        )
     return transcript
 
 
 def delete_transcript(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID) -> None:
     if not check_transcript_access(db, transcript_id, user_id):
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="transcript.delete_failed",
+                actor_user_id=user_id,
+                target_type="transcript",
+                target_id=transcript_id,
+                metadata={"reason": "permission_denied"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to transcript")
     transcript = db.query(Transcript).filter(Transcript.id == transcript_id).first()
     if not transcript:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="transcript.delete_failed",
+                actor_user_id=user_id,
+                target_type="transcript",
+                target_id=transcript_id,
+                metadata={"reason": "not_found"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
     db.delete(transcript)
     db.commit()
+    EventManager.emit_domain_event(
+        BaseDomainEvent(
+            event_name="transcript.deleted",
+            actor_user_id=user_id,
+            target_type="transcript",
+            target_id=transcript_id,
+            metadata={},
+        )
+    )
 
 
 def bulk_create_transcripts(db: Session, transcripts_data: List[TranscriptCreate], user_id: uuid.UUID) -> List[dict]:

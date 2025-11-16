@@ -6,6 +6,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
+from app.events.domain_events import BaseDomainEvent, build_diff
 from app.models.file import File
 from app.models.meeting import Meeting, ProjectMeeting
 from app.models.project import Project, UserProject
@@ -19,6 +20,7 @@ from app.schemas.project import (
     UserProjectCreate,
     UserProjectResponse,
 )
+from app.services.event_manager import EventManager
 from app.utils.minio import delete_file_from_minio
 
 
@@ -35,6 +37,17 @@ def create_project(db: Session, project_data: ProjectCreate, created_by: uuid.UU
     db.add(project)
     db.commit()
     db.refresh(project)
+
+    # Emit domain event (async audit)
+    EventManager.emit_domain_event(
+        BaseDomainEvent(
+            event_name="project.created",
+            actor_user_id=created_by,
+            target_type="project",
+            target_id=project.id,
+            metadata={"name": project.name},
+        )
+    )
 
     # Add creator as project owner
     add_user_to_project(db, project.id, created_by, "owner")
@@ -107,15 +120,28 @@ def get_projects(
     return projects, total
 
 
-def update_project(db: Session, project_id: uuid.UUID, updates: ProjectUpdate) -> Optional[Project]:
+def update_project(db: Session, project_id: uuid.UUID, updates: ProjectUpdate, actor_user_id: uuid.UUID | None = None) -> Optional[Project]:
     """
     Update a project
     """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
+        # Audit failure: not found
+        if actor_user_id:
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="project.update_failed",
+                    actor_user_id=actor_user_id,
+                    target_type="project",
+                    target_id=project_id,
+                    metadata={"reason": "not_found", "detail": "Project not found"},
+                )
+            )
         return None
 
     update_data = updates.model_dump(exclude_unset=True)
+    # Capture original values for diff
+    original: Dict[str, Any] = {k: getattr(project, k, None) for k in update_data.keys()}
     for key, value in update_data.items():
         setattr(project, key, value)
 
@@ -123,15 +149,41 @@ def update_project(db: Session, project_id: uuid.UUID, updates: ProjectUpdate) -
     db.commit()
     db.refresh(project)
 
+    # Emit domain event with diff
+    try:
+        if actor_user_id:
+            diff = build_diff(original, {k: getattr(project, k, None) for k in update_data.keys()})
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="project.updated",
+                    actor_user_id=actor_user_id,
+                    target_type="project",
+                    target_id=project.id,
+                    metadata={"diff": diff},
+                )
+            )
+    except Exception as _:
+        pass
+
     return project
 
 
-def delete_project(db: Session, project_id: uuid.UUID) -> bool:
+def delete_project(db: Session, project_id: uuid.UUID, actor_user_id: uuid.UUID | None = None) -> bool:
     """
     Delete a project with proper cascade handling including meetings and files
     """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
+        if actor_user_id:
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="project.delete_failed",
+                    actor_user_id=actor_user_id,
+                    target_type="project",
+                    target_id=project_id,
+                    metadata={"reason": "not_found", "detail": "Project not found"},
+                )
+            )
         return False
 
     try:
@@ -191,6 +243,17 @@ def delete_project(db: Session, project_id: uuid.UUID) -> bool:
         # 7. Finally delete the project
         db.delete(project)
         db.commit()
+        # Emit domain event
+        if actor_user_id:
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="project.deleted",
+                    actor_user_id=actor_user_id,
+                    target_type="project",
+                    target_id=project_id,
+                    metadata={},
+                )
+            )
         return True
 
     except Exception as e:
@@ -218,6 +281,17 @@ def add_user_to_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, 
     # Check if user exists
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
+        # Emit failure event
+        if added_by_user_id:
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="project.member_add_failed",
+                    actor_user_id=added_by_user_id,
+                    target_type="project",
+                    target_id=project_id,
+                    metadata={"reason": "not_found", "detail": "User not found", "user_id": str(user_id)},
+                )
+            )
         return None
 
     user_project = UserProject(
@@ -231,7 +305,6 @@ def add_user_to_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, 
 
     if added_by_user_id:
         from app.events.project_events import UserAddedToProjectEvent
-        from app.services.event_manager import EventManager
 
         event = UserAddedToProjectEvent(
             project_id=project_id,
@@ -240,6 +313,17 @@ def add_user_to_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, 
             db=db,
         )
         EventManager.emit(event)
+
+        # Emit domain event for audit
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="project.member_added",
+                actor_user_id=added_by_user_id,
+                target_type="project",
+                target_id=project_id,
+                metadata={"added_user_id": str(user_id), "role": role},
+            )
+        )
 
     return user_project
 
@@ -251,6 +335,17 @@ def remove_user_from_project(db: Session, project_id: uuid.UUID, user_id: uuid.U
     user_project = db.query(UserProject).filter(and_(UserProject.project_id == project_id, UserProject.user_id == user_id)).first()
 
     if not user_project:
+        # Emit failure event if member not found in project
+        if removed_by_user_id:
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="project.member_remove_failed",
+                    actor_user_id=removed_by_user_id,
+                    target_type="project",
+                    target_id=project_id,
+                    metadata={"reason": "not_found", "detail": "User not in project", "user_id": str(user_id)},
+                )
+            )
         return False
 
     db.delete(user_project)
@@ -258,7 +353,6 @@ def remove_user_from_project(db: Session, project_id: uuid.UUID, user_id: uuid.U
 
     if removed_by_user_id:
         from app.events.project_events import UserRemovedFromProjectEvent
-        from app.services.event_manager import EventManager
 
         event = UserRemovedFromProjectEvent(
             project_id=project_id,
@@ -269,21 +363,60 @@ def remove_user_from_project(db: Session, project_id: uuid.UUID, user_id: uuid.U
         )
         EventManager.emit(event)
 
+        # Emit domain event for audit
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="project.member_removed",
+                actor_user_id=removed_by_user_id,
+                target_type="project",
+                target_id=project_id,
+                metadata={"removed_user_id": str(user_id), "is_self_removal": is_self_removal},
+            )
+        )
+
     return True
 
 
-def update_user_role_in_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, new_role: str) -> Optional[UserProject]:
+def update_user_role_in_project(
+    db: Session,
+    project_id: uuid.UUID,
+    user_id: uuid.UUID,
+    new_role: str,
+    actor_user_id: uuid.UUID | None = None,
+) -> Optional[UserProject]:
     """
     Update a user's role in a project
     """
     user_project = db.query(UserProject).filter(and_(UserProject.project_id == project_id, UserProject.user_id == user_id)).first()
 
     if not user_project:
+        if actor_user_id:
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="project.member_role_update_failed",
+                    actor_user_id=actor_user_id,
+                    target_type="project",
+                    target_id=project_id,
+                    metadata={"reason": "not_found", "detail": "User not in project", "user_id": str(user_id)},
+                )
+            )
         return None
 
     user_project.role = new_role
     db.commit()
     db.refresh(user_project)
+
+    # Emit domain event
+    if actor_user_id:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="project.member_role_updated",
+                actor_user_id=actor_user_id,
+                target_type="project",
+                target_id=project_id,
+                metadata={"user_id": str(user_id), "new_role": new_role},
+            )
+        )
 
     return user_project
 

@@ -6,11 +6,13 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
+from app.events.domain_events import BaseDomainEvent, build_diff
 from app.models.file import File
 from app.models.meeting import Meeting, ProjectMeeting
 from app.models.project import Project, UserProject
 from app.models.task import Task, TaskProject
 from app.models.user import User
+from app.services.event_manager import EventManager
 from app.utils.minio import delete_file_from_minio
 
 
@@ -81,16 +83,39 @@ def check_email_exists(db: Session, email: str) -> bool:
         )
 
 
-def update_user(db: Session, user_id: uuid.UUID, **updates) -> User:
+def update_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None = None, **updates) -> User:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
+        # Audit failure
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="user.update_failed",
+                actor_user_id=actor_user_id or user_id,
+                target_type="user",
+                target_id=user_id,
+                metadata={"reason": "not_found"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    original = {k: getattr(user, k, None) for k in updates.keys() if hasattr(user, k)}
     for key, value in updates.items():
         if hasattr(user, key):
             setattr(user, key, value)
     try:
         db.commit()
         db.refresh(user)
+        diff = build_diff(original, {k: getattr(user, k, None) for k in original.keys()})
+        if diff:
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="user.updated",
+                    actor_user_id=actor_user_id or user_id,
+                    target_type="user",
+                    target_id=user.id,
+                    metadata={"diff": diff},
+                )
+            )
         db.refresh(
             user,
             [
@@ -113,30 +138,66 @@ def update_user(db: Session, user_id: uuid.UUID, **updates) -> User:
         return user
     except Exception as e:
         db.rollback()
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="user.update_failed",
+                actor_user_id=actor_user_id or user_id,
+                target_type="user",
+                target_id=user_id,
+                metadata={"reason": "exception", "detail": str(e)},
+            )
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"User update failed: {str(e)}",
         )
 
 
-def create_user(db: Session, **user_data) -> User:
+def create_user(db: Session, actor_user_id: uuid.UUID | None = None, **user_data) -> User:
     user = User(**user_data)
     try:
         db.add(user)
         db.commit()
         db.refresh(user)
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="user.created",
+                actor_user_id=actor_user_id or user.id,
+                target_type="user",
+                target_id=user.id,
+                metadata={"email": user.email},
+            )
+        )
         return user
     except Exception as e:
         db.rollback()
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="user.create_failed",
+                actor_user_id=actor_user_id or uuid.uuid4(),
+                target_type="user",
+                target_id=None,
+                metadata={"reason": "exception", "detail": str(e)},
+            )
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"User creation failed: {str(e)}",
         )
 
 
-def delete_user(db: Session, user_id: uuid.UUID) -> bool:
+def delete_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None = None) -> bool:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="user.delete_failed",
+                actor_user_id=actor_user_id or user_id,
+                target_type="user",
+                target_id=user_id,
+                metadata={"reason": "not_found"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     try:
         db.query(UserProject).filter(UserProject.user_id == user_id).delete()
@@ -194,10 +255,28 @@ def delete_user(db: Session, user_id: uuid.UUID) -> bool:
         # 8. Finally delete the user
         db.delete(user)
         db.commit()
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="user.deleted",
+                actor_user_id=actor_user_id or user_id,
+                target_type="user",
+                target_id=user_id,
+                metadata={},
+            )
+        )
         return True
 
     except Exception as e:
         db.rollback()
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="user.delete_failed",
+                actor_user_id=actor_user_id or user_id,
+                target_type="user",
+                target_id=user_id,
+                metadata={"reason": "exception", "detail": str(e)},
+            )
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"User deletion failed: {e}",
