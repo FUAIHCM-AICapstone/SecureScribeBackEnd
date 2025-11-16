@@ -87,27 +87,12 @@ def get_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, raise_40
     return meeting
 
 
-def get_meetings(
-    db: Session,
-    user_id: uuid.UUID,
-    filters: Optional[MeetingFilter] = None,
-    page: int = 1,
-    limit: int = 20,
-) -> Tuple[List[Meeting], int]:
-    """Get meetings with filtering and pagination"""
+def _personal_meetings_subquery(db: Session, user_id: uuid.UUID):
+    return db.query(Meeting.id).filter(Meeting.is_personal == True, Meeting.created_by == user_id).subquery()
 
-    query = (
-        db.query(Meeting)
-        .options(
-            joinedload(Meeting.projects).joinedload(ProjectMeeting.project),
-            joinedload(Meeting.created_by_user),
-        )
-        .filter(Meeting.is_deleted == False)
-    )
 
-    personal_meetings = db.query(Meeting.id).filter(Meeting.is_personal == True, Meeting.created_by == user_id).subquery()
-
-    accessible_projects = (
+def _accessible_projects_subquery(db: Session, user_id: uuid.UUID):
+    return (
         db.query(ProjectMeeting.meeting_id)
         .join(
             UserProject,
@@ -119,9 +104,79 @@ def get_meetings(
         .subquery()
     )
 
-    meetings_no_projects = db.query(Meeting.id).filter(Meeting.is_personal == False).outerjoin(ProjectMeeting).group_by(Meeting.id).having(func.count(ProjectMeeting.project_id) == 0).subquery()
 
-    query = query.filter(
+def _meetings_no_projects_subquery(db: Session):
+    return (
+        db.query(Meeting.id)
+        .filter(Meeting.is_personal == False)
+        .outerjoin(ProjectMeeting)
+        .group_by(Meeting.id)
+        .having(func.count(ProjectMeeting.project_id) == 0)
+        .subquery()
+    )
+
+
+def _apply_filters(db: Session, query, filters: Optional[MeetingFilter], user_id: uuid.UUID):
+    if not filters:
+        print("\033[93m⏭️ No additional filters to apply\033[0m")
+        return query
+
+    if filters.title:
+        query = query.filter(Meeting.title.ilike(f"%{filters.title}%"))
+    if filters.description:
+        query = query.filter(Meeting.description.ilike(f"%{filters.description}%"))
+    if filters.status:
+        query = query.filter(Meeting.status == filters.status)
+    if filters.is_personal is not None:
+        query = query.filter(Meeting.is_personal == filters.is_personal)
+    if filters.created_by:
+        query = query.filter(Meeting.created_by == filters.created_by)
+    if filters.start_time_gte:
+        query = query.filter(Meeting.start_time >= filters.start_time_gte)
+    if filters.start_time_lte:
+        query = query.filter(Meeting.start_time <= filters.start_time_lte)
+
+    if filters.project_id:
+        user_is_member = (
+            db.query(UserProject)
+            .filter(UserProject.user_id == user_id, UserProject.project_id == filters.project_id)
+            .first()
+            is not None
+        )
+        if not user_is_member:
+            return query.filter(False)
+        return query.join(ProjectMeeting).filter(ProjectMeeting.project_id == filters.project_id)
+
+    if filters.tag_ids:
+        from app.models.meeting import MeetingTag
+
+        query = query.join(MeetingTag).filter(MeetingTag.tag_id.in_(filters.tag_ids))
+    return query
+
+
+def get_meetings(
+    db: Session,
+    user_id: uuid.UUID,
+    filters: Optional[MeetingFilter] = None,
+    page: int = 1,
+    limit: int = 20,
+) -> Tuple[List[Meeting], int]:
+    """Get meetings with filtering and pagination"""
+
+    base_query = (
+        db.query(Meeting)
+        .options(
+            joinedload(Meeting.projects).joinedload(ProjectMeeting.project),
+            joinedload(Meeting.created_by_user),
+        )
+        .filter(Meeting.is_deleted == False)
+    )
+
+    personal_meetings = _personal_meetings_subquery(db, user_id)
+    accessible_projects = _accessible_projects_subquery(db, user_id)
+    meetings_no_projects = _meetings_no_projects_subquery(db)
+
+    query = base_query.filter(
         or_(
             Meeting.id.in_(personal_meetings),
             Meeting.id.in_(accessible_projects),
@@ -129,37 +184,7 @@ def get_meetings(
         )
     )
 
-    # Apply filters
-    if filters:
-        if filters.title:
-            query = query.filter(Meeting.title.ilike(f"%{filters.title}%"))
-        if filters.description:
-            query = query.filter(Meeting.description.ilike(f"%{filters.description}%"))
-        if filters.status:
-            query = query.filter(Meeting.status == filters.status)
-        if filters.is_personal is not None:
-            query = query.filter(Meeting.is_personal == filters.is_personal)
-        if filters.created_by:
-            query = query.filter(Meeting.created_by == filters.created_by)
-        if filters.start_time_gte:
-            query = query.filter(Meeting.start_time >= filters.start_time_gte)
-        if filters.start_time_lte:
-            query = query.filter(Meeting.start_time <= filters.start_time_lte)
-
-        if filters.project_id:
-            user_is_member = db.query(UserProject).filter(UserProject.user_id == user_id, UserProject.project_id == filters.project_id).first() is not None
-
-            if not user_is_member:
-                query = query.filter(False)
-            else:
-                query = query.join(ProjectMeeting).filter(ProjectMeeting.project_id == filters.project_id)
-
-        if filters.tag_ids:
-            from app.models.meeting import MeetingTag
-
-            query = query.join(MeetingTag).filter(MeetingTag.tag_id.in_(filters.tag_ids))
-    else:
-        print("\033[93m⏭️ No additional filters to apply\033[0m")
+    query = _apply_filters(db, query, filters, user_id)
 
     print("\033[96m🔢 Executing count query...\033[0m")
     total = query.count()

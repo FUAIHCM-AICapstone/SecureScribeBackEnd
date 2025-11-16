@@ -1,13 +1,16 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.events.domain_events import BaseDomainEvent
 from app.models.meeting import MeetingNote
+from app.models.task import Task
+from app.schemas.task import TaskCreate
 from app.services.event_manager import EventManager
 from app.services.meeting import get_meeting
+from app.services.task import create_task
 from app.services.transcript import get_transcript_by_meeting
 from app.utils.meeting_agent import MeetingAnalyzer
 
@@ -96,10 +99,18 @@ async def create_meeting_note(
     )
     print(f"\033[92m[create_meeting_note] END - note saved: {note.id}\033[0m")
 
+    # Process and persist task items
+    task_items_data = ai_result.get("task_items", [])
+    persisted_tasks = []
+    if task_items_data:
+        print(f"\033[92m[create_meeting_note] Processing {len(task_items_data)} task items for persistence...\033[0m")
+        persisted_tasks = process_and_persist_task_items(db, meeting_id, user_id, task_items_data)
+        print(f"\033[92m[create_meeting_note] {len(persisted_tasks)} tasks persisted to database\033[0m")
+
     return {
         "note": note,
         "content": ai_result["content"],
-        "task_items": ai_result.get("task_items", []),
+        "task_items": persisted_tasks,
         "decision_items": ai_result.get("decision_items", []),
         "question_items": ai_result.get("question_items", []),
         "token_usage": ai_result.get("token_usage", {}),
@@ -150,6 +161,66 @@ async def generate_meeting_note_content(
         "question_items": [],
         "token_usage": {},
     }
+
+
+def process_and_persist_task_items(
+    db: Session,
+    meeting_id: UUID,
+    user_id: UUID,
+    task_items: List[Dict[str, Any]],
+) -> List[Task]:
+    """
+    Process AI-extracted task items and persist them to database.
+
+    Converts AI task schema (with string due_dates) to database Task records
+    with proper relationships and datetime conversions.
+
+    Args:
+        db: Database session
+        meeting_id: Meeting to link tasks to
+        user_id: User creating the tasks (becomes creator_id)
+        task_items: List of task dictionaries from AI extraction
+
+    Returns:
+        List of created Task records
+    """
+    created_tasks: List[Task] = []
+
+    if not task_items:
+        print("[process_and_persist_task_items] No task items to persist")
+        return created_tasks
+
+    print(f"[process_and_persist_task_items] START - processing {len(task_items)} tasks for meeting {meeting_id}")
+
+    for idx, task_item in enumerate(task_items):
+        try:
+            # Extract title from description (first 60 chars or first sentence)
+            description = task_item.get("description", "").strip()
+            title = description[:60] if description else f"Task {idx + 1}"
+
+            # Create TaskCreate schema with parsed values
+            task_create = TaskCreate(
+                title=title,
+                description=description,
+                status=task_item.get("status", "todo"),
+                priority=task_item.get("priority", "Trung bình"),
+                due_date=task_item.get("due_date"),  # Will be parsed in Task.__init__
+                meeting_id=meeting_id,
+                project_ids=task_item.get("project_ids", []),
+            )
+
+            # Create task via service layer (handles permissions and events)
+            created_task = create_task(db, task_create, user_id)
+            created_tasks.append(created_task)
+            print(f"[process_and_persist_task_items] Created task {idx + 1}/{len(task_items)}: {title[:40]}...")
+
+        except Exception as e:
+            print(f"[process_and_persist_task_items] ERROR creating task {idx + 1}: {str(e)}")
+            # Continue processing remaining tasks even if one fails
+            continue
+
+    print(f"[process_and_persist_task_items] END - {len(created_tasks)}/{len(task_items)} tasks persisted")
+    return created_tasks
 
 
 def update_meeting_note(

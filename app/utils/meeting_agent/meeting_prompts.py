@@ -392,20 +392,28 @@ Mỗi nhiệm vụ phải có các trường sau:
 - creator_id (null): Không cần trích xuất, để null
 - assignee_id (null): Không cần trích xuất tên người, để null (backend sẽ populate)
 - status (bắt buộc): "todo", "in_progress", "completed" (mặc định "todo" nếu không rõ)
-- priority (tùy chọn): "Cao", "Trung bình", hoặc "Thấp" (mặc định "Trung bình" nếu không rõ)
-- due_date (tùy chọn): Ngày hoặc khoảng thời gian hoàn thành nếu được đề cập
+- priority (bắt buộc): "Cao", "Trung bình", hoặc "Thấp" (mặc định "Trung bình" nếu không rõ)
+- due_date (tùy chọn): STRICT FORMAT - chỉ sử dụng một trong những định dạng sau hoặc null nếu không rõ:
+  * "X days" (ví dụ: "3 days", "1 day", "7 days")
+  * "X weeks" (ví dụ: "1 week", "2 weeks")
+  * "end of week" (cuối tuần)
+  * "end of month" (cuối tháng)
+  * "next Monday", "next Friday", v.v... (nhưng CHỈ dùng trong trường hợp đặc biệt)
+  * null (nếu không có deadline được đề cập)
 - project_ids (empty list): Không cần trích xuất, để danh sách trống
 - notes (tùy chọn): Ghi chú bổ sung hoặc ngữ cảnh về nhiệm vụ
 
 HƯỚNG DẪN TRÍCH XUẤT CHI TIẾT:
 - Trích xuất các nhiệm vụ rõ ràng: "X sẽ làm...", "X cần...", "giao cho X..."
 - Trích xuất các nhiệm vụ ngầm định: "Chúng ta cần...", "Sẽ tốt hơn nếu..."
-- Ví dụ: "Chuẩn bị báo cáo tài chính cho tuần tới" (description), deadline "tuần tới", priority "Trung bình"
+- Ví dụ: "Chuẩn bị báo cáo tài chính cho tuần tới" (description), due_date "1 week", priority "Trung bình"
 - Nếu tên người được đề cập, đưa vào description hoặc notes, KHÔNG đưa vào assignee_id
+- CHỈ ĐỊ THEO STRICT FORMAT cho due_date - KHÔNG dùng các dạng khác
 
 QUAN TRỌNG:
 - CHỈ trích xuất NHIỆM VỤ, không trích xuất quyết định hoặc câu hỏi
-- ĐẢM BẢO response JSON khớp với schema: { "tasks": [ { "description": "...", "creator_id": null, "assignee_id": null, "status": "todo", "priority": "...", "due_date": "...", "project_ids": [], "notes": "..." } ] }
+- ĐẢM BẢO response JSON khớp với schema: { "tasks": [ { "description": "...", "creator_id": null, "assignee_id": null, "status": "todo", "priority": "Trung bình", "due_date": "3 days", "project_ids": [], "notes": "..." } ] }
+- KHÔNG sử dụng định dạng due_date ngoài danh sách cho phép (CRITICAL)
 - Nếu không có nhiệm vụ, trả về { "tasks": [] }
 """
 

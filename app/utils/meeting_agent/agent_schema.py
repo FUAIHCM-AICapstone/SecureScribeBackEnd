@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any, Dict, List, Optional, TypedDict
 
 from pydantic import BaseModel, Field
+
+from app.utils.meeting_agent.date_parser import parse_due_date_to_datetime
 
 
 class MeetingState(TypedDict, total=False):
@@ -22,9 +25,16 @@ class Task(BaseModel):
     assignee_id: Optional[uuid.UUID] = Field(default=None, description="Assignee user ID")
     status: str = Field(default="todo", description="Task status")
     priority: str = Field(default="Trung bình", description="Priority level")
-    due_date: Optional[str] = Field(default=None, description="Due date")
+    due_date: Optional[datetime] = Field(default=None, description="Due date (parsed from string)")
     project_ids: List[uuid.UUID] = Field(default_factory=list, description="Related project IDs")
     notes: str = Field(default="", description="Additional notes")
+
+    def __init__(self, **data):
+        """Initialize Task and parse due_date if it's a string."""
+        # If due_date is provided as a string, parse it to datetime
+        if "due_date" in data and isinstance(data["due_date"], str):
+            data["due_date"] = parse_due_date_to_datetime(data["due_date"])
+        super().__init__(**data)
 
 
 class MeetingTypeResult(BaseModel):

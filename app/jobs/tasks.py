@@ -46,15 +46,16 @@ sync_redis_client = get_redis_client()
 
 
 # --- Domain Event Processing (Audit) ---
-@celery_app.task(bind=True, soft_time_limit=300, time_limit=600)    
+@celery_app.task(bind=True, soft_time_limit=300, time_limit=600)
 def process_domain_event(self, event_dict: dict) -> None:
     """Minimal Celery task to persist a domain event as an audit log.
 
     This task is intentionally light-weight and must not perform business logic.
     """
     import logging
+
     logger = logging.getLogger(__name__)
-    
+
     try:
         service = AuditLogService()
         service.write_log(event_dict)

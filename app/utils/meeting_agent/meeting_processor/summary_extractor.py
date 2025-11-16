@@ -61,7 +61,7 @@ class SummaryExtractor(Agent):
             run_output = await self.arun([user_message], stream=False)
             content = run_output.content
             print(f"[SummaryExtractor] LLM response received, content type: {type(content).__name__}")
-            
+
             if isinstance(content, TaskItems):
                 result = content
                 print(f"[SummaryExtractor] Response already TaskItems, tasks count: {len(result.tasks)}")
@@ -80,11 +80,11 @@ class SummaryExtractor(Agent):
 
         state["task_items"] = [task.model_dump() for task in result.tasks]
         print(f"[SummaryExtractor] Task extraction complete - stored {len(state['task_items'])} tasks in state")
-        
+
         if result.tasks:
             print("[SummaryExtractor] Extracted tasks:")
             for i, task in enumerate(result.tasks):
-                print(f"  [{i+1}] {task.description[:80]}...")
+                print(f"  [{i + 1}] {task.description[:80]}...")
 
         messages = state.setdefault("messages", [])
         messages.append(

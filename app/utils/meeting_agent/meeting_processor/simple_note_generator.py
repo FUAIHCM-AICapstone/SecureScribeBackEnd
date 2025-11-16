@@ -60,10 +60,10 @@ class SimpleMeetingNoteGenerator(Agent):
 
         meeting_type = state.get("meeting_type", "general")
         custom_prompt = state.get("custom_prompt")
-        
+
         if custom_prompt:
             print(f"[SimpleMeetingNoteGenerator] Using custom_prompt: {custom_prompt[:100]}...")
-        
+
         context: Dict[str, Any] = {
             "meeting_type": meeting_type,
             "meeting_note_prompt": get_prompt_for_meeting_type(meeting_type),
@@ -83,7 +83,7 @@ After applying the custom instruction above, also follow the context below:
 """
             else:
                 prompt_instruction = "Create a concise Vietnamese meeting note in Markdown format using the provided context.\n"
-            
+
             prompt = dedent(
                 f"""
                 {prompt_instruction}

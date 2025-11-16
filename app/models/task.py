@@ -30,6 +30,7 @@ class Task(SQLModel, table=True):
     creator_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
     assignee_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     status: str = Field(default="todo", sa_column=Column(String))
+    priority: str = Field(default="Trung bình", sa_column=Column(String))
     meeting_id: Optional[uuid.UUID] = Field(default=None, foreign_key="meetings.id")
     due_date: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     reminder_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
