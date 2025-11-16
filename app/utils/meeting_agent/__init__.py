@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import Optional
 
 from agno.models.google import Gemini
@@ -9,8 +8,6 @@ from app.utils.llm import _get_model
 
 from .meeting_processor import MeetingProcessor
 
-LOGGER = logging.getLogger("MeetingAnalyzer")
-
 __all__ = ["MeetingAnalyzer"]
 
 
@@ -18,7 +15,6 @@ class MeetingAnalyzer:
     """Facade that coordinates meeting analysis for SecureScribe."""
 
     def __init__(self) -> None:
-        self._logger = LOGGER
         self._default_processor = self._create_processor()
 
     async def complete(
@@ -30,28 +26,19 @@ class MeetingAnalyzer:
         transcript_value = transcript or ""
         processor = self._default_processor
         if meeting_type:
-            self._logger.info("Using requested meeting type: %s", meeting_type)
+            print(f"[MeetingAnalyzer] Using requested meeting type: {meeting_type}")
             processor = self._create_processor(meeting_type=meeting_type)
         else:
-            self._logger.info("Meeting type not specified; detector will infer it")
+            print("[MeetingAnalyzer] Meeting type not specified; detector will infer it")
 
         try:
             return await processor.process_meeting(transcript_value, custom_prompt=custom_prompt)
-        except Exception as exc:  # pragma: no cover - defensive
-            self._logger.error("Meeting analysis failed: %s", exc, exc_info=True)
+        except Exception as exc:
+            print(f"[MeetingAnalyzer] Meeting analysis failed: {exc}")
             fallback_type = meeting_type or processor.default_meeting_type
             return {
                 "meeting_note": "",
                 "task_items": [],
-                "decision_items": [],
-                "question_items": [],
-                "token_usage": {
-                    "input_tokens": 0,
-                    "output_tokens": 0,
-                    "context_tokens": 0,
-                    "total_tokens": 0,
-                    "price_usd": 0.0,
-                },
                 "is_informative": False,
                 "meeting_type": fallback_type,
             }

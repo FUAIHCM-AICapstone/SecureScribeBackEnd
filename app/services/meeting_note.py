@@ -122,6 +122,7 @@ async def generate_meeting_note_content(
             custom_prompt=custom_prompt,
         )
         print(f"\033[96m[generate_meeting_note_content] AI analysis complete, result keys: {list(result.keys())}\033[0m")
+        print(f"\033[96m[generate_meeting_note_content] content: {result}\033[0m")
 
         is_informative = bool(result.get("is_informative", True))
         meeting_note = (result.get("meeting_note") or "").strip()

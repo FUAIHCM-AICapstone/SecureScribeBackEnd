@@ -368,56 +368,50 @@ HÃY TRÍCH XUẤT MỘT CÁCH CHI TIẾT VÀ ĐẦY ĐỦ NHẤT CÓ THỂ:
 - ĐẢM BẢO mọi trường thông tin đều có giá trị, không để null hoặc trống.
 """
 
-# Decision extraction prompt template
-DECISION_EXTRACTION_PROMPT_TEMPLATE = """Bạn là một trợ lý thông minh chuyên trích xuất thông tin quan trọng từ cuộc họp. Nhiệm vụ của bạn là phân tích cẩn thận đoạn văn bản từ cuộc họp và CHỈ trích xuất các QUYẾT ĐỊNH được đưa ra.
+
+# Task extraction prompt template
+TASK_EXTRACTION_PROMPT_TEMPLATE = """Bạn là một trợ lý thông minh chuyên trích xuất thông tin quan trọng từ cuộc họp. Nhiệm vụ của bạn là phân tích cẩn thận đoạn văn bản từ cuộc họp và trích xuất các NHIỆM VỤ được giao cho từng người tham gia.
 
 QUAN TRỌNG - HƯỚNG DẪN PHÂN TÍCH:
 1. Hãy lọc bỏ những câu không có ý nghĩa, những cụm từ rời rạc, hoặc lỗi nhận dạng giọng nói.
 2. Bỏ qua những câu nói ngẫu nhiên, những từ ngữ không rõ nghĩa hoặc những tiếng cảm thán (như "ừ", "ờ", "ok", "đúng rồi").
 3. Chỉ tập trung vào nội dung có thể hiểu được và mang ý nghĩa đóng góp cho cuộc họp.
 4. Cố gắng suy luận và hiểu ngữ cảnh cuộc họp ngay cả khi transcript không hoàn hảo.
-5. Hãy CỐ GẮNG nhận diện tất cả quyết định được đưa ra trong cuộc họp ngay cả khi không được nêu rõ ràng.
+5. Hãy CỐ GẮNG nhận diện tất cả nhiệm vụ được giao trong cuộc họp ngay cả khi không được nêu rõ ràng.
 
 NGUYÊN TẮC CHUNG:
 1. Hãy linh hoạt trong việc trích xuất thông tin - không nhất thiết phải có định dạng rõ ràng.
-2. Suy luận những quyết định ngầm từ cuộc trò chuyện.
-3. Xác định các quyết định từ những câu như "chúng ta sẽ làm...", "hãy đảm bảo rằng...", "chúng ta đã quyết định...".
+2. Suy luận những nhiệm vụ ngầm từ cuộc trò chuyện.
+3. Xác định các nhiệm vụ từ những câu như "X sẽ làm...", "X cần...", "X phụ trách...", "giao cho X...".
 4. CỐ GẮNG điền vào các trường thông tin khi có thể suy luận được, nhưng đừng tạo ra thông tin không tồn tại.
-5. Nếu không có quyết định nào, hãy để danh sách trống.
+5. Nếu không có nhiệm vụ nào, hãy để danh sách trống.
 
-HƯỚNG DẪN TRÍCH XUẤT QUYẾT ĐỊNH CHI TIẾT:
+SCHEMA TRÍCH XUẤT:
+Mỗi nhiệm vụ phải có các trường sau:
+- description (bắt buộc): Mô tả chi tiết của nhiệm vụ cần thực hiện (dạng văn bản)
+- creator_id (null): Không cần trích xuất, để null
+- assignee_id (null): Không cần trích xuất tên người, để null (backend sẽ populate)
+- status (bắt buộc): "todo", "in_progress", "completed" (mặc định "todo" nếu không rõ)
+- priority (tùy chọn): "Cao", "Trung bình", hoặc "Thấp" (mặc định "Trung bình" nếu không rõ)
+- due_date (tùy chọn): Ngày hoặc khoảng thời gian hoàn thành nếu được đề cập
+- project_ids (empty list): Không cần trích xuất, để danh sách trống
+- notes (tùy chọn): Ghi chú bổ sung hoặc ngữ cảnh về nhiệm vụ
 
-DECISIONS (Quyết định):
-- Trích xuất các quyết định rõ ràng: "Chúng tôi đã quyết định...", "Ban lãnh đạo đã phê duyệt..."
-- Trích xuất các quyết định ngầm định: "Sẽ tốt hơn nếu chúng ta làm theo X", "Mọi người đồng ý với phương án..."
-- Trích xuất các thỏa thuận: "Mọi người đồng ý rằng...", "Chúng ta sẽ áp dụng chiến lược..."
-- Ví dụ về quyết định: "Chúng ta sẽ áp dụng quy trình mới từ tháng tới", "Dự án sẽ được gia hạn thêm 3 tháng".
-- Cho mỗi quyết định, xác định:
-  * topic: Chủ đề liên quan (dạng danh sách chuỗi - ít nhất 1 giá trị).
-  * decision: Nội dung chi tiết của quyết định (câu đầy đủ).
-  * impact: Tác động của quyết định (nếu được đề cập).
-  * timeline: Thời gian thực hiện (nếu được đề cập).
-  * stakeholders: Những người liên quan (dạng danh sách chuỗi).
-  * next_steps: Các bước tiếp theo (dạng danh sách chuỗi).
-  * tasks: Danh sách các nhiệm vụ cụ thể cần thực hiện liên quan đến quyết định này (dạng danh sách các đối tượng Task).
-  * context: Bối cảnh đưa ra quyết định, tại sao quyết định này lại được đưa ra.
-  * alternatives_considered: Các phương án thay thế đã được cân nhắc trước khi đưa ra quyết định (nếu được đề cập).
+HƯỚNG DẪN TRÍCH XUẤT CHI TIẾT:
+- Trích xuất các nhiệm vụ rõ ràng: "X sẽ làm...", "X cần...", "giao cho X..."
+- Trích xuất các nhiệm vụ ngầm định: "Chúng ta cần...", "Sẽ tốt hơn nếu..."
+- Ví dụ: "Chuẩn bị báo cáo tài chính cho tuần tới" (description), deadline "tuần tới", priority "Trung bình"
+- Nếu tên người được đề cập, đưa vào description hoặc notes, KHÔNG đưa vào assignee_id
 
-QUAN TRỌNG: ĐỪNG trích xuất các nhiệm vụ riêng lẻ hoặc câu hỏi, CHỈ TẬP TRUNG vào các QUYẾT ĐỊNH.
-
-HÃY TRÍCH XUẤT MỘT CÁCH CHI TIẾT VÀ ĐẦY ĐỦ NHẤT CÓ THỂ:
-- Tìm kiếm tất cả các quyết định được đưa ra trong cuộc họp.
-- Hãy đảm bảo mỗi quyết định đều có thông tin đầy đủ và chi tiết.
-- Xác định các nhiệm vụ cụ thể cần thực hiện để triển khai quyết định.
-- ĐẢM BẢO mọi trường thông tin đều có giá trị, không để null hoặc trống.
+QUAN TRỌNG:
+- CHỈ trích xuất NHIỆM VỤ, không trích xuất quyết định hoặc câu hỏi
+- ĐẢM BẢO response JSON khớp với schema: { "tasks": [ { "description": "...", "creator_id": null, "assignee_id": null, "status": "todo", "priority": "...", "due_date": "...", "project_ids": [], "notes": "..." } ] }
+- Nếu không có nhiệm vụ, trả về { "tasks": [] }
 """
 
-# Question extraction prompt template
-QUESTION_EXTRACTION_PROMPT_TEMPLATE = """Bạn là một trợ lý thông minh chuyên trích xuất thông tin quan trọng từ cuộc họp. Nhiệm vụ của bạn là phân tích cẩn thận đoạn văn bản từ cuộc họp và CHỈ trích xuất các CÂU HỎI được nêu ra.
 
-QUAN TRỌNG - HƯỚNG DẪN PHÂN TÍCH:
-1. Hãy lọc bỏ những câu không có ý nghĩa, những cụm từ rời rạc, hoặc lỗi nhận dạng giọng nói.
-2. Bỏ qua những câu nói ngẫu nhiên, những từ ngữ không rõ nghĩa hoặc những tiếng cảm thán (như "ừ", "ờ", "ok", "đúng rồi").
+MEETING_TYPE_DETECTOR_PROMPT = """Bạn là một chuyên gia phân tích cuộc họp kinh doanh. Dựa trên nội dung của cuộc họp, hãy xác định loại cuộc họp này.
+
 3. Chỉ tập trung vào nội dung có thể hiểu được và mang ý nghĩa đóng góp cho cuộc họp.
 4. Cố gắng suy luận và hiểu ngữ cảnh cuộc họp ngay cả khi transcript không hoàn hảo.
 5. Hãy CỐ GẮNG nhận diện tất cả câu hỏi được nêu ra trong cuộc họp ngay cả khi không có dấu "?".
@@ -464,16 +458,6 @@ def get_prompt_for_meeting_type(meeting_type: str) -> str:
 def get_task_extraction_prompt() -> str:
     """Get the prompt specifically for task extraction."""
     return TASK_EXTRACTION_PROMPT_TEMPLATE
-
-
-def get_decision_extraction_prompt() -> str:
-    """Get the prompt specifically for decision extraction."""
-    return DECISION_EXTRACTION_PROMPT_TEMPLATE
-
-
-def get_question_extraction_prompt() -> str:
-    """Get the prompt specifically for question extraction."""
-    return QUESTION_EXTRACTION_PROMPT_TEMPLATE
 
 
 def get_meeting_type_detector_prompt():

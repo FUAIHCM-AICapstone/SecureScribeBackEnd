@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 from textwrap import dedent
 from typing import Any, Dict
 
@@ -12,15 +11,11 @@ from pydantic import ValidationError
 from app.utils.meeting_agent.agent_schema import MeetingNoteResult, MeetingState
 from app.utils.meeting_agent.meeting_prompts import get_prompt_for_meeting_type
 
-from . import TokenTracker, update_tracker_from_metrics
-
-LOGGER = logging.getLogger("SimpleMeetingNoteGenerator")
-
 
 class SimpleMeetingNoteGenerator(Agent):
     """Generate a concise Vietnamese meeting note in Markdown."""
 
-    def __init__(self, model: Any, token_tracker: TokenTracker) -> None:
+    def __init__(self, model: Any) -> None:
         instructions = [
             "Create a Markdown meeting note in Vietnamese based on the provided context.",
             "Return JSON matching the MeetingNoteResult schema.",
@@ -33,13 +28,11 @@ class SimpleMeetingNoteGenerator(Agent):
             structured_outputs=True,
             use_json_mode=True,
         )
-        self._logger = LOGGER
-        self._token_tracker = token_tracker
 
     async def generate(self, state: MeetingState) -> MeetingState:
         if not state.get("is_informative"):
             note = "Không đủ thông tin để tạo ghi chú chi tiết."
-            self._logger.warning("Transcript marked as not informative, returning default note")
+            print("[SimpleMeetingNoteGenerator] Transcript marked as not informative, returning default note")
             state["meeting_note"] = note
             messages = state.setdefault("messages", [])
             messages.append(
@@ -67,20 +60,33 @@ class SimpleMeetingNoteGenerator(Agent):
 
         meeting_type = state.get("meeting_type", "general")
         custom_prompt = state.get("custom_prompt")
+        
+        if custom_prompt:
+            print(f"[SimpleMeetingNoteGenerator] Using custom_prompt: {custom_prompt[:100]}...")
+        
         context: Dict[str, Any] = {
             "meeting_type": meeting_type,
             "meeting_note_prompt": get_prompt_for_meeting_type(meeting_type),
             "transcript": transcript,
             "custom_prompt": custom_prompt,
             "tasks": state.get("task_items", []),
-            "decisions": state.get("decision_items", []),
-            "questions": state.get("question_items", []),
         }
 
         try:
+            prompt_instruction = ""
+            if custom_prompt:
+                prompt_instruction = f"""
+CUSTOM INSTRUCTION (Apply this first if provided):
+{custom_prompt}
+
+After applying the custom instruction above, also follow the context below:
+"""
+            else:
+                prompt_instruction = "Create a concise Vietnamese meeting note in Markdown format using the provided context.\n"
+            
             prompt = dedent(
                 f"""
-                Create a concise Vietnamese meeting note in Markdown format using the provided context.
+                {prompt_instruction}
 
                 Context (JSON):
                 {json.dumps(context, ensure_ascii=False, indent=2)}
@@ -90,7 +96,6 @@ class SimpleMeetingNoteGenerator(Agent):
             ).strip()
             user_message = Message(role="user", content=prompt)
             run_output = await self.arun([user_message], stream=False)
-            update_tracker_from_metrics(self._token_tracker, run_output.metrics)
             content = run_output.content
             if isinstance(content, MeetingNoteResult):
                 result = content
@@ -98,10 +103,10 @@ class SimpleMeetingNoteGenerator(Agent):
                 result = MeetingNoteResult.model_validate(content)
             note = (result.meeting_note or "").replace("```", "").strip()
         except ValidationError as exc:
-            self._logger.error("Failed to parse meeting note response: %s", exc)
-            note = "Không thể tạo ghi chú cuộc họp do lỗi định dạng."  # fallback message
-        except Exception as exc:  # pragma: no cover - defensive
-            self._logger.error("Error generating meeting note: %s", exc)
+            print(f"[SimpleMeetingNoteGenerator] Failed to parse meeting note response: {exc}")
+            note = "Không thể tạo ghi chú cuộc họp do lỗi định dạng."
+        except Exception as exc:
+            print(f"[SimpleMeetingNoteGenerator] Error generating meeting note: {exc}")
             note = "Không thể tạo ghi chú cuộc họp do lỗi không xác định."
 
         state["meeting_note"] = note
