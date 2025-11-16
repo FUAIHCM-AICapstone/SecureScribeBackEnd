@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, selectinload
 
+from app.events.domain_events import BaseDomainEvent, build_diff
 from app.models.meeting import Meeting, ProjectMeeting
 from app.models.project import Project, UserProject
 from app.models.task import Task, TaskProject
@@ -11,6 +12,7 @@ from app.models.user import User  # noqa: F401 (may be used in relationship load
 from app.schemas.project import ProjectResponse
 from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
 from app.schemas.user import UserResponse
+from app.services.event_manager import EventManager
 from app.services.notification import create_notifications_bulk, send_fcm_notification
 
 
@@ -54,6 +56,16 @@ def create_task(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> Ta
         meeting_projects = db.query(ProjectMeeting.project_id).filter(ProjectMeeting.meeting_id == task_data.meeting_id).subquery()
         user_access = db.query(Project).join(Project.users).filter(Project.id.in_(meeting_projects), Project.users.any(user_id=creator_id)).first()
         if not user_access:
+            # Audit failure (permission denied)
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="task.create_failed",
+                    actor_user_id=creator_id,
+                    target_type="task",
+                    target_id=None,
+                    metadata={"reason": "permission_denied", "detail": "No access to meeting", "meeting_id": str(task_data.meeting_id)},
+                )
+            )
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to meeting")
 
     if task_data.project_ids:
@@ -61,6 +73,16 @@ def create_task(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> Ta
         for project_id in task_data.project_ids:
             user_project = db.query(Project).join(Project.users).filter(Project.id == project_id, Project.users.any(user_id=creator_id)).first()
             if not user_project:
+                # Audit failure (permission denied)
+                EventManager.emit_domain_event(
+                    BaseDomainEvent(
+                        event_name="task.create_failed",
+                        actor_user_id=creator_id,
+                        target_type="task",
+                        target_id=None,
+                        metadata={"reason": "permission_denied", "detail": f"No access to project {project_id}", "project_id": str(project_id)},
+                    )
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"No access to project {project_id}",
@@ -70,6 +92,25 @@ def create_task(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> Ta
     db.add(task)
     db.commit()
     db.refresh(task)
+
+    # Emit domain event
+    try:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="task.created",
+                actor_user_id=creator_id,
+                target_type="task",
+                target_id=task.id,
+                metadata={
+                    "title": task.title,
+                    "assignee_id": str(task.assignee_id) if task.assignee_id else None,
+                    "project_ids": [str(pid) for pid in task_data.project_ids],
+                    "meeting_id": str(task_data.meeting_id) if task_data.meeting_id else None,
+                },
+            )
+        )
+    except Exception:
+        pass
 
     # Create project links
     for project_id in task_data.project_ids:
@@ -181,22 +222,57 @@ def get_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Ta
 
 def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id: uuid.UUID) -> Task:
     if not check_task_access(db, task_id, user_id):
+        # Audit failure
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="task.update_failed",
+                actor_user_id=user_id,
+                target_type="task",
+                target_id=task_id,
+                metadata={"reason": "permission_denied", "detail": "No access to task"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to task")
 
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="task.update_failed",
+                actor_user_id=user_id,
+                target_type="task",
+                target_id=task_id,
+                metadata={"reason": "not_found", "detail": "Task not found"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
 
     old_assignee_id = task.assignee_id
     old_status = task.status
 
     updates = task_data.model_dump(exclude_unset=True)
+    original = {k: getattr(task, k, None) for k in updates.keys()}
     for key, value in updates.items():
         if hasattr(task, key):
             setattr(task, key, value)
 
     db.commit()
     db.refresh(task)
+
+    # Emit domain event with diff
+    try:
+        diff = build_diff(original, {k: getattr(task, k, None) for k in updates.keys()})
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="task.updated",
+                actor_user_id=user_id,
+                target_type="task",
+                target_id=task.id,
+                metadata={"diff": diff},
+            )
+        )
+    except Exception:
+        pass
 
     # Send notifications for changes
     try:
@@ -273,10 +349,28 @@ def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id:
 
 def delete_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     if not check_task_access(db, task_id, user_id):
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="task.delete_failed",
+                actor_user_id=user_id,
+                target_type="task",
+                target_id=task_id,
+                metadata={"reason": "permission_denied", "detail": "No access to task"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to task")
 
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="task.delete_failed",
+                actor_user_id=user_id,
+                target_type="task",
+                target_id=task_id,
+                metadata={"reason": "not_found", "detail": "Task not found"},
+            )
+        )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
 
     # Delete project links first
@@ -285,6 +379,19 @@ def delete_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     # Delete task
     db.delete(task)
     db.commit()
+    # Emit domain event success
+    try:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="task.deleted",
+                actor_user_id=user_id,
+                target_type="task",
+                target_id=task_id,
+                metadata={},
+            )
+        )
+    except Exception:
+        pass
     return True
 
 

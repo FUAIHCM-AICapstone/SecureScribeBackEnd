@@ -1,6 +1,7 @@
-from typing import List
+from typing import Any, Dict, List
 
 from app.events.base import BaseEvent, BaseListener
+from app.events.domain_events import BaseDomainEvent
 
 
 class EventManager:
@@ -19,6 +20,22 @@ class EventManager:
                 listener.handle(event)
             except Exception as e:
                 print(f"[EventManager] Listener error: {listener.__class__.__name__} - {e}")
+
+    @classmethod
+    def emit_domain_event(cls, event: BaseDomainEvent | Dict[str, Any]) -> None:
+        """Enqueue a domain event to Celery for audit logging.
+
+        This must remain lightweight and MUST NOT perform business logic.
+        """
+        try:
+            from app.jobs.tasks import process_domain_event
+
+            payload = event.to_dict() if isinstance(event, BaseDomainEvent) else event
+            process_domain_event.delay(payload)
+            print(f"[EventManager] Enqueued domain event: {payload.get('event_name')}")
+        except Exception as e:
+            # Do not raise to callers; audit must not affect business flow
+            print(f"[EventManager] Failed to enqueue domain event: {e}")
 
     @classmethod
     def clear(cls) -> None:

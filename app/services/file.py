@@ -4,10 +4,12 @@ from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.events.domain_events import BaseDomainEvent, build_diff
 from app.models.file import File
 from app.models.meeting import Meeting
 from app.models.project import Project, UserProject
 from app.schemas.file import FileCreate, FileFilter, FileUpdate
+from app.services.event_manager import EventManager
 from app.utils.meeting import check_meeting_access as check_meeting_access_utils
 from app.utils.minio import (
     delete_file_from_minio,
@@ -29,13 +31,56 @@ def create_file(db: Session, file_data: FileCreate, uploaded_by: uuid.UUID, file
             file.storage_url = storage_url
             db.commit()
             db.refresh(file)
+            # Emit domain event for upload success
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="file.uploaded",
+                    actor_user_id=uploaded_by,
+                    target_type="file",
+                    target_id=file.id,
+                    metadata={
+                        "filename": file.filename,
+                        "mime_type": file.mime_type,
+                        "project_id": str(file.project_id) if file.project_id else None,
+                        "meeting_id": str(file.meeting_id) if file.meeting_id else None,
+                        "storage_url_present": True,
+                    },
+                )
+            )
             return file
         else:
+            # Emit event even if URL missing (still uploaded to storage)
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="file.uploaded",
+                    actor_user_id=uploaded_by,
+                    target_type="file",
+                    target_id=file.id,
+                    metadata={
+                        "filename": file.filename,
+                        "mime_type": file.mime_type,
+                        "project_id": str(file.project_id) if file.project_id else None,
+                        "meeting_id": str(file.meeting_id) if file.meeting_id else None,
+                        "storage_url_present": False,
+                    },
+                )
+            )
             return file
     else:
         # Rollback database changes if MinIO upload fails
-        db.delete(file)
-        db.commit()
+        try:
+            db.delete(file)
+            db.commit()
+        finally:
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="file.upload_failed",
+                    actor_user_id=uploaded_by,
+                    target_type="file",
+                    target_id=None,
+                    metadata={"reason": "minio_upload_failed", "filename": file_data.filename, "mime_type": file_data.mime_type},
+                )
+            )
         return None
 
 
@@ -87,25 +132,64 @@ def get_files(
     return files, total
 
 
-def update_file(db: Session, file_id: uuid.UUID, updates: FileUpdate) -> Optional[File]:
+def update_file(db: Session, file_id: uuid.UUID, updates: FileUpdate, actor_user_id: uuid.UUID | None = None) -> Optional[File]:
     file = db.query(File).filter(File.id == file_id).first()
     if not file:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="file.update_failed",
+                actor_user_id=actor_user_id or uuid.uuid4(),
+                target_type="file",
+                target_id=file_id,
+                metadata={"reason": "not_found"},
+            )
+        )
         return None
     update_data = updates.model_dump(exclude_unset=True)
+    original = {k: getattr(file, k, None) for k in update_data.keys()}
     for key, value in update_data.items():
         setattr(file, key, value)
     db.commit()
     db.refresh(file)
+    diff = build_diff(original, {k: getattr(file, k, None) for k in update_data.keys()})
+    if diff:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="file.updated",
+                actor_user_id=actor_user_id or file.uploaded_by,
+                target_type="file",
+                target_id=file.id,
+                metadata={"diff": diff},
+            )
+        )
     return file
 
 
-def delete_file(db: Session, file_id: uuid.UUID) -> bool:
+def delete_file(db: Session, file_id: uuid.UUID, actor_user_id: uuid.UUID | None = None) -> bool:
     file = db.query(File).filter(File.id == file_id).first()
     if not file:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="file.delete_failed",
+                actor_user_id=actor_user_id or uuid.uuid4(),
+                target_type="file",
+                target_id=file_id,
+                metadata={"reason": "not_found"},
+            )
+        )
         return False
     delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
     db.delete(file)
     db.commit()
+    EventManager.emit_domain_event(
+        BaseDomainEvent(
+            event_name="file.deleted",
+            actor_user_id=actor_user_id or file.uploaded_by,
+            target_type="file",
+            target_id=file_id,
+            metadata={},
+        )
+    )
     return True
 
 
@@ -115,14 +199,41 @@ def bulk_delete_files(db: Session, file_ids: List[uuid.UUID], user_id: Optional[
         file = db.query(File).filter(File.id == file_id).first()
         if not file:
             results.append({"success": False, "file_id": str(file_id), "error": "File not found"})
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="file.delete_failed",
+                    actor_user_id=user_id or uuid.uuid4(),
+                    target_type="file",
+                    target_id=file_id,
+                    metadata={"reason": "not_found"},
+                )
+            )
             continue
         # Check user access if user_id is provided
         if user_id and not check_file_access(db, file, user_id):
             results.append({"success": False, "file_id": str(file_id), "error": "Access denied"})
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="file.delete_failed",
+                    actor_user_id=user_id,
+                    target_type="file",
+                    target_id=file_id,
+                    metadata={"reason": "permission_denied"},
+                )
+            )
             continue
         delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
         db.delete(file)
         results.append({"success": True, "file_id": str(file_id)})
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="file.deleted",
+                actor_user_id=user_id or file.uploaded_by,
+                target_type="file",
+                target_id=file_id,
+                metadata={},
+            )
+        )
     db.commit()
     return results
 
@@ -141,10 +252,28 @@ async def bulk_move_files(
         file = db.query(File).filter(File.id == file_id).first()
         if not file:
             results.append({"success": False, "file_id": str(file_id), "error": "File not found"})
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="file.move_failed",
+                    actor_user_id=user_id or uuid.uuid4(),
+                    target_type="file",
+                    target_id=file_id,
+                    metadata={"reason": "not_found"},
+                )
+            )
             continue
         # Check user access if user_id is provided
         if user_id and not check_file_access(db, file, user_id):
             results.append({"success": False, "file_id": str(file_id), "error": "Access denied"})
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="file.move_failed",
+                    actor_user_id=user_id,
+                    target_type="file",
+                    target_id=file_id,
+                    metadata={"reason": "permission_denied"},
+                )
+            )
             continue
         # Check if user has access to target project/meeting
         if target_project_id:
@@ -158,6 +287,15 @@ async def bulk_move_files(
                         "error": "Access denied to target project",
                     }
                 )
+                EventManager.emit_domain_event(
+                    BaseDomainEvent(
+                        event_name="file.move_failed",
+                        actor_user_id=user_id,
+                        target_type="file",
+                        target_id=file_id,
+                        metadata={"reason": "permission_denied_target_project"},
+                    )
+                )
                 continue
         if target_meeting_id:
             target_meeting = db.query(Meeting).filter(Meeting.id == target_meeting_id, Meeting.is_deleted == False).first()
@@ -169,7 +307,18 @@ async def bulk_move_files(
                         "error": "Access denied to target meeting",
                     }
                 )
+                EventManager.emit_domain_event(
+                    BaseDomainEvent(
+                        event_name="file.move_failed",
+                        actor_user_id=user_id,
+                        target_type="file",
+                        target_id=file_id,
+                        metadata={"reason": "permission_denied_target_meeting"},
+                    )
+                )
                 continue
+        old_project_id = file.project_id
+        old_meeting_id = file.meeting_id
         if target_project_id is not None:
             file.project_id = target_project_id
         if target_meeting_id is not None:
@@ -185,9 +334,32 @@ async def bulk_move_files(
 
         if not vector_update_success:
             results.append({"success": False, "file_id": str(file_id), "error": "Failed to update vector metadata"})
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="file.move_failed",
+                    actor_user_id=user_id,
+                    target_type="file",
+                    target_id=file_id,
+                    metadata={"reason": "vector_metadata_update_failed"},
+                )
+            )
             continue
 
         results.append({"success": True, "file_id": str(file_id)})
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="file.moved",
+                actor_user_id=user_id,
+                target_type="file",
+                target_id=file_id,
+                metadata={
+                    "old_project_id": str(old_project_id) if old_project_id else None,
+                    "new_project_id": str(target_project_id) if target_project_id else None,
+                    "old_meeting_id": str(old_meeting_id) if old_meeting_id else None,
+                    "new_meeting_id": str(target_meeting_id) if target_meeting_id else None,
+                },
+            )
+        )
     db.commit()
     return results
 

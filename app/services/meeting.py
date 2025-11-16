@@ -6,10 +6,12 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
+from app.events.domain_events import BaseDomainEvent, build_diff
 from app.models.meeting import AudioFile, Meeting, ProjectMeeting
 from app.models.project import UserProject
 from app.schemas.meeting import MeetingCreate, MeetingFilter, MeetingResponse, MeetingUpdate, MeetingWithProjects, ProjectResponse
 from app.schemas.user import UserResponse
+from app.services.event_manager import EventManager
 from app.utils.meeting import (
     can_delete_meeting,
     check_meeting_access,
@@ -35,6 +37,17 @@ def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UU
     db.add(meeting)
     db.commit()
     db.refresh(meeting)
+
+    # Emit domain event for creation
+    EventManager.emit_domain_event(
+        BaseDomainEvent(
+            event_name="meeting.created",
+            actor_user_id=created_by,
+            target_type="meeting",
+            target_id=meeting.id,
+            metadata={"title": meeting.title, "is_personal": meeting.is_personal},
+        )
+    )
 
     # Link to projects if not personal
     if not meeting_data.is_personal and meeting_data.project_ids:
@@ -159,20 +172,51 @@ def update_meeting(db: Session, meeting_id: uuid.UUID, updates: MeetingUpdate, u
     """Update meeting"""
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting.update_failed",
+                actor_user_id=user_id,
+                target_type="meeting",
+                target_id=meeting_id,
+                metadata={"reason": "not_found"},
+            )
+        )
         return None
 
     # Validate URL if provided
     if updates.url and not validate_meeting_url(updates.url):
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting.update_failed",
+                actor_user_id=user_id,
+                target_type="meeting",
+                target_id=meeting_id,
+                metadata={"reason": "invalid_url", "url": updates.url},
+            )
+        )
         return None
 
     # Update fields
     update_data = updates.model_dump(exclude_unset=True)
+    original = {k: getattr(meeting, k, None) for k in update_data.keys()}
     for field, value in update_data.items():
         setattr(meeting, field, value)
 
     meeting.updated_at = None  # Will be set by database trigger
     db.commit()
     db.refresh(meeting)
+
+    diff = build_diff(original, {k: getattr(meeting, k, None) for k in update_data.keys()})
+    if diff:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting.updated",
+                actor_user_id=user_id,
+                target_type="meeting",
+                target_id=meeting.id,
+                metadata={"diff": diff},
+            )
+        )
 
     # Send notifications
     notify_meeting_members(db, meeting, "updated", user_id)
@@ -185,10 +229,28 @@ def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bo
     # Validate user has access to the meeting
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting.delete_failed",
+                actor_user_id=user_id,
+                target_type="meeting",
+                target_id=meeting_id,
+                metadata={"reason": "not_found"},
+            )
+        )
         return False
 
     # Check if user has permission to delete this meeting
     if not can_delete_meeting(db, meeting, user_id):
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting.delete_failed",
+                actor_user_id=user_id,
+                target_type="meeting",
+                target_id=meeting_id,
+                metadata={"reason": "permission_denied"},
+            )
+        )
         return False
 
     # Get all files associated with this meeting
@@ -209,6 +271,16 @@ def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bo
     # Soft delete the meeting
     meeting.is_deleted = True
     db.commit()
+
+    EventManager.emit_domain_event(
+        BaseDomainEvent(
+            event_name="meeting.deleted",
+            actor_user_id=user_id,
+            target_type="meeting",
+            target_id=meeting_id,
+            metadata={},
+        )
+    )
 
     return True
 
