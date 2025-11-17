@@ -49,7 +49,6 @@ CHÚ Ý: KHÔNG TẠO THÔNG TIN MỚI, CHỈ TÓM TẮT CÁC NỘI DUNG ĐÃ Đ
 """
 
 
-
 # Task extraction prompt template
 TASK_EXTRACTION_PROMPT_TEMPLATE = """Bạn là một trợ lý thông minh chuyên trích xuất thông tin quan trọng từ cuộc họp. Nhiệm vụ của bạn là phân tích cẩn thận đoạn văn bản từ cuộc họp và CHỈ trích xuất các NHIỆM VỤ được giao cho từng người tham gia.
 
@@ -139,8 +138,6 @@ QUAN TRỌNG:
 """
 
 
-
-
 def get_prompt_for_meeting_type(meeting_type: str = "general") -> str:
     """Get the appropriate prompt for a given meeting type. Always returns GENERAL_MEETING_PROMPT."""
     return GENERAL_MEETING_PROMPT
@@ -149,6 +146,3 @@ def get_prompt_for_meeting_type(meeting_type: str = "general") -> str:
 def get_task_extraction_prompt() -> str:
     """Get the prompt specifically for task extraction."""
     return TASK_EXTRACTION_PROMPT_TEMPLATE
-
-
-

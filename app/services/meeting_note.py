@@ -11,8 +11,6 @@ from app.schemas.task import TaskCreate
 from app.services.event_manager import EventManager
 from app.services.meeting import get_meeting
 from app.services.task import create_task
-from app.services.transcript import get_transcript_by_meeting
-from app.utils.meeting_agent import MeetingAnalyzer
 
 
 def get_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> Optional[MeetingNote]:
@@ -29,10 +27,10 @@ def get_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> Optional[M
 # ) -> Optional[Dict[str, Any]]:
 #     """
 #     DEPRECATED: Use process_meeting_analysis_task from app.jobs.tasks instead.
-    
+
 #     This function is kept for backward compatibility but will be removed in future versions.
 #     For new code, queue the Celery task instead:
-    
+
 #     from app.jobs.tasks import process_meeting_analysis_task
 #     task = process_meeting_analysis_task.delay(transcript, meeting_id, user_id, custom_prompt)
 #     """
@@ -304,17 +302,17 @@ def save_meeting_analysis_results(
 ) -> Dict[str, Any]:
     """
     Save meeting analysis results to database.
-    
+
     This function is called by the Celery task after analysis is complete.
     It handles both new note creation and regeneration.
-    
+
     Args:
         db: Database session
         meeting_id: Meeting UUID
         user_id: User UUID who triggered the analysis
         meeting_note_content: Generated meeting note content
         task_items: List of extracted task items
-        
+
     Returns:
         Dictionary with saved note and tasks
     """
@@ -324,7 +322,7 @@ def save_meeting_analysis_results(
     if is_regeneration:
         # Delete old tasks before regeneration
         delete_meeting_tasks(db, meeting_id)
-        
+
         # Update existing note
         existing_note.content = meeting_note_content
         existing_note.last_editor_id = user_id
@@ -332,7 +330,7 @@ def save_meeting_analysis_results(
         note = existing_note
         db.commit()
         db.refresh(note)
-        
+
         EventManager.emit_domain_event(
             BaseDomainEvent(
                 event_name="meeting_note.regenerated",
@@ -353,7 +351,7 @@ def save_meeting_analysis_results(
         db.add(note)
         db.commit()
         db.refresh(note)
-        
+
         EventManager.emit_domain_event(
             BaseDomainEvent(
                 event_name="meeting_note.created",

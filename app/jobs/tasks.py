@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from agno.models.message import Message
-from celery import shared_task
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -551,7 +550,7 @@ def process_chat_message(
                             selection_payload = json.loads(optimizer_response)
                         except json.JSONDecodeError as parse_error:
                             print(f"[process_chat_message] Optimizer JSON parse failed: {parse_error}")
-                    elif isinstance(optimizer_response, (dict, list)):
+                    elif isinstance(optimizer_response, dict | list):
                         selection_payload = optimizer_response
 
                 if isinstance(selection_payload, dict) and "selected" in selection_payload:
@@ -794,7 +793,7 @@ def process_meeting_analysis_task(
 ) -> Dict[str, Any]:
     """
     Background task to analyze meeting transcript with concurrent extraction.
-    
+
     Progress stages:
     - 0%: Started
     - 10%: Validating transcript
@@ -802,13 +801,13 @@ def process_meeting_analysis_task(
     - 60%: Generating meeting note (concurrent with task extraction)
     - 90%: Saving to database
     - 100%: Completed
-    
+
     Args:
         transcript: Meeting transcript text
         meeting_id: Meeting UUID
         user_id: User UUID who triggered the analysis
         custom_prompt: Optional custom prompt for note generation
-        
+
     Returns:
         Dictionary with status, meeting_id, analysis results
     """
@@ -819,36 +818,22 @@ def process_meeting_analysis_task(
     try:
         # Step 1: Started (0%)
         update_task_progress(task_id, user_id, 0, "started", task_type="meeting_analysis")
-        publish_task_progress_sync(
-            user_id, 0, "started", "120s", "meeting_analysis", task_id
-        )
+        publish_task_progress_sync(user_id, 0, "started", "120s", "meeting_analysis", task_id)
         print(f"\033[93m📋 Task {task_id}: Analysis started for meeting {meeting_id}\033[0m")
 
         # Step 2: Validating transcript (10%)
-        update_task_progress(
-            task_id, user_id, 10, "validating", task_type="meeting_analysis"
-        )
-        publish_task_progress_sync(
-            user_id, 10, "validating", "110s", "meeting_analysis", task_id
-        )
+        update_task_progress(task_id, user_id, 10, "validating", task_type="meeting_analysis")
+        publish_task_progress_sync(user_id, 10, "validating", "110s", "meeting_analysis", task_id)
         print(f"\033[95m🔍 Validating transcript for meeting {meeting_id}\033[0m")
 
         if not transcript or len(transcript.strip()) < 100:
-            raise Exception(
-                f"Transcript too short or empty: {len(transcript.strip()) if transcript else 0} characters"
-            )
+            raise Exception(f"Transcript too short or empty: {len(transcript.strip()) if transcript else 0} characters")
 
-        print(
-            f"\033[92m✅ Transcript validated: {len(transcript)} characters\033[0m"
-        )
+        print(f"\033[92m✅ Transcript validated: {len(transcript)} characters\033[0m")
 
         # Step 3: Processing with concurrent extraction (30%)
-        update_task_progress(
-            task_id, user_id, 30, "processing", task_type="meeting_analysis"
-        )
-        publish_task_progress_sync(
-            user_id, 30, "processing", "90s", "meeting_analysis", task_id
-        )
+        update_task_progress(task_id, user_id, 30, "processing", task_type="meeting_analysis")
+        publish_task_progress_sync(user_id, 30, "processing", "90s", "meeting_analysis", task_id)
         print("\033[96m🔄 Starting concurrent extraction (tasks + note)\033[0m")
 
         # Import and run MeetingAnalyzer
@@ -857,21 +842,13 @@ def process_meeting_analysis_task(
         analyzer = MeetingAnalyzer()
 
         # Run async analysis in sync context
-        analysis_result = asyncio.run(
-            analyzer.complete(transcript=transcript, custom_prompt=custom_prompt)
-        )
+        analysis_result = asyncio.run(analyzer.complete(transcript=transcript, custom_prompt=custom_prompt))
 
-        print(
-            f"\033[92m✅ Analysis completed - tasks: {len(analysis_result.get('task_items', []))}, note_length: {len(analysis_result.get('meeting_note', ''))}\033[0m"
-        )
+        print(f"\033[92m✅ Analysis completed - tasks: {len(analysis_result.get('task_items', []))}, note_length: {len(analysis_result.get('meeting_note', ''))}\033[0m")
 
         # Step 4: Saving to database (90%)
-        update_task_progress(
-            task_id, user_id, 90, "saving", task_type="meeting_analysis"
-        )
-        publish_task_progress_sync(
-            user_id, 90, "saving", "10s", "meeting_analysis", task_id
-        )
+        update_task_progress(task_id, user_id, 90, "saving", task_type="meeting_analysis")
+        publish_task_progress_sync(user_id, 90, "saving", "10s", "meeting_analysis", task_id)
         print(f"\033[93m💾 Saving analysis results for meeting {meeting_id}\033[0m")
 
         # Create database session
@@ -880,7 +857,7 @@ def process_meeting_analysis_task(
         try:
             # Import the helper function
             from app.services.meeting_note import save_meeting_analysis_results
-            
+
             # Save results using the service layer
             saved_results = save_meeting_analysis_results(
                 db=db,
@@ -890,23 +867,15 @@ def process_meeting_analysis_task(
                 task_items=analysis_result.get("task_items", []),
             )
 
-            print(
-                f"\033[92m✅ Meeting {meeting_id} updated with analysis results\033[0m"
-            )
-            print(
-                f"\033[92m✅ Saved {len(saved_results.get('task_items', []))} tasks to database\033[0m"
-            )
+            print(f"\033[92m✅ Meeting {meeting_id} updated with analysis results\033[0m")
+            print(f"\033[92m✅ Saved {len(saved_results.get('task_items', []))} tasks to database\033[0m")
 
         finally:
             db.close()
 
         # Step 5: Completed (100%)
-        update_task_progress(
-            task_id, user_id, 100, "completed", task_type="meeting_analysis"
-        )
-        publish_task_progress_sync(
-            user_id, 100, "completed", "0s", "meeting_analysis", task_id
-        )
+        update_task_progress(task_id, user_id, 100, "completed", task_type="meeting_analysis")
+        publish_task_progress_sync(user_id, 100, "completed", "0s", "meeting_analysis", task_id)
 
         # Create notification for task completion
         notification_data = NotificationCreate(
@@ -935,9 +904,7 @@ def process_meeting_analysis_task(
         finally:
             db.close()
 
-        print(
-            f"\033[92m🎉 Meeting analysis completed successfully for {meeting_id}\033[0m"
-        )
+        print(f"\033[92m🎉 Meeting analysis completed successfully for {meeting_id}\033[0m")
 
         return {
             "status": "success",
@@ -952,9 +919,7 @@ def process_meeting_analysis_task(
 
         # Publish failure state
         update_task_progress(task_id, user_id, 0, "failed", task_type="meeting_analysis")
-        publish_task_progress_sync(
-            user_id, 0, "failed", "0s", "meeting_analysis", task_id
-        )
+        publish_task_progress_sync(user_id, 0, "failed", "0s", "meeting_analysis", task_id)
 
         # Create failure notification
         db = SessionLocal()

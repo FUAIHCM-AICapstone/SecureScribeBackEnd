@@ -34,9 +34,7 @@ class NoteGenerator(Agent):
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((ValidationError, Exception)),
-        before_sleep=lambda retry_state: print(
-            f"[NoteGenerator] Retrying note generation... attempt {retry_state.attempt_number}"
-        ),
+        before_sleep=lambda retry_state: print(f"[NoteGenerator] Retrying note generation... attempt {retry_state.attempt_number}"),
     )
     async def generate(
         self,

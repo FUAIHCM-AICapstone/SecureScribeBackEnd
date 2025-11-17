@@ -24,11 +24,11 @@ class MeetingAnalyzer:
     ) -> dict:
         """
         Analyze meeting transcript and extract tasks + generate note.
-        
+
         Args:
             transcript: Meeting transcript text
             custom_prompt: Optional custom prompt for note generation
-            
+
         Returns:
             Dictionary with meeting_note, task_items, is_informative, meeting_type
         """
@@ -37,9 +37,7 @@ class MeetingAnalyzer:
         print(f"[MeetingAnalyzer] Starting analysis - transcript_length: {len(transcript_value)}")
 
         try:
-            result = await self._processor.process_meeting(
-                transcript_value, custom_prompt=custom_prompt
-            )
+            result = await self._processor.process_meeting(transcript_value, custom_prompt=custom_prompt)
             print("[MeetingAnalyzer] Analysis completed successfully")
             return result
         except Exception as exc:
