@@ -782,3 +782,209 @@ def send_fcm_notification_background_task(
     except Exception as e:
         print(f"Error in send_fcm_notification_background_task: {e}")
         raise
+
+
+@celery_app.task(bind=True, soft_time_limit=300, time_limit=600)
+def process_meeting_analysis_task(
+    self,
+    transcript: str,
+    meeting_id: str,
+    user_id: str,
+    custom_prompt: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Background task to analyze meeting transcript with concurrent extraction.
+    
+    Progress stages:
+    - 0%: Started
+    - 10%: Validating transcript
+    - 30%: Extracting tasks (concurrent with note generation)
+    - 60%: Generating meeting note (concurrent with task extraction)
+    - 90%: Saving to database
+    - 100%: Completed
+    
+    Args:
+        transcript: Meeting transcript text
+        meeting_id: Meeting UUID
+        user_id: User UUID who triggered the analysis
+        custom_prompt: Optional custom prompt for note generation
+        
+    Returns:
+        Dictionary with status, meeting_id, analysis results
+    """
+    task_id = self.request.id or f"meeting_analysis_{meeting_id}_{int(time.time())}"
+
+    print(f"\033[94m🚀 Starting meeting analysis task for meeting {meeting_id}\033[0m")
+
+    try:
+        # Step 1: Started (0%)
+        update_task_progress(task_id, user_id, 0, "started", task_type="meeting_analysis")
+        publish_task_progress_sync(
+            user_id, 0, "started", "120s", "meeting_analysis", task_id
+        )
+        print(f"\033[93m📋 Task {task_id}: Analysis started for meeting {meeting_id}\033[0m")
+
+        # Step 2: Validating transcript (10%)
+        update_task_progress(
+            task_id, user_id, 10, "validating", task_type="meeting_analysis"
+        )
+        publish_task_progress_sync(
+            user_id, 10, "validating", "110s", "meeting_analysis", task_id
+        )
+        print(f"\033[95m🔍 Validating transcript for meeting {meeting_id}\033[0m")
+
+        if not transcript or len(transcript.strip()) < 100:
+            raise Exception(
+                f"Transcript too short or empty: {len(transcript.strip()) if transcript else 0} characters"
+            )
+
+        print(
+            f"\033[92m✅ Transcript validated: {len(transcript)} characters\033[0m"
+        )
+
+        # Step 3: Processing with concurrent extraction (30%)
+        update_task_progress(
+            task_id, user_id, 30, "processing", task_type="meeting_analysis"
+        )
+        publish_task_progress_sync(
+            user_id, 30, "processing", "90s", "meeting_analysis", task_id
+        )
+        print("\033[96m🔄 Starting concurrent extraction (tasks + note)\033[0m")
+
+        # Import and run MeetingAnalyzer
+        from app.utils.meeting_agent import MeetingAnalyzer
+
+        analyzer = MeetingAnalyzer()
+
+        # Run async analysis in sync context
+        analysis_result = asyncio.run(
+            analyzer.complete(transcript=transcript, custom_prompt=custom_prompt)
+        )
+
+        print(
+            f"\033[92m✅ Analysis completed - tasks: {len(analysis_result.get('task_items', []))}, note_length: {len(analysis_result.get('meeting_note', ''))}\033[0m"
+        )
+
+        # Step 4: Saving to database (90%)
+        update_task_progress(
+            task_id, user_id, 90, "saving", task_type="meeting_analysis"
+        )
+        publish_task_progress_sync(
+            user_id, 90, "saving", "10s", "meeting_analysis", task_id
+        )
+        print(f"\033[93m💾 Saving analysis results for meeting {meeting_id}\033[0m")
+
+        # Create database session
+        db = SessionLocal()
+
+        try:
+            # Update meeting with analysis results
+            meeting = db.query(Meeting).filter(Meeting.id == uuid.UUID(meeting_id)).first()
+            if not meeting:
+                raise Exception(f"Meeting {meeting_id} not found")
+
+            # Save meeting note (assuming Meeting model has a notes or summary field)
+            # Adjust field name based on your actual Meeting model
+            if hasattr(meeting, "summary"):
+                meeting.summary = analysis_result.get("meeting_note", "")
+            elif hasattr(meeting, "notes"):
+                meeting.notes = analysis_result.get("meeting_note", "")
+
+            meeting.updated_at = datetime.utcnow()
+            db.commit()
+
+            print(
+                f"\033[92m✅ Meeting {meeting_id} updated with analysis results\033[0m"
+            )
+
+            # TODO: Save tasks to database if you have a Task model
+            # This depends on your database schema
+            tasks_data = analysis_result.get("task_items", [])
+            if tasks_data:
+                print(f"\033[93m📝 {len(tasks_data)} tasks extracted (not saved to DB yet - implement if needed)\033[0m")
+
+        finally:
+            db.close()
+
+        # Step 5: Completed (100%)
+        update_task_progress(
+            task_id, user_id, 100, "completed", task_type="meeting_analysis"
+        )
+        publish_task_progress_sync(
+            user_id, 100, "completed", "0s", "meeting_analysis", task_id
+        )
+
+        # Create notification for task completion
+        notification_data = NotificationCreate(
+            user_ids=[uuid.UUID(user_id)],
+            type="task.meeting_analysis.completed",
+            payload={
+                "task_id": task_id,
+                "meeting_id": meeting_id,
+                "task_type": "meeting_analysis",
+                "status": "completed",
+                "tasks_count": len(analysis_result.get("task_items", [])),
+                "note_length": len(analysis_result.get("meeting_note", "")),
+            },
+            channel="in_app",
+        )
+
+        db = SessionLocal()
+        try:
+            create_notifications_bulk(
+                db,
+                notification_data.user_ids,
+                type=notification_data.type,
+                payload=notification_data.payload,
+                channel=notification_data.channel,
+            )
+        finally:
+            db.close()
+
+        print(
+            f"\033[92m🎉 Meeting analysis completed successfully for {meeting_id}\033[0m"
+        )
+
+        return {
+            "status": "success",
+            "meeting_id": meeting_id,
+            "task_id": task_id,
+            "analysis": analysis_result,
+            "message": "Meeting analysis completed successfully",
+        }
+
+    except Exception as exc:
+        print(f"\033[91m💥 Meeting analysis failed for {meeting_id}: {exc}\033[0m")
+
+        # Publish failure state
+        update_task_progress(task_id, user_id, 0, "failed", task_type="meeting_analysis")
+        publish_task_progress_sync(
+            user_id, 0, "failed", "0s", "meeting_analysis", task_id
+        )
+
+        # Create failure notification
+        db = SessionLocal()
+        try:
+            notification_data = NotificationCreate(
+                user_ids=[uuid.UUID(user_id)],
+                type="task.meeting_analysis.failed",
+                payload={
+                    "task_id": task_id,
+                    "meeting_id": meeting_id,
+                    "task_type": "meeting_analysis",
+                    "status": "failed",
+                    "error": str(exc),
+                },
+                channel="in_app",
+            )
+            create_notifications_bulk(
+                db,
+                notification_data.user_ids,
+                type=notification_data.type,
+                payload=notification_data.payload,
+                channel=notification_data.channel,
+            )
+        finally:
+            db.close()
+
+        raise

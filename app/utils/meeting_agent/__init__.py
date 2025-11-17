@@ -15,38 +15,48 @@ class MeetingAnalyzer:
     """Facade that coordinates meeting analysis for SecureScribe."""
 
     def __init__(self) -> None:
-        self._default_processor = self._create_processor()
+        self._processor = self._create_processor()
 
     async def complete(
         self,
         transcript: Optional[str],
-        meeting_type: Optional[str] = None,
         custom_prompt: Optional[str] = None,
     ) -> dict:
+        """
+        Analyze meeting transcript and extract tasks + generate note.
+        
+        Args:
+            transcript: Meeting transcript text
+            custom_prompt: Optional custom prompt for note generation
+            
+        Returns:
+            Dictionary with meeting_note, task_items, is_informative, meeting_type
+        """
         transcript_value = transcript or ""
-        processor = self._default_processor
-        if meeting_type:
-            print(f"[MeetingAnalyzer] Using requested meeting type: {meeting_type}")
-            processor = self._create_processor(meeting_type=meeting_type)
-        else:
-            print("[MeetingAnalyzer] Meeting type not specified; detector will infer it")
+
+        print(f"[MeetingAnalyzer] Starting analysis - transcript_length: {len(transcript_value)}")
 
         try:
-            return await processor.process_meeting(transcript_value, custom_prompt=custom_prompt)
+            result = await self._processor.process_meeting(
+                transcript_value, custom_prompt=custom_prompt
+            )
+            print("[MeetingAnalyzer] Analysis completed successfully")
+            return result
         except Exception as exc:
             print(f"[MeetingAnalyzer] Meeting analysis failed: {exc}")
-            fallback_type = meeting_type or processor.default_meeting_type
             return {
                 "meeting_note": "",
                 "task_items": [],
                 "is_informative": False,
-                "meeting_type": fallback_type,
+                "meeting_type": "general",
             }
 
-    def _create_processor(self, meeting_type: Optional[str] = None) -> MeetingProcessor:
+    def _create_processor(self) -> MeetingProcessor:
+        """Create a new MeetingProcessor instance."""
         model = self._instantiate_model()
-        return MeetingProcessor(model=model, meeting_type=meeting_type)
+        return MeetingProcessor(model=model)
 
     @staticmethod
     def _instantiate_model() -> Gemini:
+        """Instantiate the Gemini model for processing."""
         return _get_model()

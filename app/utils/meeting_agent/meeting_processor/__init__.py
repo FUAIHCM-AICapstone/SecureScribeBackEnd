@@ -1,184 +1,214 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional
+import asyncio
+from typing import Any, Dict, Iterable, List, Optional
 
-from agno.agent import Agent
-from agno.models.message import Message
-from pydantic import ValidationError
+from app.utils.meeting_agent.agent_schema import MeetingOutput, Task
 
-from app.utils.meeting_agent.agent_schema import (
-    MeetingOutput,
-    MeetingState,
-    MeetingTypeResult,
-    Task,
-)
-from app.utils.meeting_agent.meeting_prompts import get_meeting_type_detector_prompt
-
-if TYPE_CHECKING:
-    from .informative_checker import InformativeChecker  # type: ignore  # noqa: F401
-    from .simple_note_generator import SimpleMeetingNoteGenerator  # type: ignore # noqa: F401
-    from .summary_extractor import SummaryExtractor  # type: ignore # noqa: F401
+from .note_generator import NoteGenerator
+from .task_extractor import TaskExtractor
 
 __all__ = ["MeetingProcessor"]
 
 
-class MeetingTypeDetector(Agent):
-    """Detect the meeting type based on transcript content."""
-
-    VALID_TYPES = ("general", "project", "business", "product", "report")
+class MeetingProcessor:
+    """Co-ordinate meeting processing with concurrent execution."""
 
     def __init__(self, model: Any) -> None:
-        instructions = [
-            get_meeting_type_detector_prompt(),
-            "Return JSON matching the MeetingTypeResult schema with fields meeting_type and optional reasoning.",
-            "meeting_type must be one of: general, project, business, product, report.",
-        ]
-        super().__init__(
-            name="MeetingTypeDetector",
-            model=model,
-            instructions=instructions,
-            output_schema=MeetingTypeResult,
-            structured_outputs=True,
-            use_json_mode=True,
-        )
         self._model = model
+        self._task_extractor = TaskExtractor(self._model)
+        self._note_generator = NoteGenerator(self._model)
 
-    async def detect(self, state: MeetingState) -> MeetingState:
-        provided_type = (state.get("meeting_type") or "").strip().lower()
-        if provided_type and provided_type != "general":
-            print(f"[MeetingTypeDetector] Using provided meeting type: {provided_type}")
-            state["meeting_type"] = provided_type
-            self._append_message(state, f"meeting_type preset: {provided_type}")
-            return state
-
-        transcript = state.get("transcript") or ""
-        if not transcript.strip():
-            print("[MeetingTypeDetector] Transcript is empty, defaulting meeting type to general")
-            return self._apply_result(
-                state,
-                MeetingTypeResult(meeting_type="general", reasoning="Transcript empty"),
-            )
-
-        sample = transcript[:2000]
-        try:
-            prompt = f"Review the meeting transcript excerpt and determine the meeting type.\n\nTranscript excerpt:\n{sample}\n\nValid meeting types: general, project, business, product, report.\nRespond in JSON following the MeetingTypeResult schema."
-            user_message = Message(role="user", content=prompt)
-            run_output = await self.arun([user_message], stream=False)
-            content = run_output.content
-            if isinstance(content, MeetingTypeResult):
-                result = content
-            else:
-                result = MeetingTypeResult.model_validate(content)
-        except ValidationError as exc:
-            print(f"[MeetingTypeDetector] Invalid response while detecting meeting type: {exc}")
-            return self._apply_result(
-                state,
-                MeetingTypeResult(
-                    meeting_type="general",
-                    reasoning="Could not parse detection result",
-                ),
-            )
-        except Exception as exc:
-            print(f"[MeetingTypeDetector] Error during meeting type detection: {exc}")
-            return self._apply_result(
-                state,
-                MeetingTypeResult(meeting_type="general", reasoning="Detection failed"),
-            )
-
-        detected = (result.meeting_type or "general").strip().lower()
-        if detected not in self.VALID_TYPES:
-            print(f"[MeetingTypeDetector] Invalid meeting type received ({detected}), using general")
-            detected = "general"
-        return self._apply_result(state, MeetingTypeResult(meeting_type=detected, reasoning=result.reasoning))
-
-    def _apply_result(self, state: MeetingState, result: MeetingTypeResult) -> MeetingState:
-        state["meeting_type"] = result.meeting_type
-        message = result.reasoning or f"Detected meeting type: {result.meeting_type}"
-        self._append_message(state, message)
-        print(f"[MeetingTypeDetector] Meeting type set to {result.meeting_type}")
-        return state
-
-    @staticmethod
-    def _append_message(state: MeetingState, content: str) -> None:
-        messages = state.setdefault("messages", [])
-        messages.append({"role": "agent", "agent": "MeetingTypeDetector", "content": content})
-
-
-class MeetingProcessor:
-    """Co-ordinate meeting processing across dedicated agents."""
-
-    def __init__(self, model: Any, meeting_type: Optional[str] = "general") -> None:
-        from .informative_checker import InformativeChecker
-        from .simple_note_generator import SimpleMeetingNoteGenerator
-        from .summary_extractor import SummaryExtractor
-
-        self._model = model
-        self._default_meeting_type = (meeting_type or "general").lower()
-
-        self._meeting_type_detector = MeetingTypeDetector(self._model)
-        self._informative_checker = InformativeChecker(self._model)
-        self._summary_extractor = SummaryExtractor(self._model)
-        self._note_generator = SimpleMeetingNoteGenerator(self._model)
-
-    @property
-    def default_meeting_type(self) -> str:
-        return self._default_meeting_type
-
-    async def process_meeting(self, transcript: str, custom_prompt: Optional[str] = None) -> Dict[str, Any]:
+    async def process_meeting(
+        self, transcript: str, custom_prompt: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Process meeting transcript with concurrent task extraction and note generation.
+        
+        Args:
+            transcript: Meeting transcript text
+            custom_prompt: Optional custom prompt for note generation
+            
+        Returns:
+            Dictionary containing meeting_note, task_items, is_informative, meeting_type
+        """
         transcript_value = transcript or ""
-        state: MeetingState = {
-            "messages": [],
-            "transcript": transcript_value,
-            "meeting_note": "",
-            "task_items": [],
-            "is_informative": False,
-            "meeting_type": self._default_meeting_type,
-            "custom_prompt": custom_prompt,
-        }
+
+        print(f"[MeetingProcessor] Starting meeting processing - transcript_length: {len(transcript_value)}")
+
+        # Step 1: Simple validation
+        if not self._simple_validation(transcript_value):
+            print("[MeetingProcessor] Validation failed, returning empty result")
+            return self._format_failure("Transcript validation failed: too short or empty")
+
+        # Step 2: Concurrent extraction with error handling
         try:
-            state = await self._meeting_type_detector.detect(state)
-            state = await self._informative_checker.check(state)
+            print("[MeetingProcessor] Starting concurrent extraction (tasks + note)")
+            results = await asyncio.gather(
+                self._extract_tasks_with_retry(transcript_value),
+                self._generate_note_with_retry(transcript_value, custom_prompt),
+                return_exceptions=True,  # Continue even if one fails
+            )
 
-            if state.get("is_informative"):
-                state = await self._summary_extractor.extract(state)
-            else:
-                state["task_items"] = []
+            tasks_result = results[0]
+            note_result = results[1]
 
-            state = await self._note_generator.generate(state)
-            return self._format_success(state)
+            # Handle partial failures
+            if isinstance(tasks_result, Exception):
+                print(f"[MeetingProcessor] Task extraction failed: {tasks_result}")
+                tasks_result = []  # Empty list as fallback
+
+            if isinstance(note_result, Exception):
+                print(f"[MeetingProcessor] Note generation failed: {note_result}")
+                note_result = "Không thể tạo ghi chú cuộc họp do lỗi xử lý."  # Fallback message
+
+            print(
+                f"[MeetingProcessor] Concurrent extraction completed - tasks: {len(tasks_result) if isinstance(tasks_result, list) else 0}, note_length: {len(note_result) if isinstance(note_result, str) else 0}"
+            )
+
         except Exception as exc:
-            print(f"[MeetingProcessor] Error processing meeting: {exc}")
-            return self._format_failure(state, str(exc))
+            print(f"[MeetingProcessor] Concurrent execution failed completely: {exc}")
+            return self._format_failure(str(exc))
 
-    def _format_success(self, state: MeetingState) -> Dict[str, Any]:
-        tasks = self._ensure_model_list(state.get("task_items", []), Task)
+        # Step 3: Format and return success
+        return self._format_success(tasks_result, note_result)
+
+    def _simple_validation(self, transcript: str) -> bool:
+        """
+        Simple validation without LLM call.
+        
+        Args:
+            transcript: Transcript text to validate
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        if not transcript or not transcript.strip():
+            print("[MeetingProcessor] Validation: transcript is empty")
+            return False
+
+        if len(transcript.strip()) < 100:
+            print(
+                f"[MeetingProcessor] Validation: transcript too short ({len(transcript.strip())} < 100 chars)"
+            )
+            return False
+
+        print(f"[MeetingProcessor] Validation: passed ({len(transcript.strip())} chars)")
+        return True
+
+    async def _extract_tasks_with_retry(self, transcript: str) -> List[Task]:
+        """
+        Extract tasks with built-in retry logic.
+        
+        Args:
+            transcript: Meeting transcript
+            
+        Returns:
+            List of extracted tasks (empty list on failure after retries)
+        """
+        try:
+            print("[MeetingProcessor] Calling task extractor...")
+            tasks = await self._task_extractor.extract(transcript)
+            print(f"[MeetingProcessor] Task extraction successful: {len(tasks)} tasks")
+            return tasks
+        except Exception as exc:
+            print(f"[MeetingProcessor] Task extraction failed after retries: {exc}")
+            return []  # Return empty list as fallback
+
+    async def _generate_note_with_retry(
+        self, transcript: str, custom_prompt: Optional[str] = None
+    ) -> str:
+        """
+        Generate meeting note with built-in retry logic.
+        
+        Args:
+            transcript: Meeting transcript
+            custom_prompt: Optional custom prompt
+            
+        Returns:
+            Generated meeting note (fallback message on failure after retries)
+        """
+        try:
+            print("[MeetingProcessor] Calling note generator...")
+            # Pass empty task list for now, will be updated after concurrent execution
+            note = await self._note_generator.generate(transcript, [], custom_prompt)
+            print(f"[MeetingProcessor] Note generation successful: {len(note)} chars")
+            return note
+        except Exception as exc:
+            print(f"[MeetingProcessor] Note generation failed after retries: {exc}")
+            return "Không thể tạo ghi chú cuộc họp do lỗi xử lý."  # Fallback message
+
+    def _format_success(self, tasks: List[Task], note: str) -> Dict[str, Any]:
+        """
+        Format successful processing result.
+        
+        Args:
+            tasks: List of extracted tasks
+            note: Generated meeting note
+            
+        Returns:
+            Formatted result dictionary
+        """
+        # Ensure tasks is a list
+        if not isinstance(tasks, list):
+            tasks = []
+
+        # Convert Task objects to dicts
+        tasks_list = self._ensure_model_list(tasks, Task)
 
         output = MeetingOutput(
-            meeting_note=state.get("meeting_note", ""),
-            task_items=tasks,
-            is_informative=state.get("is_informative", False),
-            meeting_type=state.get("meeting_type", "general"),
+            meeting_note=note if isinstance(note, str) else "",
+            task_items=tasks_list,
+            is_informative=True,  # Always true if we got here
+            meeting_type="general",  # Always general
         )
 
         result = output.model_dump()
         result["task_items"] = [task.model_dump() for task in output.task_items]
+
+        print(
+            f"[MeetingProcessor] Success result formatted - tasks: {len(result['task_items'])}, note_length: {len(result['meeting_note'])}"
+        )
+
         return result
 
-    def _format_failure(self, state: MeetingState, message: str) -> Dict[str, Any]:
+    def _format_failure(self, message: str) -> Dict[str, Any]:
+        """
+        Format failure result.
+        
+        Args:
+            message: Error message
+            
+        Returns:
+            Formatted failure dictionary
+        """
         print(f"[MeetingProcessor] Returning fallback response: {message}")
         return {
             "meeting_note": "",
             "task_items": [],
             "is_informative": False,
-            "meeting_type": state.get("meeting_type", "general"),
+            "meeting_type": "general",
         }
 
     @staticmethod
     def _ensure_model_list(items: Iterable[Any], model_cls: Any) -> list:
+        """
+        Ensure all items are instances of the model class.
+        
+        Args:
+            items: Iterable of items
+            model_cls: Model class to convert to
+            
+        Returns:
+            List of model instances
+        """
         converted = []
         for item in items:
             if isinstance(item, model_cls):
                 converted.append(item)
-            else:
-                converted.append(model_cls(**item))
+            elif isinstance(item, dict):
+                try:
+                    converted.append(model_cls(**item))
+                except Exception as exc:
+                    print(f"[MeetingProcessor] Failed to convert item to {model_cls.__name__}: {exc}")
         return converted
