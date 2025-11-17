@@ -878,30 +878,24 @@ def process_meeting_analysis_task(
         db = SessionLocal()
 
         try:
-            # Update meeting with analysis results
-            meeting = db.query(Meeting).filter(Meeting.id == uuid.UUID(meeting_id)).first()
-            if not meeting:
-                raise Exception(f"Meeting {meeting_id} not found")
-
-            # Save meeting note (assuming Meeting model has a notes or summary field)
-            # Adjust field name based on your actual Meeting model
-            if hasattr(meeting, "summary"):
-                meeting.summary = analysis_result.get("meeting_note", "")
-            elif hasattr(meeting, "notes"):
-                meeting.notes = analysis_result.get("meeting_note", "")
-
-            meeting.updated_at = datetime.utcnow()
-            db.commit()
+            # Import the helper function
+            from app.services.meeting_note import save_meeting_analysis_results
+            
+            # Save results using the service layer
+            saved_results = save_meeting_analysis_results(
+                db=db,
+                meeting_id=uuid.UUID(meeting_id),
+                user_id=uuid.UUID(user_id),
+                meeting_note_content=analysis_result.get("meeting_note", ""),
+                task_items=analysis_result.get("task_items", []),
+            )
 
             print(
                 f"\033[92m✅ Meeting {meeting_id} updated with analysis results\033[0m"
             )
-
-            # TODO: Save tasks to database if you have a Task model
-            # This depends on your database schema
-            tasks_data = analysis_result.get("task_items", [])
-            if tasks_data:
-                print(f"\033[93m📝 {len(tasks_data)} tasks extracted (not saved to DB yet - implement if needed)\033[0m")
+            print(
+                f"\033[92m✅ Saved {len(saved_results.get('task_items', []))} tasks to database\033[0m"
+            )
 
         finally:
             db.close()
