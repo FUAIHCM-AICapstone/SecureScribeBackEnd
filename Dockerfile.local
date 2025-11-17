@@ -17,7 +17,27 @@ RUN addgroup --system appuser && \
 RUN mkdir -p /app/config && chown -R appuser:appuser /app/config
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3-pip \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libharfbuzz0b \
+        libcairo2 \
+        libpangocairo-1.0-0 \
+        libgdk-pixbuf2.0-0 \
+        libffi-dev \
+        libfontconfig1 \
+        shared-mime-info \
+        libglib2.0-0 \
+        libjpeg-dev \
+        libopenjp2-7-dev \
+        fonts-dejavu \
+        fonts-liberation \
+        netcat-openbsd \
+        ffmpeg && \
+    rm -rf /var/lib/apt/lists/* && \
+    fc-cache -fv
 
 # Install dependencies
 COPY requirements.txt .

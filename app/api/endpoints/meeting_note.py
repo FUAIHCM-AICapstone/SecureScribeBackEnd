@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -16,6 +16,7 @@ from app.services.meeting_note import (
     update_meeting_note,
 )
 from app.utils.auth import get_current_user
+from app.utils.pdf import MDToPDFConverter
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting Notes"])
 
@@ -23,7 +24,9 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting Notes"])
 @router.post("/meetings/{meeting_id}/notes", response_model=ApiResponse[dict])
 async def create_meeting_note_endpoint(
     meeting_id: UUID,
-    custom_prompt: Optional[str] = Query(None, description="Optional custom instructions for the AI agent"),
+    custom_prompt: Optional[str] = Query(
+        None, description="Optional custom instructions for the AI agent"
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -51,7 +54,10 @@ async def create_meeting_note_endpoint(
     # Validate transcript exists
     transcript = get_transcript_by_meeting(db, meeting_id, current_user.id)
     if not transcript or not transcript.content:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No transcript found for this meeting. Please transcribe the audio first.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No transcript found for this meeting. Please transcribe the audio first.",
+        )
 
     # Queue the Celery task
     task = process_meeting_analysis_task.delay(
@@ -61,10 +67,21 @@ async def create_meeting_note_endpoint(
         custom_prompt=custom_prompt,
     )
 
-    return ApiResponse(success=True, message="Meeting note generation queued. Listen to WebSocket for progress updates.", data={"task_id": task.id, "meeting_id": str(meeting_id), "status": "queued", "message": "Task queued successfully. You will receive progress updates via WebSocket."})
+    return ApiResponse(
+        success=True,
+        message="Meeting note generation queued. Listen to WebSocket for progress updates.",
+        data={
+            "task_id": task.id,
+            "meeting_id": str(meeting_id),
+            "status": "queued",
+            "message": "Task queued successfully. You will receive progress updates via WebSocket.",
+        },
+    )
 
 
-@router.get("/meetings/{meeting_id}/notes", response_model=ApiResponse[MeetingNoteResponse])
+@router.get(
+    "/meetings/{meeting_id}/notes", response_model=ApiResponse[MeetingNoteResponse]
+)
 def get_meeting_note_endpoint(
     meeting_id: UUID,
     db: Session = Depends(get_db),
@@ -72,11 +89,19 @@ def get_meeting_note_endpoint(
 ):
     note = get_meeting_note(db, meeting_id, current_user.id)
     if note is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found")
-    return ApiResponse(success=True, message="Meeting note retrieved", data=MeetingNoteResponse.model_validate(note))
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found"
+        )
+    return ApiResponse(
+        success=True,
+        message="Meeting note retrieved",
+        data=MeetingNoteResponse.model_validate(note),
+    )
 
 
-@router.put("/meetings/{meeting_id}/notes", response_model=ApiResponse[MeetingNoteResponse])
+@router.put(
+    "/meetings/{meeting_id}/notes", response_model=ApiResponse[MeetingNoteResponse]
+)
 def update_meeting_note_endpoint(
     meeting_id: UUID,
     payload: MeetingNoteRequest,
@@ -90,8 +115,14 @@ def update_meeting_note_endpoint(
         content=payload.content,
     )
     if note is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found")
-    return ApiResponse(success=True, message="Meeting note updated", data=MeetingNoteResponse.model_validate(note))
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found"
+        )
+    return ApiResponse(
+        success=True,
+        message="Meeting note updated",
+        data=MeetingNoteResponse.model_validate(note),
+    )
 
 
 @router.delete("/meetings/{meeting_id}/notes", response_model=ApiResponse[None])
@@ -102,34 +133,31 @@ def delete_meeting_note_endpoint(
 ):
     success = delete_meeting_note(db, meeting_id, current_user.id)
     if not success:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found"
+        )
     return ApiResponse(success=True, message="Meeting note deleted")
 
 
-# @router.get("/meetings/tasks/{task_id}/status", response_model=ApiResponse[dict])
-# def get_task_status_endpoint(
-#     task_id: str,
-#     current_user: User = Depends(get_current_user),
-# ):
-#     """
-#     Get the status of a meeting analysis task.
+@router.get("/meetings/{meeting_id}/notes/download")
+def download_meeting_note_pdf_endpoint(
+    meeting_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    note = get_meeting_note(db, meeting_id, current_user.id)
+    if note is None or not note.content:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found"
+        )
+    converter = MDToPDFConverter(note.content)
+    pdf_data = converter.convert()
 
-#     Useful for polling if WebSocket is not available.
-#     """
-#     from app.jobs.celery_worker import celery_app
+    filename = f"meeting-note-{meeting_id}.pdf"
+    content_disposition = f'attachment; filename="{filename}"'
 
-#     task = celery_app.AsyncResult(task_id)
-
-#     response_data = {
-#         "task_id": task_id,
-#         "status": task.state,
-#         "ready": task.ready(),
-#     }
-
-#     if task.ready():
-#         if task.successful():
-#             response_data["result"] = task.result
-#         elif task.failed():
-#             response_data["error"] = str(task.info)
-
-#     return ApiResponse(success=True, message=f"Task status: {task.state}", data=response_data)
+    return Response(
+        content=pdf_data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": content_disposition},
+    )
