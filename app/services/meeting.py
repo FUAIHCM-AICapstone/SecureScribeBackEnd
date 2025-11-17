@@ -106,14 +106,7 @@ def _accessible_projects_subquery(db: Session, user_id: uuid.UUID):
 
 
 def _meetings_no_projects_subquery(db: Session):
-    return (
-        db.query(Meeting.id)
-        .filter(Meeting.is_personal == False)
-        .outerjoin(ProjectMeeting)
-        .group_by(Meeting.id)
-        .having(func.count(ProjectMeeting.project_id) == 0)
-        .subquery()
-    )
+    return db.query(Meeting.id).filter(Meeting.is_personal == False).outerjoin(ProjectMeeting).group_by(Meeting.id).having(func.count(ProjectMeeting.project_id) == 0).subquery()
 
 
 def _apply_filters(db: Session, query, filters: Optional[MeetingFilter], user_id: uuid.UUID):
@@ -137,12 +130,7 @@ def _apply_filters(db: Session, query, filters: Optional[MeetingFilter], user_id
         query = query.filter(Meeting.start_time <= filters.start_time_lte)
 
     if filters.project_id:
-        user_is_member = (
-            db.query(UserProject)
-            .filter(UserProject.user_id == user_id, UserProject.project_id == filters.project_id)
-            .first()
-            is not None
-        )
+        user_is_member = db.query(UserProject).filter(UserProject.user_id == user_id, UserProject.project_id == filters.project_id).first() is not None
         if not user_is_member:
             return query.filter(False)
         return query.join(ProjectMeeting).filter(ProjectMeeting.project_id == filters.project_id)

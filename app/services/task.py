@@ -33,10 +33,18 @@ def _has_project_access(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> 
 
 
 def _has_meeting_access(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bool:
-    """Check if user has access via meeting's linked projects."""
+    """Check if user has access via meeting's linked projects or is the meeting creator."""
+
+    # First check if user is the creator of the meeting
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if meeting and meeting.created_by == user_id:
+        return True
+
     linked_projects = get_meeting_projects(db, meeting_id)
+
     for project_id in linked_projects:
-        if db.query(UserProject).filter(UserProject.user_id == user_id, UserProject.project_id == project_id).first():
+        user_project = db.query(UserProject).filter(UserProject.user_id == user_id, UserProject.project_id == project_id).first()
+        if user_project:
             return True
     return False
 
@@ -65,7 +73,11 @@ def _validate_meeting_and_projects(db: Session, task_data: TaskCreate, creator_i
                 actor_user_id=creator_id,
                 target_type="task",
                 target_id=None,
-                metadata={"reason": "permission_denied", "detail": "No access to meeting", "meeting_id": str(task_data.meeting_id)},
+                metadata={
+                    "reason": "permission_denied",
+                    "detail": "No access to meeting",
+                    "meeting_id": str(task_data.meeting_id),
+                },
             )
         )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to meeting")
@@ -79,10 +91,17 @@ def _validate_meeting_and_projects(db: Session, task_data: TaskCreate, creator_i
                     actor_user_id=creator_id,
                     target_type="task",
                     target_id=None,
-                    metadata={"reason": "permission_denied", "detail": f"No access to project {project_id}", "project_id": str(project_id)},
+                    metadata={
+                        "reason": "permission_denied",
+                        "detail": f"No access to project {project_id}",
+                        "project_id": str(project_id),
+                    },
                 )
             )
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"No access to project {project_id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"No access to project {project_id}",
+            )
 
 
 def _emit_task_created_event(creator_id: uuid.UUID, task: Task, task_data: TaskCreate) -> None:
@@ -98,7 +117,7 @@ def _emit_task_created_event(creator_id: uuid.UUID, task: Task, task_data: TaskC
                     "title": task.title,
                     "assignee_id": str(task.assignee_id) if task.assignee_id else None,
                     "project_ids": [str(pid) for pid in task_data.project_ids],
-                    "meeting_id": str(task_data.meeting_id) if task_data.meeting_id else None,
+                    "meeting_id": (str(task_data.meeting_id) if task_data.meeting_id else None),
                 },
             )
         )
@@ -115,7 +134,11 @@ def _notify_assignee(db: Session, task: Task, creator_id: uuid.UUID) -> None:
             db,
             [task.assignee_id],
             type="task_assigned",
-            payload={"task_id": str(task.id), "task_title": task.title, "assigned_by": str(creator_id)},
+            payload={
+                "task_id": str(task.id),
+                "task_title": task.title,
+                "assigned_by": str(creator_id),
+            },
         )
         send_fcm_notification(
             [task.assignee_id],
@@ -131,7 +154,10 @@ def create_task(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> Ta
     """Create a new task with project/meeting links and notifications."""
     _validate_meeting_and_projects(db, task_data, creator_id)
 
-    task = Task(**task_data.model_dump(exclude={"project_ids"}), creator_id=creator_id)
+    task_dict = task_data.model_dump(exclude={"project_ids"})
+    task_dict["creator_id"] = creator_id
+
+    task = Task(**task_dict)
     db.add(task)
     db.commit()
     db.refresh(task)
@@ -139,9 +165,10 @@ def create_task(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> Ta
     _emit_task_created_event(creator_id, task, task_data)
 
     # Create project links
-    for project_id in task_data.project_ids:
-        db.add(TaskProject(task_id=task.id, project_id=project_id))
-    db.commit()
+    if task_data.project_ids:
+        for project_id in task_data.project_ids:
+            db.add(TaskProject(task_id=task.id, project_id=project_id))
+        db.commit()
 
     _notify_assignee(db, task, creator_id)
 
@@ -232,7 +259,11 @@ def _notify_assignee_updated(db: Session, task: Task, assignee_id: uuid.UUID, us
             db,
             [assignee_id],
             type="task_assigned",
-            payload={"task_id": str(task.id), "task_title": task.title, "assigned_by": str(user_id)},
+            payload={
+                "task_id": str(task.id),
+                "task_title": task.title,
+                "assigned_by": str(user_id),
+            },
         )
         send_fcm_notification(
             [assignee_id],
@@ -265,7 +296,15 @@ def _get_status_change_notifyees(db: Session, task_id: uuid.UUID, task: Task, us
     return notify_user_ids
 
 
-def _emit_update_event_and_notifications(db: Session, task: Task, original: dict, updates: dict, old_assignee_id: uuid.UUID, old_status: str, user_id: uuid.UUID) -> None:
+def _emit_update_event_and_notifications(
+    db: Session,
+    task: Task,
+    original: dict,
+    updates: dict,
+    old_assignee_id: uuid.UUID,
+    old_status: str,
+    user_id: uuid.UUID,
+) -> None:
     """Emit update events and send notifications."""
     try:
         diff = build_diff(original, {k: getattr(task, k, None) for k in updates.keys()})
@@ -319,7 +358,10 @@ def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id:
                 actor_user_id=user_id,
                 target_type="task",
                 target_id=task_id,
-                metadata={"reason": "permission_denied", "detail": ERROR_NO_TASK_ACCESS},
+                metadata={
+                    "reason": "permission_denied",
+                    "detail": ERROR_NO_TASK_ACCESS,
+                },
             )
         )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ERROR_NO_TASK_ACCESS)
@@ -362,7 +404,10 @@ def delete_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
                 actor_user_id=user_id,
                 target_type="task",
                 target_id=task_id,
-                metadata={"reason": "permission_denied", "detail": ERROR_NO_TASK_ACCESS},
+                metadata={
+                    "reason": "permission_denied",
+                    "detail": ERROR_NO_TASK_ACCESS,
+                },
             )
         )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ERROR_NO_TASK_ACCESS)
