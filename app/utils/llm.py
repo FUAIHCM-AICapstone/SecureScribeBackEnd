@@ -13,7 +13,7 @@ from app.core.config import settings
 
 def _get_model() -> Gemini:
     return Gemini(
-        id="gemini-2.5-flash",
+        id="gemini-2.5-flash-preview-09-2025",
         api_key=settings.GOOGLE_API_KEY,
     )
 

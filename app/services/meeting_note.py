@@ -196,7 +196,7 @@ def process_and_persist_task_items(
 
             # Extract title from description (first 60 chars or first sentence)
             description = task_item.get("description", "").strip()
-            title = description[:60] if description else f"Task {idx + 1}"
+            title = description if description else f"Task {idx + 1}"
 
             # Create TaskCreate schema with parsed values
             task_create = TaskCreate(

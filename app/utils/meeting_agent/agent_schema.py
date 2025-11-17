@@ -20,6 +20,7 @@ class MeetingState(TypedDict, total=False):
 
 
 class Task(BaseModel):
+    title: str = Field(description="Task title in Vietnamese")
     description: str = Field(description="Task description in Vietnamese")
     creator_id: Optional[uuid.UUID] = Field(default=None, description="Creator user ID")
     assignee_id: Optional[uuid.UUID] = Field(default=None, description="Assignee user ID")
