@@ -127,6 +127,9 @@ def _emit_task_created_event(creator_id: uuid.UUID, task: Task, task_data: TaskC
 
 def _notify_assignee(db: Session, task: Task, creator_id: uuid.UUID) -> None:
     """Send notification to assignee if assigned."""
+    # query for assigner
+    creator = db.query(User).filter(User.id == creator_id).first()
+
     if not task.assignee_id:
         return
     try:
@@ -137,7 +140,7 @@ def _notify_assignee(db: Session, task: Task, creator_id: uuid.UUID) -> None:
             payload={
                 "task_id": str(task.id),
                 "task_title": task.title,
-                "assigned_by": str(creator_id),
+                "assigned_by": str(creator.name),
             },
         )
         send_fcm_notification(
