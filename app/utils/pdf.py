@@ -281,9 +281,7 @@ class MDToPDFConverter:
         from weasyprint import CSS, HTML
 
         # Convert markdown to HTML with extra features
-        html_content = markdown2.markdown(
-            self.markdown_text, extras=["tables", "fenced-code-blocks", "code-friendly"]
-        )
+        html_content = markdown2.markdown(self.markdown_text, extras=["tables", "fenced-code-blocks", "code-friendly"])
 
         # Use custom CSS if provided, otherwise use default
         css_content = self.default_css

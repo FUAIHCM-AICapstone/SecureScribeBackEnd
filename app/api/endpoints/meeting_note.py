@@ -24,9 +24,7 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting Notes"])
 @router.post("/meetings/{meeting_id}/notes", response_model=ApiResponse[dict])
 async def create_meeting_note_endpoint(
     meeting_id: UUID,
-    custom_prompt: Optional[str] = Query(
-        None, description="Optional custom instructions for the AI agent"
-    ),
+    custom_prompt: Optional[str] = Query(None, description="Optional custom instructions for the AI agent"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -79,9 +77,7 @@ async def create_meeting_note_endpoint(
     )
 
 
-@router.get(
-    "/meetings/{meeting_id}/notes", response_model=ApiResponse[MeetingNoteResponse]
-)
+@router.get("/meetings/{meeting_id}/notes", response_model=ApiResponse[MeetingNoteResponse])
 def get_meeting_note_endpoint(
     meeting_id: UUID,
     db: Session = Depends(get_db),
@@ -89,9 +85,7 @@ def get_meeting_note_endpoint(
 ):
     note = get_meeting_note(db, meeting_id, current_user.id)
     if note is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found")
     return ApiResponse(
         success=True,
         message="Meeting note retrieved",
@@ -99,9 +93,7 @@ def get_meeting_note_endpoint(
     )
 
 
-@router.put(
-    "/meetings/{meeting_id}/notes", response_model=ApiResponse[MeetingNoteResponse]
-)
+@router.put("/meetings/{meeting_id}/notes", response_model=ApiResponse[MeetingNoteResponse])
 def update_meeting_note_endpoint(
     meeting_id: UUID,
     payload: MeetingNoteRequest,
@@ -115,9 +107,7 @@ def update_meeting_note_endpoint(
         content=payload.content,
     )
     if note is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found")
     return ApiResponse(
         success=True,
         message="Meeting note updated",
@@ -133,9 +123,7 @@ def delete_meeting_note_endpoint(
 ):
     success = delete_meeting_note(db, meeting_id, current_user.id)
     if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found")
     return ApiResponse(success=True, message="Meeting note deleted")
 
 
@@ -147,9 +135,7 @@ def download_meeting_note_pdf_endpoint(
 ):
     note = get_meeting_note(db, meeting_id, current_user.id)
     if note is None or not note.content:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found")
     converter = MDToPDFConverter(note.content)
     pdf_data = converter.convert()
 
