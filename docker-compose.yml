@@ -108,17 +108,24 @@ services:
     depends_on:
       - db
 
-  redis_insight:
-    image: redis/redisinsight:latest
+  frontend:
+    image: luongnguyenminhan/securescribe:frontend
+    container_name: securescribe-web
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - RIPORT=5540
+      - API_ENDPOINT=https://securescribe.wc504.io.vn/be/api
+      - BRAND_NAME=FPT Telecom
+      - BRAND_LOGO=https://pay.fpt.com/fpay-htm/img/logoFPT.png
+      - FCM_VAPID_KEY=BLgY0pHLGwzER2db0ebbNX2950NiidC6il--p-RS0d7Q5WdIbNktz9MjQsCO4O1XpjznZghy0PzjXIb026qoX9I
     restart: unless-stopped
     networks:
       - securescribe-network
-    depends_on:
-      - redis
+
+  bot:
+    image: luongnguyenminhan/securescribe:bot
+    environment:
+      - NODE_ENV=development
+    networks:
+      - securescribe-network
 
 networks:
   securescribe-network:

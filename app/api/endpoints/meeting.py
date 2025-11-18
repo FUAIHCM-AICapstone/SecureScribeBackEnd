@@ -38,7 +38,7 @@ from app.services.meeting import (
 )
 from app.services.meeting_note import get_meeting_note
 from app.services.transcript import get_transcript_by_meeting
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, jwt_bearer
 from app.utils.meeting import get_meeting_projects
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting"])

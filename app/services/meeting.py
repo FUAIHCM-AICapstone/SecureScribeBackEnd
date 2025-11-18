@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException
@@ -30,8 +31,8 @@ def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UU
         start_time=meeting_data.start_time,
         is_personal=meeting_data.is_personal,
         created_by=created_by,
-        status="active",  # Set default status explicitly
-        is_deleted=False,  # Set default is_deleted explicitly
+        status="active",
+        is_deleted=False,
     )
 
     db.add(meeting)

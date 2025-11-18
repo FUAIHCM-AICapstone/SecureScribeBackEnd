@@ -99,6 +99,9 @@ class Settings(BaseSettings):
     # Transcription API Configuration
     TRANSCRIBE_API_BASE_URL: str = "https://s2t.wc504.io.vn/api/v1"
 
+    # Bot Service Configuration
+    BOT_SERVICE_URL: str = "http://host.docker.internal:3000"
+
     # Indexing Configuration
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
