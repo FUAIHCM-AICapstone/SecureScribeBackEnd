@@ -431,7 +431,7 @@ def schedule_meeting_bot_task(self, meeting_id: str, user_id: str, bearer_token:
         bot_service_url = f"{settings.BOT_SERVICE_URL}/google/join"
         response = requests.post(bot_service_url, json=payload, headers=headers, timeout=30)
 
-        if response.status_code == 200:
+        if response.status_code == 202:
             print(f"Bot {bot_id} successfully scheduled for meeting {meeting_id}")
             return {"success": True, "bot_id": bot_id, "meeting_id": meeting_id}
         else:
