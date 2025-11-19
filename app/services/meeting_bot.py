@@ -243,10 +243,18 @@ def trigger_meeting_bot_join(
     bot = db.query(MeetingBot).filter(MeetingBot.meeting_id == meeting_id).first()
 
     if not bot:
-        print(f"\033[91m❌ [SERVICE] Meeting bot not found for meeting: {meeting_id}\033[0m")
-        raise HTTPException(status_code=404, detail="Meeting bot not found for this meeting")
-
-    print(f"\033[92m✅ [SERVICE] Meeting bot validated: {bot.id}\033[0m")
+        print(f"\033[93m📋 [SERVICE] Meeting bot not found - creating new bot\033[0m")
+        bot = MeetingBot(
+            meeting_id=meeting_id,
+            created_by=user_id,
+            status="pending",
+        )
+        db.add(bot)
+        db.commit()
+        db.refresh(bot)
+        print(f"\033[92m✅ [SERVICE] New meeting bot created: {bot.id}\033[0m")
+    else:
+        print(f"\033[92m✅ [SERVICE] Meeting bot validated: {bot.id}\033[0m")
 
     # 3. Authorization check (user is creator or project member)
     print(f"\033[93m📋 [SERVICE] Checking authorization\033[0m")
@@ -269,13 +277,18 @@ def trigger_meeting_bot_join(
     
     print(f"\033[92m✅ [SERVICE] User authorized (creator: {is_creator}, project_member: {is_project_member})\033[0m")
 
-    # 4. Meeting URL resolution (from MeetingBot or request override)
+    # 4. Meeting URL resolution (from request override, bot, or meeting)
     print(f"\033[93m📋 [SERVICE] Resolving meeting URL\033[0m")
-    meeting_url = meeting_url_override or bot.meeting_url
+    meeting_url = meeting_url_override or bot.meeting_url or meeting.url
 
     if not meeting_url:
         print(f"\033[91m❌ [SERVICE] Meeting URL is required\033[0m")
         raise HTTPException(status_code=400, detail="Meeting URL is required")
+    
+    # Update bot's meeting_url if override provided or meeting has URL
+    if meeting_url_override or meeting.url:
+        bot.meeting_url = meeting_url
+        print(f"\033[93m📋 [SERVICE] Updating bot meeting_url to: {meeting_url}\033[0m")
     
     print(f"\033[92m✅ [SERVICE] Meeting URL resolved: {meeting_url}\033[0m")
 

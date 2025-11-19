@@ -2,6 +2,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
+import re
 
 import jwt
 from fastapi import Depends, HTTPException, Request
@@ -126,6 +127,7 @@ def get_current_user(token: str = Depends(jwt_bearer), db: Session = Depends(get
     Extract user information from JWT token.
     """
     try:
+        token = re.sub(r"Bearer\s*", "", token, flags=re.IGNORECASE).strip()
         user_id = get_current_user_from_token(token)
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -138,4 +140,5 @@ def get_current_user(token: str = Depends(jwt_bearer), db: Session = Depends(get
     except HTTPException:
         raise
     except Exception as e:
+        print("Debug exception: ", e)
         raise HTTPException(status_code=401, detail="Token verification failed") from e

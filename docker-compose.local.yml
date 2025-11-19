@@ -29,6 +29,8 @@ services:
       - AGNO_TELEMETRY=false
       - SECRET_KEY=securescribe_jwt_secret_key_2025_fixed_for_development
       - TRANSCRIBE_API_BASE_URL=http://s2t_api:9998/api/v1
+      - BOT_SERVICE_URL=http://bot:3000
+      - BOT_WEBHOOK_URL=http://nginx/be/api/v1/bot/webhook/recording
     restart: unless-stopped
     networks:
       - securescribe-network
@@ -36,6 +38,7 @@ services:
       - db
       - redis
       - minio
+      - bot
     volumes:
       - ./config:/app/config:rw
 
@@ -60,12 +63,12 @@ services:
 
   minio:
     image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
-      - MINIO_CONSOLE_BASE_PATH=/minio
-      - MINIO_SERVER_URL=http://localhost:8081/minio/
-      - MINIO_BROWSER_REDIRECT_URL=http://localhost:8081/minio-console/
     volumes:
       - minio_data:/data
     command: server /data --address ':9000' --console-address ':9001'
@@ -109,20 +112,24 @@ services:
     depends_on:
       - db
 
-  # frontend:
-  #   image: luongnguyenminhan/securescribe:frontend
-  #   container_name: securescribe-web
-  #   environment:
-  #     - API_ENDPOINT=https://securescribe.wc504.io.vn/be/api
-  #     - BRAND_NAME=FPT Telecom
-  #     - BRAND_LOGO=https://pay.fpt.com/fpay-htm/img/logoFPT.png
-  #     - FCM_VAPID_KEY=BLgY0pHLGwzER2db0ebbNX2950NiidC6il--p-RS0d7Q5WdIbNktz9MjQsCO4O1XpjznZghy0PzjXIb026qoX9I
-  #   restart: unless-stopped
-  #   networks:
-  #     - securescribe-network
+  frontend:
+    image: luongnguyenminhan/securescribe:frontend
+    container_name: securescribe-web
+    expose:
+      - "3030"
+    environment:
+      - API_ENDPOINT=https://securescribe.wc504.io.vn/be/api
+      - BRAND_NAME=FPT Telecom
+      - BRAND_LOGO=https://pay.fpt.com/fpay-htm/img/logoFPT.png
+      - FCM_VAPID_KEY=BLgY0pHLGwzER2db0ebbNX2950NiidC6il--p-RS0d7Q5WdIbNktz9MjQsCO4O1XpjznZghy0PzjXIb026qoX9I
+    restart: unless-stopped
+    networks:
+      - securescribe-network
 
   bot:
     image: luongnguyenminhan/securescribe:bot
+    ports:
+      - "3000:3000"
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -132,7 +139,7 @@ services:
       - S3_SECRET_ACCESS_KEY=minioadmin
       - S3_REGION=us-east-1
       - S3_ENDPOINT=http://minio:9000
-      - S3_BUCKET_NAME=recordings
+      - S3_BUCKET_NAME=audio-files
       - S3_USE_MINIO_COMPATIBILITY=true
       - NODE_ENV=development
       - MAX_RECORDING_DURATION_MINUTES=180
@@ -140,6 +147,8 @@ services:
       - securescribe-network
     depends_on:
       - redis
+      - minio
+    restart: unless-stopped
 
 networks:
   securescribe-network:
