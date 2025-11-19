@@ -100,7 +100,8 @@ class Settings(BaseSettings):
     TRANSCRIBE_API_BASE_URL: str = "https://s2t.wc504.io.vn/api/v1"
 
     # Bot Service Configuration
-    BOT_SERVICE_URL: str = "http://host.docker.internal:3000"
+    BOT_SERVICE_URL: str = "http://bot"
+    BOT_WEBHOOK_URL: str = "http://localhost:8081/be/api/v1/bot/webhook/recording"
 
     # Indexing Configuration
     CHUNK_SIZE: int = 1000

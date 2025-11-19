@@ -55,6 +55,7 @@ class MeetingBotLogCreate(BaseModel):
 
 class MeetingBotJoinRequest(BaseModel):
     """Request schema for triggering bot to join a meeting"""
+
     meeting_url: Optional[str] = None
     immediate: bool = False
 
@@ -69,6 +70,7 @@ class MeetingBotJoinRequest(BaseModel):
 
 class MeetingBotJoinResponse(BaseModel):
     """Response schema for bot join operation"""
+
     task_id: str
     bot_id: uuid.UUID
     meeting_id: uuid.UUID
@@ -78,3 +80,14 @@ class MeetingBotJoinResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BotWebhookCallback(BaseModel):
+    """Webhook callback schema from bot service"""
+
+    botId: str
+    meetingUrl: str
+    status: str
+    teamId: str
+    timestamp: str
+    userId: str

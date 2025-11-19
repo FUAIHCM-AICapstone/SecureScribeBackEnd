@@ -10,7 +10,6 @@ from app.api.endpoints.meeting import router as meeting_router
 from app.api.endpoints.meeting_note import router as meeting_note_router
 from app.api.endpoints.notification import router as notification_router
 from app.api.endpoints.meeting_bot import router as meeting_bot_router
-from app.api.endpoints.notificaiton import router as notification_router
 from app.api.endpoints.project import router as project_router
 from app.api.endpoints.search import router as search_router
 from app.api.endpoints.task import router as task_router
