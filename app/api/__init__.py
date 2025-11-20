@@ -7,11 +7,12 @@ from app.api.endpoints.conversation import router as conversation_router
 from app.api.endpoints.file import router as file_router
 from app.api.endpoints.google_calendar import router as google_calendar_router
 from app.api.endpoints.meeting import router as meeting_router
+from app.api.endpoints.meeting_bot import router as meeting_bot_router
 from app.api.endpoints.meeting_note import router as meeting_note_router
 from app.api.endpoints.notification import router as notification_router
-from app.api.endpoints.meeting_bot import router as meeting_bot_router
 from app.api.endpoints.project import router as project_router
 from app.api.endpoints.search import router as search_router
+from app.api.endpoints.statistics import router as statistics_router
 from app.api.endpoints.task import router as task_router
 from app.api.endpoints.transcript import router as transcript_router
 from app.api.endpoints.user import router as user_router
@@ -34,3 +35,4 @@ api_router.include_router(notification_router)
 api_router.include_router(task_router)
 api_router.include_router(google_calendar_router)
 api_router.include_router(conversation_router)
+api_router.include_router(statistics_router)

@@ -15,6 +15,7 @@ from app.schemas.audio_file import (
     AudioFileUpdate,
 )
 from app.schemas.common import ApiResponse
+from app.schemas.meeting import MeetingCreate
 from app.services.audio_file import (
     create_audio_file,
     delete_audio_file,
@@ -22,9 +23,8 @@ from app.services.audio_file import (
     get_audio_files_by_meeting,
     update_audio_file,
 )
-from app.utils.auth import get_current_user
 from app.services.meeting import create_meeting, validate_meeting_for_audio_operations
-from app.schemas.meeting import MeetingCreate
+from app.utils.auth import get_current_user
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Audio Files"])
 
