@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     QDRANT_COLLECTION_NAME: str = "documents"
 
     # Google AI Configuration
-    GOOGLE_API_KEY: str = "AIzaSyDKJL5HLh3syVxysfjFkBdqrJaY9dLXc_A"
+    GOOGLE_API_KEY: str = "AIzaSyARikOBRUStNAt9zNNKoo47ReMnpXX3TH8"
     GOOGLE_EMBEDDING_MODEL: str = "models/gemini-embedding-001"
     GOOGLE_EMBEDDING_DIMENSIONS: int = 3072  # Gemini embedding dimensions
 
