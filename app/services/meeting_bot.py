@@ -5,9 +5,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.meeting import Meeting, MeetingBot, MeetingBotLog
+from app.models.meeting import Meeting, MeetingBot, MeetingBotLog, ProjectMeeting
 from app.models.project import UserProject
-from app.schemas.meeting_bot import MeetingBotCreate, MeetingBotLogCreate, MeetingBotUpdate
+from app.schemas.meeting_bot import MeetingBotCreate, MeetingBotLogCreate, MeetingBotLogResponse, MeetingBotResponse, MeetingBotUpdate
 
 
 def create_meeting_bot(db: Session, bot_data: MeetingBotCreate, created_by: uuid.UUID) -> MeetingBot:
@@ -35,13 +35,31 @@ def create_meeting_bot(db: Session, bot_data: MeetingBotCreate, created_by: uuid
 
 def get_meeting_bot(db: Session, bot_id: uuid.UUID, user_id: uuid.UUID) -> Optional[MeetingBot]:
     """Get meeting bot by ID"""
-    bot = db.query(MeetingBot).options(joinedload(MeetingBot.logs), joinedload(MeetingBot.meeting)).filter(MeetingBot.id == bot_id).first()
+    bot = (
+        db.query(MeetingBot)
+        .options(
+            joinedload(MeetingBot.logs),
+            joinedload(MeetingBot.meeting).joinedload(Meeting.projects).joinedload(ProjectMeeting.project),
+            joinedload(MeetingBot.meeting).joinedload(Meeting.created_by_user),
+        )
+        .filter(MeetingBot.id == bot_id)
+        .first()
+    )
     return bot
 
 
 def get_meeting_bot_by_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Optional[MeetingBot]:
     """Get meeting bot by meeting ID"""
-    bot = db.query(MeetingBot).options(joinedload(MeetingBot.logs)).filter(MeetingBot.meeting_id == meeting_id).first()
+    bot = (
+        db.query(MeetingBot)
+        .options(
+            joinedload(MeetingBot.logs),
+            joinedload(MeetingBot.meeting).joinedload(Meeting.projects).joinedload(ProjectMeeting.project),
+            joinedload(MeetingBot.meeting).joinedload(Meeting.created_by_user),
+        )
+        .filter(MeetingBot.meeting_id == meeting_id)
+        .first()
+    )
     return bot
 
 
@@ -49,13 +67,24 @@ def get_meeting_bots(db: Session, user_id: uuid.UUID, page: int = 1, limit: int 
     """Get meeting bots with pagination"""
     offset = (page - 1) * limit
 
-    query = db.query(MeetingBot).options(joinedload(MeetingBot.logs), joinedload(MeetingBot.meeting)).filter(MeetingBot.created_by == user_id)
+    query = (
+        db.query(MeetingBot)
+        .options(
+            joinedload(MeetingBot.logs),
+            joinedload(MeetingBot.meeting).joinedload(Meeting.projects).joinedload(ProjectMeeting.project),
+            joinedload(MeetingBot.meeting).joinedload(Meeting.created_by_user),
+        )
+        .filter(MeetingBot.created_by == user_id)
+    )
 
     total = query.count()
     bots = query.offset(offset).limit(limit).all()
-    meeting = db.query(Meeting).filter(Meeting.id == MeetingBot.meeting_id).all()
 
-    return bots, total, meeting
+    # Sort logs by created_at descending for each bot
+    for bot in bots:
+        bot.logs.sort(key=lambda log: log.created_at, reverse=True)
+
+    return bots, total
 
 
 def update_meeting_bot(db: Session, bot_id: uuid.UUID, bot_data: MeetingBotUpdate, user_id: uuid.UUID) -> Optional[MeetingBot]:
@@ -352,3 +381,68 @@ def trigger_meeting_bot_join(
         "scheduled_start_time": scheduled_start_time,
         "created_at": bot.created_at,
     }
+
+
+def serialize_meeting_bot(bot: MeetingBot) -> MeetingBotResponse:
+    """Serialize MeetingBot ORM object to MeetingBotResponse with meeting information.
+    
+    Maps meeting data including projects and creator information.
+    """
+    from app.schemas.meeting import MeetingResponse, ProjectResponse
+    from app.schemas.user import UserResponse
+
+    # Build meeting response with projects and creator
+    meeting_response = None
+    if hasattr(bot, "meeting") and bot.meeting:
+        meeting = bot.meeting
+        creator = (
+            UserResponse.model_validate(meeting.created_by_user, from_attributes=True)
+            if getattr(meeting, "created_by_user", None)
+            else None
+        )
+
+        # Map projects from ProjectMeeting relationships
+        projects = []
+        if hasattr(meeting, "projects") and meeting.projects:
+            projects = [
+                ProjectResponse.model_validate(pm.project, from_attributes=True)
+                for pm in meeting.projects
+                if pm.project
+            ]
+
+        meeting_response = MeetingResponse(
+            id=meeting.id,
+            title=meeting.title,
+            description=meeting.description,
+            url=meeting.url,
+            start_time=meeting.start_time,
+            created_by=meeting.created_by,
+            is_personal=meeting.is_personal,
+            status=meeting.status,
+            is_deleted=meeting.is_deleted,
+            created_at=meeting.created_at,
+            updated_at=meeting.updated_at,
+            projects=projects,
+            creator=creator,
+            can_access=True,
+        )
+
+    return MeetingBotResponse(
+        id=bot.id,
+        meeting_id=bot.meeting_id,
+        meeting=meeting_response,
+        scheduled_start_time=bot.scheduled_start_time,
+        actual_start_time=bot.actual_start_time,
+        actual_end_time=bot.actual_end_time,
+        status=bot.status,
+        meeting_url=bot.meeting_url,
+        retry_count=bot.retry_count,
+        last_error=bot.last_error,
+        created_by=bot.created_by,
+        created_at=bot.created_at,
+        updated_at=bot.updated_at,
+        logs=[
+            MeetingBotLogResponse.model_validate(log, from_attributes=True)
+            for log in (bot.logs or [])
+        ],
+    )

@@ -1,7 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import Optional, List
+from typing import TYPE_CHECKING, Optional, List
 from pydantic import BaseModel, field_validator
+
+if TYPE_CHECKING:
+    from app.schemas.meeting import MeetingResponse
 
 
 class MeetingBotCreate(BaseModel):

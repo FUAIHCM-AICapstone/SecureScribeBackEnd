@@ -43,11 +43,15 @@ def create_meeting_bot_endpoint(
 ):
     """Create a new meeting bot"""
     try:
+        from app.services.meeting_bot import serialize_meeting_bot
+
         new_bot = create_meeting_bot(db, bot, current_user.id)
+        # Reload with meeting data
+        new_bot = get_meeting_bot(db, new_bot.id, current_user.id)
         return ApiResponse(
             success=True,
             message="Meeting bot created successfully",
-            data=MeetingBotResponse.model_validate(new_bot),
+            data=serialize_meeting_bot(new_bot),
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -62,13 +66,13 @@ def get_meeting_bots_endpoint(
 ):
     """Get meeting bots with pagination"""
     try:
-        bots, total, meeting = get_meeting_bots(db, current_user.id, page, limit)
-        for bot in bots:
-            bot.meeting = meeting
+        from app.services.meeting_bot import serialize_meeting_bot
+
+        bots, total = get_meeting_bots(db, current_user.id, page, limit)
         return PaginatedResponse(
             success=True,
             message="Meeting bots retrieved successfully",
-            data=[MeetingBotResponse.model_validate(bot) for bot in bots],
+            data=[serialize_meeting_bot(bot) for bot in bots],
             meta=create_pagination_meta(total, page, limit),
         )
     except Exception as e:
@@ -82,6 +86,8 @@ def get_meeting_bot_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """Get meeting bot by ID"""
+    from app.services.meeting_bot import serialize_meeting_bot
+
     bot = get_meeting_bot(db, bot_id, current_user.id)
     if not bot:
         raise HTTPException(status_code=404, detail="Meeting bot not found")
@@ -89,7 +95,7 @@ def get_meeting_bot_endpoint(
     return ApiResponse(
         success=True,
         message="Meeting bot retrieved successfully",
-        data=MeetingBotResponse.model_validate(bot),
+        data=serialize_meeting_bot(bot),
     )
 
 
@@ -100,6 +106,8 @@ def get_meeting_bot_by_meeting_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """Get meeting bot by meeting ID"""
+    from app.services.meeting_bot import serialize_meeting_bot
+
     bot = get_meeting_bot_by_meeting(db, meeting_id, current_user.id)
     if not bot:
         raise HTTPException(status_code=404, detail="Meeting bot not found for this meeting")
@@ -107,7 +115,7 @@ def get_meeting_bot_by_meeting_endpoint(
     return ApiResponse(
         success=True,
         message="Meeting bot retrieved successfully",
-        data=MeetingBotResponse.model_validate(bot),
+        data=serialize_meeting_bot(bot),
     )
 
 
@@ -120,14 +128,18 @@ def update_meeting_bot_endpoint(
 ):
     """Update meeting bot"""
     try:
+        from app.services.meeting_bot import serialize_meeting_bot
+
         updated_bot = update_meeting_bot(db, bot_id, bot_data, current_user.id)
         if not updated_bot:
             raise HTTPException(status_code=404, detail="Meeting bot not found")
 
+        # Reload with meeting data
+        updated_bot = get_meeting_bot(db, bot_id, current_user.id)
         return ApiResponse(
             success=True,
             message="Meeting bot updated successfully",
-            data=MeetingBotResponse.model_validate(updated_bot),
+            data=serialize_meeting_bot(updated_bot),
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -205,14 +217,18 @@ def update_bot_status_endpoint(
 ):
     """Update bot status"""
     try:
+        from app.services.meeting_bot import serialize_meeting_bot
+
         updated_bot = update_bot_status(db, bot_id, status, error)
         if not updated_bot:
             raise HTTPException(status_code=404, detail="Meeting bot not found")
 
+        # Reload with meeting data
+        updated_bot = get_meeting_bot(db, bot_id, current_user.id)
         return ApiResponse(
             success=True,
             message="Bot status updated successfully",
-            data=MeetingBotResponse.model_validate(updated_bot),
+            data=serialize_meeting_bot(updated_bot),
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

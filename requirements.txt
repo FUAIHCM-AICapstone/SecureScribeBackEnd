@@ -43,3 +43,4 @@ google-api-python-client==2.100.0
 google-auth>=2.26.1
 chonkie[code,gemini]>=0.2.1
 numpy>=1.26.0
+pymongo
