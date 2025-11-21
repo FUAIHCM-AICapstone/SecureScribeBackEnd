@@ -1,10 +1,7 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional, List
+from typing import Optional, List
 from pydantic import BaseModel, field_validator
-
-if TYPE_CHECKING:
-    from app.schemas.meeting import MeetingResponse
 
 
 class MeetingBotCreate(BaseModel):
@@ -35,7 +32,7 @@ class MeetingBotLogResponse(BaseModel):
 class MeetingBotResponse(BaseModel):
     id: uuid.UUID
     meeting_id: uuid.UUID
-    meeting: Optional["MeetingResponse"]
+    meeting: Optional[dict] = None
     scheduled_start_time: Optional[datetime]
     actual_start_time: Optional[datetime]
     actual_end_time: Optional[datetime]

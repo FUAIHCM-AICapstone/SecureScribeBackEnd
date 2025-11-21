@@ -410,7 +410,7 @@ def serialize_meeting_bot(bot: MeetingBot) -> MeetingBotResponse:
                 if pm.project
             ]
 
-        meeting_response = MeetingResponse(
+        meeting_obj = MeetingResponse(
             id=meeting.id,
             title=meeting.title,
             description=meeting.description,
@@ -426,6 +426,7 @@ def serialize_meeting_bot(bot: MeetingBot) -> MeetingBotResponse:
             creator=creator,
             can_access=True,
         )
+        meeting_response = meeting_obj.model_dump()
 
     return MeetingBotResponse(
         id=bot.id,
