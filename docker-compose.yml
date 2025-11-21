@@ -92,7 +92,6 @@ services:
       - api
       - qdrant
       - adminer
-      - redis_insight
       - minio
 
   adminer:
