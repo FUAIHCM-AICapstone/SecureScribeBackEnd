@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -149,8 +150,15 @@ def get_bot_logs(db: Session, bot_id: uuid.UUID, page: int = 1, limit: int = 50)
     return logs, total
 
 
-def update_bot_status(db: Session, bot_id: uuid.UUID, status: str, error: Optional[str] = None) -> Optional[MeetingBot]:
-    """Update bot status and increment retry count if needed"""
+def update_bot_status(
+    db: Session,
+    bot_id: uuid.UUID,
+    status: str,
+    error: Optional[str] = None,
+    actual_start_time: Optional[datetime] = None,
+    actual_end_time: Optional[datetime] = None,
+) -> Optional[MeetingBot]:
+    """Update bot status with optional timestamps, error tracking, and notifications"""
     bot = db.query(MeetingBot).filter(MeetingBot.id == bot_id).first()
     if not bot:
         return None
@@ -158,12 +166,34 @@ def update_bot_status(db: Session, bot_id: uuid.UUID, status: str, error: Option
     bot.status = status
     if error:
         bot.last_error = error
-        if status == "failed":
+        if status == "error":
             bot.retry_count += 1
+    if actual_start_time:
+        bot.actual_start_time = actual_start_time
+    if actual_end_time:
+        bot.actual_end_time = actual_end_time
 
     bot.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(bot)
+
+    # Send notifications asynchronously for key status changes
+    try:
+        from app.services.bot_notification import send_bot_status_notification
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        # Queue notification task (don't wait for it)
+        asyncio.create_task(send_bot_status_notification(db, bot_id, status, error))
+    except Exception as e:
+        # Log but don't fail the status update if notification fails
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception("Failed to queue bot status notification: %s", e)
+
     return bot
 
 

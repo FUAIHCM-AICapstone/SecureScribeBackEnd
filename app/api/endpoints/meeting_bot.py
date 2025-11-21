@@ -171,7 +171,6 @@ def create_bot_log_endpoint(
     bot_id: uuid.UUID,
     log_data: MeetingBotLogCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """Create bot log entry"""
     try:
@@ -189,7 +188,6 @@ def create_bot_log_endpoint(
 def get_bot_logs_endpoint(
     bot_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
 ):
@@ -289,27 +287,18 @@ def join_meeting_bot_endpoint(
         raise HTTPException(status_code=500, detail="Failed to queue bot join task")
 
 
-@router.post("/bot/webhook/recording", status_code=202)
-def bot_webhook_recording_endpoint(
-    recording: UploadFile = File(None),
+@router.post("/bot/webhook/status", status_code=202)
+def bot_webhook_status_endpoint(
     botId: str = Form(...),
-    meetingUrl: str = Form(...),
     status: str = Form(...),
-    teamId: str = Form(...),
-    timestamp: str = Form(...),
-    userId: str = Form(...),
+    error: Optional[str] = Form(None),
+    actual_start_time: Optional[str] = Form(None),
+    actual_end_time: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     authorization: Optional[str] = Header(None),
-    current_user: User = Depends(get_current_user),
 ):
-    """Webhook endpoint to receive bot recording"""
+    """Webhook endpoint for bot status updates during recording"""
     try:
-
-        if recording:
-            print("having recording")
-        else:
-            print("not having recording")
-
         if not authorization:
             raise HTTPException(status_code=401, detail="Authorization header required")
 
@@ -317,60 +306,173 @@ def bot_webhook_recording_endpoint(
         if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
             raise HTTPException(status_code=400, detail="Invalid bearer token format")
 
-        # Validate user via bearer token
-        from app.models.meeting import Meeting
+        from datetime import datetime as dt
 
-        meeting = db.query(Meeting).filter(Meeting.url == meetingUrl).first()
-        if not meeting:
-            raise HTTPException(status_code=404, detail="Meeting not found")
+        try:
+            bot_uuid = uuid.UUID(botId)
 
-        # Read file bytes
-        if not recording:
-            # Return 202 even if no file - bot will retry
-            return ApiResponse(
-                success=True,
-                message="Webhook received (no file)",
-                data={"status": status, "botId": botId},
+            # Parse timestamps if provided
+            start_time = None
+            end_time = None
+            if actual_start_time:
+                try:
+                    start_time = dt.fromisoformat(actual_start_time.replace('Z', '+00:00'))
+                except (ValueError, AttributeError):
+                    pass
+            if actual_end_time:
+                try:
+                    end_time = dt.fromisoformat(actual_end_time.replace('Z', '+00:00'))
+                except (ValueError, AttributeError):
+                    pass
+
+            updated_bot = update_bot_status(
+                db,
+                bot_uuid,
+                status,
+                error,
+                actual_start_time=start_time,
+                actual_end_time=end_time,
             )
 
-        file_bytes = recording.file.read()
-        if not file_bytes:
-            raise HTTPException(status_code=400, detail="Recording file is empty")
+            if updated_bot:
+                # Create bot log for status update
+                log_data = MeetingBotLogCreate(
+                    action="status_updated",
+                    message=f"Status changed to: {status}" + (f" - {error}" if error else ""),
+                )
+                create_bot_log(db, bot_uuid, log_data)
+
+                return ApiResponse(
+                    success=True,
+                    message="Bot status updated successfully",
+                    data={"bot_id": str(bot_uuid), "status": status},
+                )
+            else:
+                raise HTTPException(status_code=404, detail="Bot not found")
+
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid botId format")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update bot status: {str(e)}")
 
 
-        # Process webhook recording
-        result = process_bot_webhook_recording(
-            db=db,
-            meeting_id=meeting.id,
-            user_id=current_user.id,
-            file_bytes=file_bytes,
-        )
+@router.post("/bot/webhook/recording", status_code=202)
+def bot_webhook_recording_endpoint(
+    recording: UploadFile = File(None),
+    botId: Optional[str] = Form(None),
+    meetingUrl: Optional[str] = Form(None),
+    status: Optional[str] = Form(None),
+    error: Optional[str] = Form(None),
+    actual_start_time: Optional[str] = Form(None),
+    actual_end_time: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    authorization: Optional[str] = Header(None),
+    current_user: User = Depends(get_current_user),
+):
+    """Webhook endpoint to receive bot recording and update bot status"""
+    try:
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Authorization header required")
 
-        # Queue audio processing task
-        from app.jobs.celery_worker import celery_app
+        auth_parts = authorization.split()
+        if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
+            raise HTTPException(status_code=400, detail="Invalid bearer token format")
 
-        task = celery_app.send_task(
-            "app.jobs.tasks.process_audio_task",
-            args=[result["audio_file_id"], str(current_user.id)],
-        )
+        from datetime import datetime as dt
+
+        from app.models.meeting import Meeting
+
+        result = {}
+
+        # Process recording if provided
+        if recording and meetingUrl:
+            meeting = db.query(Meeting).filter(Meeting.url == meetingUrl).first()
+            if not meeting:
+                raise HTTPException(status_code=404, detail="Meeting not found")
+
+            file_bytes = recording.file.read()
+            if file_bytes:
+                result = process_bot_webhook_recording(
+                    db=db,
+                    meeting_id=meeting.id,
+                    user_id=current_user.id,
+                    file_bytes=file_bytes,
+                )
+
+                # Queue audio processing task
+                from app.jobs.celery_worker import celery_app
+
+                task = celery_app.send_task(
+                    "app.jobs.tasks.process_audio_task",
+                    args=[result["audio_file_id"], str(current_user.id)],
+                )
+                result["task_id"] = task.id
+
+        # Update bot status if provided
+        if botId and status:
+            try:
+                bot_uuid = uuid.UUID(botId)
+
+                # Parse timestamps if provided
+                start_time = None
+                end_time = None
+                if actual_start_time:
+                    try:
+                        start_time = dt.fromisoformat(actual_start_time.replace('Z', '+00:00'))
+                    except (ValueError, AttributeError):
+                        pass
+                if actual_end_time:
+                    try:
+                        end_time = dt.fromisoformat(actual_end_time.replace('Z', '+00:00'))
+                    except (ValueError, AttributeError):
+                        pass
+
+                updated_bot = update_bot_status(
+                    db,
+                    bot_uuid,
+                    status,
+                    error,
+                    actual_start_time=start_time,
+                    actual_end_time=end_time,
+                )
+
+                if updated_bot:
+                    # Create bot log for status update
+                    log_data = MeetingBotLogCreate(
+                        action="status_updated",
+                        message=f"Status changed to: {status}" + (f" - {error}" if error else ""),
+                    )
+                    create_bot_log(db, bot_uuid, log_data)
+                    result["bot_status_updated"] = True
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid botId format")
 
         return ApiResponse(
             success=True,
-            message="Recording received and queued for processing",
-            data={"task_id": task.id, "audio_file_id": result["audio_file_id"]},
+            message="Webhook processed successfully",
+            data=result,
         )
     except HTTPException:
         raise
     except Exception:
         from app.jobs.celery_worker import celery_app
 
-        retry_task = celery_app.send_task(
-            "app.jobs.tasks.retry_webhook_processing_task",
-            args=[botId, meetingUrl, timestamp],
-        )
+        if botId and meetingUrl:
+            retry_task = celery_app.send_task(
+                "app.jobs.tasks.retry_webhook_processing_task",
+                args=[botId, meetingUrl],
+            )
+            return ApiResponse(
+                success=True,
+                message="Webhook received, queued for retry",
+                data={"retry_task_id": retry_task.id},
+            )
 
         return ApiResponse(
             success=True,
-            message="Recording received, queued for retry",
-            data={"retry_task_id": retry_task.id},
+            message="Webhook received",
+            data={},
         )

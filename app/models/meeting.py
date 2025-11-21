@@ -14,6 +14,15 @@ class MeetingStatus(str, Enum):
     completed = "completed"
 
 
+class BotStatus(str, Enum):
+    pending = "pending"
+    waiting_for_host = "waiting_for_host"
+    joined = "joined"
+    recording = "recording"
+    complete = "complete"
+    error = "error"
+
+
 if TYPE_CHECKING:
     from . import (
         AudioFile,
@@ -200,7 +209,7 @@ class MeetingBot(SQLModel, table=True):
     scheduled_start_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     actual_start_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     actual_end_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
-    status: str = Field(default="pending", sa_column=Column(String))
+    status: str = Field(default=BotStatus.pending.value, sa_column=Column(String))
     meeting_url: Optional[str] = Field(default=None, sa_column=Column(String))
     retry_count: int = Field(default=0, sa_column=Column(Integer))
     last_error: Optional[str] = Field(default=None, sa_column=Column(Text))
