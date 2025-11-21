@@ -64,19 +64,22 @@ async def search_vectors(
     query_vector: List[float],
     top_k: int = 5,
     query_filter: qmodels.Filter | None = None,
-) -> List[Any]:
+) -> List[qmodels.ScoredPoint]:
     """Search for similar vectors in a collection"""
     if not query_vector:
         return []
 
     client = get_qdrant_client()
     try:
-        results = client.search(
+        response = client.query_points(
             collection_name=collection,
-            query_vector=query_vector,
+            query=query_vector,
             limit=min(max(top_k, 1), 100),
             query_filter=query_filter,
+            with_payload=True,
+            with_vectors=True,
         )
+        results = list(getattr(response, "points", response) or [])
         print(f"🟢 \033[92mFound {len(results)} results in '{collection}'\033[0m")
         return results
 
@@ -476,6 +479,28 @@ async def delete_file_vectors(file_id: str, collection_name: str | None = None) 
 
     except Exception as e:
         print(f"🔴 \033[91mFailed to delete vectors for file_id {file_id}: {e}\033[0m")
+        return False
+
+
+async def delete_transcript_vectors(transcript_id: str, collection_name: str | None = None) -> bool:
+    """Delete all vectors for a specific transcript_id from the collection"""
+    client = get_qdrant_client()
+
+    try:
+        if not collection_name:
+            collection_name = settings.QDRANT_COLLECTION_NAME
+        filter_condition = qmodels.Filter(must=[qmodels.FieldCondition(key="transcript_id", match=qmodels.MatchValue(value=transcript_id))])
+
+        client.delete(
+            collection_name=collection_name,
+            points_selector=qmodels.FilterSelector(filter=filter_condition),
+        )
+
+        print(f"🟢 \033[92mDeleted existing vectors for transcript_id {transcript_id}\033[0m")
+        return True
+
+    except Exception as e:
+        print(f"🔴 \033[91mFailed to delete vectors for transcript_id {transcript_id}: {e}\033[0m")
         return False
 
 
