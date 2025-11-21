@@ -32,6 +32,7 @@ class MeetingBotLogResponse(BaseModel):
 class MeetingBotResponse(BaseModel):
     id: uuid.UUID
     meeting_id: uuid.UUID
+    meeting: Optional["MeetingResponse"]
     scheduled_start_time: Optional[datetime]
     actual_start_time: Optional[datetime]
     actual_end_time: Optional[datetime]

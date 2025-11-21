@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.meeting import Meeting, MeetingBot, MeetingBotLog
 from app.models.project import UserProject
-from app.schemas.meeting_bot import MeetingBotCreate, MeetingBotUpdate, MeetingBotLogCreate
+from app.schemas.meeting_bot import MeetingBotCreate, MeetingBotLogCreate, MeetingBotUpdate
 
 
 def create_meeting_bot(db: Session, bot_data: MeetingBotCreate, created_by: uuid.UUID) -> MeetingBot:
@@ -53,8 +53,9 @@ def get_meeting_bots(db: Session, user_id: uuid.UUID, page: int = 1, limit: int 
 
     total = query.count()
     bots = query.offset(offset).limit(limit).all()
+    meeting = db.query(Meeting).filter(Meeting.id == MeetingBot.meeting_id).all()
 
-    return bots, total
+    return bots, total, meeting
 
 
 def update_meeting_bot(db: Session, bot_id: uuid.UUID, bot_data: MeetingBotUpdate, user_id: uuid.UUID) -> Optional[MeetingBot]:
@@ -158,14 +159,13 @@ def process_bot_webhook_recording(
     Raises:
         HTTPException: For validation failures
     """
-    from app.models.meeting import AudioFile
     from app.schemas.audio_file import AudioFileCreate
     from app.services.audio_file import create_audio_file
 
     print(f"\033[94m🎥 [SERVICE] Processing webhook recording for meeting {meeting_id}\033[0m")
 
     # Validate meeting exists
-    print(f"\033[93m📋 [SERVICE] Validating meeting exists\033[0m")
+    print("\033[93m📋 [SERVICE] Validating meeting exists\033[0m")
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.is_deleted == False).first()
 
     if not meeting:
@@ -175,12 +175,12 @@ def process_bot_webhook_recording(
     print(f"\033[92m✅ [SERVICE] Meeting validated: {meeting.title}\033[0m")
 
     # Create audio file record
-    print(f"\033[93m📋 [SERVICE] Creating audio file record\033[0m")
+    print("\033[93m📋 [SERVICE] Creating audio file record\033[0m")
     audio_data = AudioFileCreate(meeting_id=meeting_id, uploaded_by=user_id)
     audio_file = create_audio_file(db, audio_data, file_bytes, "video/webm")
 
     if not audio_file:
-        print(f"\033[91m❌ [SERVICE] Failed to store audio file\033[0m")
+        print("\033[91m❌ [SERVICE] Failed to store audio file\033[0m")
         raise HTTPException(status_code=500, detail="Failed to store audio file")
 
     print(f"\033[92m✅ [SERVICE] Audio file created successfully - id: {audio_file.id}\033[0m")
@@ -227,23 +227,23 @@ def trigger_meeting_bot_join(
         HTTPException: For various validation failures
     """
     print(f"\033[94m🤖 [SERVICE] Triggering bot join for meeting {meeting_id}\033[0m")
-    
+
     # 1. Meeting validation (exists, not deleted)
-    print(f"\033[93m📋 [SERVICE] Validating meeting exists\033[0m")
+    print("\033[93m📋 [SERVICE] Validating meeting exists\033[0m")
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.is_deleted == False).first()
 
     if not meeting:
         print(f"\033[91m❌ [SERVICE] Meeting not found: {meeting_id}\033[0m")
         raise HTTPException(status_code=404, detail="Meeting not found")
-    
+
     print(f"\033[92m✅ [SERVICE] Meeting validated: {meeting.title}\033[0m")
 
     # 2. MeetingBot validation (exists for meeting)
-    print(f"\033[93m📋 [SERVICE] Validating meeting bot exists\033[0m")
+    print("\033[93m📋 [SERVICE] Validating meeting bot exists\033[0m")
     bot = db.query(MeetingBot).filter(MeetingBot.meeting_id == meeting_id).first()
 
     if not bot:
-        print(f"\033[93m📋 [SERVICE] Meeting bot not found - creating new bot\033[0m")
+        print("\033[93m📋 [SERVICE] Meeting bot not found - creating new bot\033[0m")
         bot = MeetingBot(
             meeting_id=meeting_id,
             created_by=user_id,
@@ -257,7 +257,7 @@ def trigger_meeting_bot_join(
         print(f"\033[92m✅ [SERVICE] Meeting bot validated: {bot.id}\033[0m")
 
     # 3. Authorization check (user is creator or project member)
-    print(f"\033[93m📋 [SERVICE] Checking authorization\033[0m")
+    print("\033[93m📋 [SERVICE] Checking authorization\033[0m")
     is_creator = meeting.created_by == user_id
     is_project_member = False
 
@@ -274,31 +274,31 @@ def trigger_meeting_bot_join(
     if not is_creator and not is_project_member:
         print(f"\033[91m❌ [SERVICE] User not authorized for meeting: {user_id}\033[0m")
         raise HTTPException(status_code=403, detail="Not authorized to trigger bot for this meeting")
-    
+
     print(f"\033[92m✅ [SERVICE] User authorized (creator: {is_creator}, project_member: {is_project_member})\033[0m")
 
     # 4. Meeting URL resolution (from request override, bot, or meeting)
-    print(f"\033[93m📋 [SERVICE] Resolving meeting URL\033[0m")
+    print("\033[93m📋 [SERVICE] Resolving meeting URL\033[0m")
     meeting_url = meeting_url_override or bot.meeting_url or meeting.url
 
     if not meeting_url:
-        print(f"\033[91m❌ [SERVICE] Meeting URL is required\033[0m")
+        print("\033[91m❌ [SERVICE] Meeting URL is required\033[0m")
         raise HTTPException(status_code=400, detail="Meeting URL is required")
-    
+
     # Update bot's meeting_url if override provided or meeting has URL
     if meeting_url_override or meeting.url:
         bot.meeting_url = meeting_url
         print(f"\033[93m📋 [SERVICE] Updating bot meeting_url to: {meeting_url}\033[0m")
-    
+
     print(f"\033[92m✅ [SERVICE] Meeting URL resolved: {meeting_url}\033[0m")
 
     # 5. Bearer token validation (not empty, proper format)
-    print(f"\033[93m📋 [SERVICE] Validating bearer token\033[0m")
+    print("\033[93m📋 [SERVICE] Validating bearer token\033[0m")
     if not bearer_token or not bearer_token.strip():
-        print(f"\033[91m❌ [SERVICE] Invalid bearer token format\033[0m")
+        print("\033[91m❌ [SERVICE] Invalid bearer token format\033[0m")
         raise HTTPException(status_code=400, detail="Invalid bearer token format")
-    
-    print(f"\033[92m✅ [SERVICE] Bearer token validated\033[0m")
+
+    print("\033[92m✅ [SERVICE] Bearer token validated\033[0m")
 
     # 6. Scheduling logic (immediate vs scheduled with time validation)
     print(f"\033[93m📋 [SERVICE] Determining scheduling logic (immediate: {immediate})\033[0m")
@@ -308,7 +308,7 @@ def trigger_meeting_bot_join(
         # Immediate join - set status to pending
         status = "pending"
         scheduled_start_time = None
-        print(f"\033[92m✅ [SERVICE] Immediate join - status: pending\033[0m")
+        print("\033[92m✅ [SERVICE] Immediate join - status: pending\033[0m")
     else:
         # Check if bot has scheduled_start_time
         if bot.scheduled_start_time:
@@ -323,7 +323,7 @@ def trigger_meeting_bot_join(
             # No scheduled time set and not immediate - default to immediate
             status = "pending"
             scheduled_start_time = None
-            print(f"\033[92m✅ [SERVICE] No scheduled time - defaulting to immediate\033[0m")
+            print("\033[92m✅ [SERVICE] No scheduled time - defaulting to immediate\033[0m")
 
     # 7. MeetingBot status update (pending or scheduled)
     print(f"\033[93m📋 [SERVICE] Updating bot status to: {status}\033[0m")
@@ -331,12 +331,12 @@ def trigger_meeting_bot_join(
     bot.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(bot)
-    print(f"\033[92m✅ [SERVICE] Bot status updated\033[0m")
+    print("\033[92m✅ [SERVICE] Bot status updated\033[0m")
 
     # 8. Celery task queuing with proper parameters
-    print(f"\033[93m📋 [SERVICE] Queuing Celery task\033[0m")
-    from app.jobs.celery_worker import celery_app
+    print("\033[93m📋 [SERVICE] Queuing Celery task\033[0m")
     from app.core.config import settings
+    from app.jobs.celery_worker import celery_app
 
     # Queue the Celery task with all required parameters
     task = celery_app.send_task("app.jobs.tasks.schedule_meeting_bot_task", args=[str(meeting_id), str(user_id), bearer_token, meeting_url], kwargs={"webhook_url": settings.BOT_WEBHOOK_URL})

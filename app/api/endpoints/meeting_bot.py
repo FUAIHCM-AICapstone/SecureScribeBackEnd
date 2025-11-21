@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Header, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -9,7 +9,6 @@ from app.db import get_db
 from app.models.user import User
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.meeting_bot import (
-    BotWebhookCallback,
     MeetingBotCreate,
     MeetingBotJoinRequest,
     MeetingBotJoinResponse,
@@ -63,8 +62,9 @@ def get_meeting_bots_endpoint(
 ):
     """Get meeting bots with pagination"""
     try:
-        bots, total = get_meeting_bots(db, current_user.id, page, limit)
-
+        bots, total, meeting = get_meeting_bots(db, current_user.id, page, limit)
+        for bot in bots:
+            bot.meeting = meeting
         return PaginatedResponse(
             success=True,
             message="Meeting bots retrieved successfully",
@@ -228,7 +228,7 @@ def join_meeting_bot_endpoint(
 ):
     """Trigger meeting bot to join a meeting"""
     try:
-        
+
         # Validate meeting_id format (UUID validation is automatic via FastAPI)
 
         # Extract bearer token from Authorization header
@@ -268,7 +268,7 @@ def join_meeting_bot_endpoint(
     except HTTPException:
         # Re-raise HTTPException as-is
         raise
-    except Exception as e:
+    except Exception:
         # Catch any other exceptions and return 500
         raise HTTPException(status_code=500, detail="Failed to queue bot join task")
 
@@ -316,7 +316,7 @@ def bot_webhook_recording_endpoint(
                 message="Webhook received (no file)",
                 data={"status": status, "botId": botId},
             )
-        
+
         file_bytes = recording.file.read()
         if not file_bytes:
             raise HTTPException(status_code=400, detail="Recording file is empty")
@@ -345,7 +345,7 @@ def bot_webhook_recording_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         from app.jobs.celery_worker import celery_app
 
         retry_task = celery_app.send_task(
