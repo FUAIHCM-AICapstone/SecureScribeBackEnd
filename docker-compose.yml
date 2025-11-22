@@ -1,93 +1,70 @@
-version: '3.8'
+# Shared configurations
+x-shared-service: &shared-service
+  env_file:
+    - .env
+  restart: unless-stopped
+  networks:
+    - securescribe-network
+
+x-shared-service-no-env: &shared-service-no-env
+  restart: unless-stopped
+  networks:
+    - securescribe-network
 
 services:
   db:
     image: postgres:15-alpine
-    environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=admin123
-      - POSTGRES_DB=securescribe
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-    networks:
-      - securescribe-network
+    <<: *shared-service
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d securescribe"]
       interval: 10s
       timeout: 5s
       retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   api:
     image: luongnguyenminhan/securescribe:backend
-    environment:
-      - ENV=production
-      - POSTGRES_SERVER=db
-      - POSTGRES_PORT=5432
-      - AGNO_TELEMETRY=false
-      - SECRET_KEY=securescribe_jwt_secret_key_2025_fixed_for_development
-      - TRANSCRIBE_API_BASE_URL=http://s2t_api:9998/api/v1
-    restart: unless-stopped
-    networks:
-      - securescribe-network
+    <<: *shared-service
+    volumes:
+      - ./config:/app/config:rw
     depends_on:
       - db
       - redis
       - minio
-    volumes:
-      - ./config:/app/config:rw
 
   s2t_api:
     image: luongnguyenminhan/securescribe:s2t
     ports:
       - "9998:9998"
-    environment:
-      - HF_TOKEN=${HF_TOKEN}
-      - REDIS_DB_S2T=${REDIS_DB_S2T}
-    restart: unless-stopped
-    networks:
-      - securescribe-network
+    <<: *shared-service
     depends_on:
       - redis
 
   redis:
     image: redis:7-alpine
-    restart: unless-stopped
-    networks:
-      - securescribe-network
+    <<: *shared-service-no-env
 
   minio:
     image: minio/minio:latest
-    environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
-      - MINIO_CONSOLE_BASE_PATH=/minio
-      - MINIO_SERVER_URL=http://localhost:8081/minio/
-      - MINIO_BROWSER_REDIRECT_URL=http://localhost:8081/minio-console/
+    <<: *shared-service
     volumes:
       - minio_data:/data
     command: server /data --address ':9000' --console-address ':9001'
-    restart: unless-stopped
-    networks:
-      - securescribe-network
 
   qdrant:
     image: qdrant/qdrant:latest
+    <<: *shared-service-no-env
     volumes:
       - qdrant_data:/qdrant/storage
-    restart: unless-stopped
-    networks:
-      - securescribe-network
 
   nginx:
     image: nginx:alpine
     ports:
       - "8081:80"
+    <<: *shared-service-no-env
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    restart: unless-stopped
-    networks:
-      - securescribe-network
     depends_on:
       - api
       - qdrant
@@ -96,35 +73,18 @@ services:
 
   adminer:
     image: adminer:latest
-    environment:
-      - ADMINER_DEFAULT_SERVER=db
-      - ADMINER_DEFAULT_USER=admin
-      - ADMINER_DEFAULT_PASSWORD=admin123
-      - ADMINER_DEFAULT_DB=securescribe
-    restart: unless-stopped
-    networks:
-      - securescribe-network
+    <<: *shared-service
     depends_on:
       - db
 
   frontend:
     image: luongnguyenminhan/securescribe:frontend
     container_name: securescribe-web
-    environment:
-      - API_ENDPOINT=https://securescribe.wc504.io.vn/be/api
-      - BRAND_NAME=FPT Telecom
-      - BRAND_LOGO=https://pay.fpt.com/fpay-htm/img/logoFPT.png
-      - FCM_VAPID_KEY=BLgY0pHLGwzER2db0ebbNX2950NiidC6il--p-RS0d7Q5WdIbNktz9MjQsCO4O1XpjznZghy0PzjXIb026qoX9I
-    restart: unless-stopped
-    networks:
-      - securescribe-network
+    <<: *shared-service
 
   bot:
     image: luongnguyenminhan/securescribe:bot
-    environment:
-      - NODE_ENV=development
-    networks:
-      - securescribe-network
+    <<: *shared-service
 
 networks:
   securescribe-network:
