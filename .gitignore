@@ -215,3 +215,6 @@ app/static/*
 
 checkpoints/*
 AGENTS.md
+node_modules/
+lib/
+bin/*

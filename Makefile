@@ -1,5 +1,5 @@
 # SecureScribe Backend - Docker Compose Commands
-.PHONY: help up down rebuild restart logs clean test shell db-shell redis-shell minio-shell
+.PHONY: help up down rebuild restart logs clean test shell db-shell redis-shell minio-shell deepeval-sop
 
 # Default target
 help: ## Show this help message
@@ -78,3 +78,8 @@ status: ## Show status of all services
 # Stop and remove volumes (destructive)
 nuke: ## Stop everything and remove all volumes (WARNING: destroys data)
 	docker-compose -f docker-compose.local.yml down -v
+
+deepeval-sop: ## Ingest the SOP transcript and run the DeepEval benchmark
+	@if [ -z "$$SECURESCRIBE_API_TOKEN" ]; then echo "SECURESCRIBE_API_TOKEN is required"; exit 1; fi
+	SECURESCRIBE_API_TOKEN=$$SECURESCRIBE_API_TOKEN scripts/ingest_transcript.py resources/transcripts/sop_kickoff.json
+	SECURESCRIBE_API_TOKEN=$$SECURESCRIBE_API_TOKEN python scripts/run_deepeval_benchmark.py --dataset resources/benchmarks/sop_kickoff_qas.json --label sop_kickoff

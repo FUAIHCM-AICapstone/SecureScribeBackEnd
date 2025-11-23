@@ -1,0 +1,75 @@
+{
+  "meeting_id": "7df5c4d1-2a78-4d3d-9d9b-6b5d3b8fca11",
+  "meeting_title": "SecureScribe SOP Rollout Kickoff",
+  "meeting_timestamp": "2025-11-20T09:00:00Z",
+  "participants": [
+    {"name": "Lan Nguyen", "role": "Operations Director"},
+    {"name": "Bao Tran", "role": "Customer Success Manager"},
+    {"name": "Minh Ho", "role": "Implementation Lead"},
+    {"name": "Sofia Chen", "role": "Security Architect"},
+    {"name": "Liam Patel", "role": "Product Marketing"}
+  ],
+  "agenda": [
+    "Confirm SOP objectives",
+    "Outline data sources feeding the SOP",
+    "Define delivery milestones",
+    "Assign owners for rollout dependencies"
+  ],
+  "transcript": [
+    {
+      "timestamp": "09:02",
+      "speaker": "Lan",
+      "utterance": "Thanks for joining. Today we lock the SOP scope for SecureScribe's enterprise onboarding playbook."
+    },
+    {
+      "timestamp": "09:04",
+      "speaker": "Bao",
+      "utterance": "Customer success needs the SOP to cover intake through executive readout, with templates for kickoff emails and weekly status."
+    },
+    {
+      "timestamp": "09:06",
+      "speaker": "Minh",
+      "utterance": "Implementation can supply meeting transcripts, Jira epics, and configuration runbooks. We need final sign-off on which repositories we mirror."
+    },
+    {
+      "timestamp": "09:09",
+      "speaker": "Sofia",
+      "utterance": "Security wants SOC 2 evidence pulled from Drata plus the privileged access checklist. Anything classified as Restricted stays in the enclave, so reference links are safer than raw exports."
+    },
+    {
+      "timestamp": "09:12",
+      "speaker": "Lan",
+      "utterance": "Great. We'll scope data sources to: kickoff questionnaire responses, Gong discovery calls, Jira onboarding board, and Drata control evidence."
+    },
+    {
+      "timestamp": "09:15",
+      "speaker": "Liam",
+      "utterance": "Marketing can repurpose the executive-readout section for case studies as long as we scrub client names. We also promised enablement decks by December 5th."
+    },
+    {
+      "timestamp": "09:18",
+      "speaker": "Minh",
+      "utterance": "Timeline proposal: draft SOP outline by Nov 25, stakeholder review Nov 27, pilot with the FinServe cluster starting Dec 2, and org-wide release Dec 9."
+    },
+    {
+      "timestamp": "09:22",
+      "speaker": "Bao",
+      "utterance": "Dependencies: need the updated escalation matrix from support, plus the AI redaction policy from compliance."
+    },
+    {
+      "timestamp": "09:25",
+      "speaker": "Sofia",
+      "utterance": "I'll deliver the redaction policy draft tomorrow. Also reminding everyone that privileged recordings must be tagged before uploading so the retrieval layer honors the security filter."
+    },
+    {
+      "timestamp": "09:28",
+      "speaker": "Lan",
+      "utterance": "Action items: Minh owns the outline, Bao handles templates, Sofia secures the policy, Liam preps enablement messaging, and I'll run executive alignment."
+    },
+    {
+      "timestamp": "09:30",
+      "speaker": "Lan",
+      "utterance": "Success looks like onboarding teams reusing a single SOP with meeting notes auto-attached per customer so CS can search their history without rebuilding summaries."
+    }
+  ]
+}

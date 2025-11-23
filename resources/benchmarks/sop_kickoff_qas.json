@@ -1,0 +1,84 @@
+[
+  {
+    "meeting_id": "7df5c4d1-2a78-4d3d-9d9b-6b5d3b8fca11",
+    "input": "What is the overall goal of the SOP discussed in the kickoff?",
+    "expected_output": "The team wants a single enterprise onboarding SOP for SecureScribe so CS teams can reuse meeting notes per customer without rebuilding summaries.",
+    "context": [
+      "[09:02] Lan: Today we lock the SOP scope for SecureScribe's enterprise onboarding playbook.",
+      "[09:30] Lan: Success looks like onboarding teams reusing a single SOP with meeting notes auto-attached per customer."
+    ]
+  },
+  {
+    "meeting_id": "7df5c4d1-2a78-4d3d-9d9b-6b5d3b8fca11",
+    "input": "Which materials does customer success expect the SOP to include?",
+    "expected_output": "Customer success wants coverage from intake to executive readout, including kickoff email templates and weekly status templates.",
+    "context": [
+      "[09:04] Bao: Customer success needs the SOP to cover intake through executive readout, with templates for kickoff emails and weekly status."
+    ]
+  },
+  {
+    "meeting_id": "7df5c4d1-2a78-4d3d-9d9b-6b5d3b8fca11",
+    "input": "List the data sources approved for the SOP.",
+    "expected_output": "Kickoff questionnaire responses, Gong discovery calls, the Jira onboarding board, and Drata control evidence.",
+    "context": [
+      "[09:12] Lan: We'll scope data sources to: kickoff questionnaire responses, Gong discovery calls, Jira onboarding board, and Drata control evidence."
+    ]
+  },
+  {
+    "meeting_id": "7df5c4d1-2a78-4d3d-9d9b-6b5d3b8fca11",
+    "input": "What timeline did Minh propose for the SOP rollout?",
+    "expected_output": "Draft outline by Nov 25, stakeholder review on Nov 27, pilot with FinServe on Dec 2, and org-wide release on Dec 9.",
+    "context": [
+      "[09:18] Minh: Draft SOP outline by Nov 25, stakeholder review Nov 27, pilot FinServe cluster Dec 2, org-wide release Dec 9."
+    ]
+  },
+  {
+    "meeting_id": "7df5c4d1-2a78-4d3d-9d9b-6b5d3b8fca11",
+    "input": "Which repositories or knowledge stores can implementation share?",
+    "expected_output": "Implementation can provide meeting transcripts, Jira epics, and configuration runbooks, pending sign-off on which repositories to mirror.",
+    "context": [
+      "[09:06] Minh: Implementation can supply meeting transcripts, Jira epics, and configuration runbooks; we need sign-off on which repositories to mirror."
+    ]
+  },
+  {
+    "meeting_id": "7df5c4d1-2a78-4d3d-9d9b-6b5d3b8fca11",
+    "input": "What security constraint did Sofia emphasize about restricted data?",
+    "expected_output": "Restricted evidence must stay inside the enclave, so they will link to Drata rather than exporting raw files, and privileged recordings must be tagged before upload.",
+    "context": [
+      "[09:09] Sofia: Anything classified as Restricted stays in the enclave, so reference links are safer than raw exports.",
+      "[09:25] Sofia: Privileged recordings must be tagged before uploading so the retrieval layer honors the security filter."
+    ]
+  },
+  {
+    "meeting_id": "7df5c4d1-2a78-4d3d-9d9b-6b5d3b8fca11",
+    "input": "What enablement deliverable is marketing on the hook for, and by when?",
+    "expected_output": "Marketing must deliver enablement decks for the SOP by December 5th, per Liam.",
+    "context": [
+      "[09:15] Liam: We promised enablement decks by December 5th."
+    ]
+  },
+  {
+    "meeting_id": "7df5c4d1-2a78-4d3d-9d9b-6b5d3b8fca11",
+    "input": "Which dependencies did Bao list before rollout?",
+    "expected_output": "Need the updated escalation matrix from support and the AI redaction policy from compliance.",
+    "context": [
+      "[09:22] Bao: Need the updated escalation matrix from support plus the AI redaction policy from compliance."
+    ]
+  },
+  {
+    "meeting_id": "7df5c4d1-2a78-4d3d-9d9b-6b5d3b8fca11",
+    "input": "Who owns each major action item after the meeting?",
+    "expected_output": "Minh owns the outline, Bao handles templates, Sofia secures the policy, Liam preps enablement messaging, and Lan runs executive alignment.",
+    "context": [
+      "[09:28] Lan: Action items: Minh owns the outline, Bao handles templates, Sofia secures the policy, Liam preps enablement messaging, Lan runs executive alignment."
+    ]
+  },
+  {
+    "meeting_id": "7df5c4d1-2a78-4d3d-9d9b-6b5d3b8fca11",
+    "input": "How will success be measured for the SOP rollout?",
+    "expected_output": "Success means onboarding teams reuse a single SOP with meeting notes auto-attached per customer so CS can search history without rebuilding summaries.",
+    "context": [
+      "[09:30] Lan: Success looks like onboarding teams reusing a single SOP with meeting notes auto-attached per customer so CS can search their history without rebuilding summaries."
+    ]
+  }
+]
