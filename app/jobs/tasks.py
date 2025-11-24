@@ -17,7 +17,6 @@ from app.models.file import File
 from app.models.meeting import AudioFile, Meeting, Transcript
 from app.schemas.notification import NotificationCreate
 from app.services.audit_service import AuditLogService
-from app.services.chat import perform_query_expansion_search
 from app.services.notification import create_notifications_bulk, send_fcm_notification
 from app.services.qdrant_service import (
     chunk_text,
@@ -540,86 +539,12 @@ def process_chat_message(
         # Fetch conversation history (using sync version for Celery task)
         history = fetch_conversation_history_sync(conversation_id)
 
-        # Prepare retrieval contexts
-        mention_docs: List[Dict[str, Any]] = list(query_results or [])
-        combined_candidates: List[Dict[str, Any]] = mention_docs.copy()
-        if mention_docs:
-            print(f"[process_chat_message] Found {len(mention_docs)} mention-based documents for initial context.")
+        # Prepare retrieval contexts (already deduped/expanded at API layer)
+        combined_candidates: List[Dict[str, Any]] = list(query_results or [])
+        if combined_candidates:
+            print(f"[process_chat_message] Received {len(combined_candidates)} retrieval documents for context.")
         else:
-            print("[process_chat_message] No mention documents provided for context.")
-
-        expansion_results: List[Dict[str, Any]] = []
-
-        # Perform query expansion search for ALL chat messages
-        print("[process_chat_message] Starting query expansion search...")
-        try:
-            # Ensure Qdrant client uses HTTP (avoid incorrect gRPC attempts to 6333)
-            try:
-                from qdrant_client import QdrantClient
-
-                from app.utils.qdrant import qdrant_client_manager
-                # Recreate client forcing HTTP only
-                qdrant_client_manager._client = QdrantClient(host=settings.QDRANT_HOST, port=getattr(settings, "QDRANT_PORT", 6333), prefer_grpc=False, timeout=30.0)
-                print("[process_chat_message] Reinitialized Qdrant client (HTTP mode)")
-            except Exception as init_error:
-                print(f"[process_chat_message] Failed to reinitialize Qdrant client: {init_error}")
-            # Get mentions from user message to pass as filters
-            user_message = db.query(ChatMessage).filter(ChatMessage.id == user_message_id).first()
-            mentions = user_message.mentions if user_message and user_message.mentions else []
-
-            # Convert mentions to proper format if needed
-            mention_objects = []
-            if mentions:
-                from app.schemas.chat import Mention
-
-                for mention_data in mentions:
-                    if isinstance(mention_data, dict):
-                        mention_objects.append(Mention(**mention_data))
-                    else:
-                        mention_objects.append(mention_data)
-
-            # Perform query expansion search
-            expansion_results = asyncio.run(
-                perform_query_expansion_search(
-                    query=content,
-                    mentions=mention_objects if mention_objects else None,
-                    top_k=5,
-                    num_expansions=3,
-                )
-            )
-
-            if expansion_results:
-                print(f"[process_chat_message] Found {len(expansion_results)} expansion-based results")
-                combined_candidates.extend(expansion_results)
-            else:
-                print("[process_chat_message] No expansion results found")
-
-        except Exception as expansion_error:
-            # Detect gRPC-to-HTTP mismatch error and retry once with forced HTTP client
-            error_text = str(expansion_error)
-            print(f"[process_chat_message] Query expansion failed: {error_text}")
-            if "Trying to connect an http1.x server" in error_text or "failed to connect to all addresses" in error_text:
-                try:
-                    from qdrant_client import QdrantClient
-
-                    from app.utils.qdrant import qdrant_client_manager
-                    qdrant_client_manager._client = QdrantClient(host=settings.QDRANT_HOST, port=getattr(settings, "QDRANT_PORT", 6333), prefer_grpc=False, timeout=30.0)
-                    print("[process_chat_message] Retrying expansion search with HTTP-only Qdrant client")
-                    expansion_results = asyncio.run(
-                        perform_query_expansion_search(
-                            query=content,
-                            mentions=mention_objects if mention_objects else None,
-                            top_k=5,
-                            num_expansions=3,
-                        )
-                    )
-                    if expansion_results:
-                        print(f"[process_chat_message] Retry succeeded with {len(expansion_results)} results")
-                        combined_candidates.extend(expansion_results)
-                except Exception as retry_error:
-                    print(f"[process_chat_message] Retry after HTTP reinit failed: {retry_error}")
-            expansion_results = []
-            # Continue with mention-based results only
+            print("[process_chat_message] No retrieval documents provided; proceeding without external context.")
 
         # Deduplicate contexts by file_id + chunk_index (fallback to doc id)
         aggregated_contexts: Dict[str, Dict[str, Any]] = {}

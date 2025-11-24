@@ -52,14 +52,74 @@ def create_chat_message(db: Session, conversation_id: uuid.UUID, user_id: uuid.U
     return db_message
 
 
-async def query_documents_for_mentions(mentions: List[Mention], current_user_id: Optional[str] = None, db: Optional[Session] = None) -> List[Dict[str, Any]]:
+def _merge_context_candidates(candidates: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
     """
-    Query documents based on mentions and return results.
+    Deduplicate and rank document candidates by score while respecting a limit.
+    """
+    aggregated: Dict[str, Dict[str, Any]] = {}
+
+    for idx, doc in enumerate(candidates, start=1):
+        if isinstance(doc, dict):
+            payload = doc.get("payload") or {}
+            doc_id = doc.get("id")
+            score = float(doc.get("score", 0.0) or 0.0)
+            vector_data = doc.get("vector", [])
+        else:
+            payload = getattr(doc, "payload", {}) or {}
+            doc_id = getattr(doc, "id", None)
+            score = float(getattr(doc, "score", 0.0) or 0.0)
+            vector_data = getattr(doc, "vector", [])
+
+        if not isinstance(payload, dict):
+            payload = {}
+
+        file_id = payload.get("file_id")
+        chunk_index = payload.get("chunk_index")
+        if file_id is not None and chunk_index is not None:
+            dedupe_key = f"{file_id}:{chunk_index}"
+        elif doc_id is not None:
+            dedupe_key = str(doc_id)
+        else:
+            digest_source = json.dumps(payload, sort_keys=True).encode("utf-8")
+            digest = hashlib.sha256(digest_source).hexdigest()[:12]
+            dedupe_key = f"fallback:{idx}:{digest}"
+
+        existing = aggregated.get(dedupe_key)
+        if existing is None or score > existing.get("score", 0.0):
+            aggregated[dedupe_key] = {
+                "id": doc_id if doc_id is not None else dedupe_key,
+                "score": score,
+                "payload": payload,
+                "vector": vector_data,
+                "key": dedupe_key,
+            }
+
+    if not aggregated:
+        return []
+
+    ordered = sorted(aggregated.values(), key=lambda item: item["score"], reverse=True)
+    if limit > 0:
+        ordered = ordered[:limit]
+    return ordered
+
+
+async def query_documents_for_mentions(
+    mentions: List[Mention],
+    current_user_id: Optional[str] = None,
+    db: Optional[Session] = None,
+    *,
+    content: Optional[str] = None,
+    top_k: int = 5,
+    num_expansions: int = 3,
+) -> List[Dict[str, Any]]:
+    """
+    Query documents based on mentions, augment with expansion search (if content is provided),
+    and return a deduplicated list limited by top_k.
     """
     if not mentions:
         return []
 
-    results = []
+    mention_results: List[Dict[str, Any]] = []
 
     for mention in mentions:
         entity_type = mention.entity_type
@@ -71,19 +131,33 @@ async def query_documents_for_mentions(mentions: List[Mention], current_user_id:
         documents: List[dict] = []
 
         if entity_type == "meeting":
-            documents = await query_documents_by_meeting_id(entity_id, top_k=5, db=db, user_id=current_user_id)
+            documents = await query_documents_by_meeting_id(entity_id, top_k=top_k, db=db, user_id=current_user_id)
         elif entity_type == "project":
-            documents = await query_documents_by_project_id(entity_id, top_k=5, db=db, user_id=current_user_id)
+            documents = await query_documents_by_project_id(entity_id, top_k=top_k, db=db, user_id=current_user_id)
         elif entity_type == "file":
-            documents = await query_documents_by_file_id(entity_id, top_k=5, db=db, user_id=current_user_id)
+            documents = await query_documents_by_file_id(entity_id, top_k=top_k, db=db, user_id=current_user_id)
         else:
             # Unsupported mention types are ignored
             continue
 
         if documents:
-            results.extend(documents)
+            mention_results.extend(documents)
 
-    return results
+    expansion_results: List[Dict[str, Any]] = []
+    normalized_content = (content or "").strip()
+    if normalized_content:
+        expansion_results = await perform_query_expansion_search(
+            normalized_content,
+            mentions=mentions,
+            top_k=top_k,
+            num_expansions=num_expansions,
+        )
+
+    combined = mention_results + expansion_results
+    if not combined:
+        return []
+
+    return _merge_context_candidates(combined, limit=top_k)
 
 
 async def perform_query_expansion_search(

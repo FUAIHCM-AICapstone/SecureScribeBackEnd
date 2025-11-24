@@ -46,6 +46,62 @@ async def test_query_documents_for_mentions_routes_by_entity(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_query_documents_for_mentions_merges_expansion(monkeypatch):
+    mentions = [Mention(entity_type="meeting", entity_id="meeting-123", offset_start=0, offset_end=10)]
+
+    async def fake_meeting_query(entity_id: str, top_k: int = 5, **_kwargs):
+        return [
+            {
+                "id": "mention-doc",
+                "score": 0.4,
+                "payload": {"file_id": "file-a", "chunk_index": 0, "text": "meeting note"},
+                "key": "file-a:0",
+            }
+        ]
+
+    class ExpansionCapture:
+        def __init__(self):
+            self.called = False
+            self.query = None
+            self.top_k = None
+
+    expansion_capture = ExpansionCapture()
+
+    async def fake_perform_query_expansion_search(query, mentions=None, top_k=5, num_expansions=3):
+        expansion_capture.called = True
+        expansion_capture.query = query
+        expansion_capture.top_k = top_k
+        assert mentions == requests_mentions
+        return [
+            {
+                "id": "mention-doc",
+                "score": 0.9,
+                "payload": {"file_id": "file-a", "chunk_index": 0, "text": "expansion best"},
+                "key": "file-a:0",
+            },
+            {
+                "id": "exp-doc-2",
+                "score": 0.3,
+                "payload": {"file_id": "file-b", "chunk_index": 1, "text": "secondary"},
+                "key": "file-b:1",
+            },
+        ]
+
+    requests_mentions = mentions
+    monkeypatch.setattr(chat_service, "query_documents_by_meeting_id", fake_meeting_query)
+    monkeypatch.setattr(chat_service, "perform_query_expansion_search", fake_perform_query_expansion_search)
+
+    results = await chat_service.query_documents_for_mentions(mentions, content="Need summary", top_k=2)
+
+    assert expansion_capture.called is True
+    assert expansion_capture.query == "Need summary"
+    assert expansion_capture.top_k == 2
+    assert len(results) == 2
+    assert results[0]["payload"]["text"] == "expansion best"
+    assert {doc["key"] for doc in results} == {"file-a:0", "file-b:1"}
+
+
+@pytest.mark.asyncio
 async def test_query_documents_by_project_id_builds_filter(monkeypatch):
     captured = {}
 
@@ -282,12 +338,6 @@ def test_process_chat_message_optimizer_selects_top_contexts(monkeypatch):
     def fake_session_local():
         return DummySession()
 
-    async def fake_perform_query_expansion_search(*_args, **_kwargs):
-        return [
-            {"id": "exp-1", "score": 0.9, "payload": {"file_id": "file-a", "chunk_index": 0, "text": "expansion doc"}, "key": "file-a:0"},
-            {"id": "exp-2", "score": 0.5, "payload": {"file_id": "file-b", "chunk_index": 1, "text": "less relevant"}, "key": "file-b:1"},
-        ]
-
     async def fake_optimize_contexts_with_llm(*, query, history, context_block, desired_count=3):
         captured["optimizer_request"] = {
             "query": query,
@@ -313,7 +363,6 @@ def test_process_chat_message_optimizer_selects_top_contexts(monkeypatch):
             captured["publish_called"] = True
 
     monkeypatch.setattr(tasks, "SessionLocal", fake_session_local)
-    monkeypatch.setattr(tasks, "perform_query_expansion_search", fake_perform_query_expansion_search)
     monkeypatch.setattr(tasks, "optimize_contexts_with_llm", fake_optimize_contexts_with_llm)
     monkeypatch.setattr(tasks, "create_general_chat_agent", fake_create_agent)
     monkeypatch.setattr(tasks, "get_agno_postgres_db", fake_get_agno_db)
@@ -335,7 +384,11 @@ def test_process_chat_message_optimizer_selects_top_contexts(monkeypatch):
     monkeypatch.setattr(tasks, "ChatMessage", FakeChatMessage)
     monkeypatch.setattr(tasks, "ChatMessageType", FakeChatMessageType())
 
-    query_results = [{"id": "mention-1", "score": 0.8, "payload": {"file_id": "file-m", "chunk_index": 2, "text": "mention doc"}, "key": "file-m:2"}]
+    query_results = [
+        {"id": "mention-1", "score": 0.8, "payload": {"file_id": "file-m", "chunk_index": 2, "text": "mention doc"}, "key": "file-m:2"},
+        {"id": "exp-1", "score": 0.9, "payload": {"file_id": "file-a", "chunk_index": 0, "text": "expansion doc"}, "key": "file-a:0"},
+        {"id": "exp-2", "score": 0.5, "payload": {"file_id": "file-b", "chunk_index": 1, "text": "less relevant"}, "key": "file-b:1"},
+    ]
 
     result = tasks.process_chat_message(
         conversation_id="conv-1",
@@ -410,9 +463,6 @@ def test_process_chat_message_optimizer_fallback(monkeypatch):
     def fake_session_local():
         return DummySession()
 
-    async def fake_perform_query_expansion_search(*_args, **_kwargs):
-        return [{"id": "exp-1", "score": 0.9, "payload": {"file_id": "file-z", "chunk_index": 0, "text": "expansion doc"}, "key": "file-z:0"}]
-
     async def fake_optimize_contexts_with_llm(*_args, **_kwargs):
         return None
 
@@ -420,7 +470,6 @@ def test_process_chat_message_optimizer_fallback(monkeypatch):
         return DummyAgent()
 
     monkeypatch.setattr(tasks, "SessionLocal", fake_session_local)
-    monkeypatch.setattr(tasks, "perform_query_expansion_search", fake_perform_query_expansion_search)
     monkeypatch.setattr(tasks, "optimize_contexts_with_llm", fake_optimize_contexts_with_llm)
     monkeypatch.setattr(tasks, "create_general_chat_agent", fake_create_agent)
     monkeypatch.setattr(tasks, "get_agno_postgres_db", lambda: None)
@@ -442,7 +491,10 @@ def test_process_chat_message_optimizer_fallback(monkeypatch):
     monkeypatch.setattr(tasks, "ChatMessage", FakeChatMessage)
     monkeypatch.setattr(tasks, "ChatMessageType", FakeChatMessageType())
 
-    query_results = [{"id": "mention-1", "score": 0.8, "payload": {"file_id": "file-m", "chunk_index": 2, "text": "mention doc"}, "key": "file-m:2"}]
+    query_results = [
+        {"id": "mention-1", "score": 0.8, "payload": {"file_id": "file-m", "chunk_index": 2, "text": "mention doc"}, "key": "file-m:2"},
+        {"id": "exp-1", "score": 0.9, "payload": {"file_id": "file-z", "chunk_index": 0, "text": "expansion doc"}, "key": "file-z:0"},
+    ]
 
     tasks.process_chat_message(
         conversation_id="conv-2",

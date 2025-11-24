@@ -45,7 +45,12 @@ async def send_chat_message_endpoint(
     # Handle mention-based querying (adapted from Agno_chat)
     query_results = []
     if message_data.mentions:
-        query_results = await chat_service.query_documents_for_mentions(message_data.mentions, current_user_id=str(current_user.id), db=db)
+        query_results = await chat_service.query_documents_for_mentions(
+            message_data.mentions,
+            current_user_id=str(current_user.id),
+            db=db,
+            content=message_data.content,
+        )
 
     # Trigger background AI processing task (core Agno_chat logic)
     task = process_chat_message.delay(conversation_id=str(conversation_id), user_message_id=str(user_message.id), content=message_data.content, user_id=str(current_user.id), query_results=query_results)
