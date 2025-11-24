@@ -17,8 +17,8 @@ from app.models.file import File
 from app.models.meeting import AudioFile, Meeting, Transcript
 from app.schemas.chat import Mention
 from app.schemas.notification import NotificationCreate
-from app.services.audit_service import AuditLogService
 from app.services import chat as chat_service
+from app.services.audit_service import AuditLogService
 from app.services.notification import create_notifications_bulk, send_fcm_notification
 from app.services.qdrant_service import (
     chunk_text,
@@ -108,7 +108,7 @@ async def update_meeting_vectors_with_project_id(meeting_id: str, project_id: st
 
 # --- Domain Event Processing (Audit) ---
 @celery_app.task(bind=True, soft_time_limit=300, time_limit=600)
-def process_domain_event(self, event_dict: dict) -> None:
+def process_domain_event(self, event_dict: dict) -> None:  # noqa: ARG001
     """Minimal Celery task to persist a domain event as an audit log.
 
     This task is intentionally light-weight and must not perform business logic.
@@ -448,7 +448,7 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
 
 
 @celery_app.task(bind=True, soft_time_limit=120, time_limit=240)
-def retry_webhook_processing_task(self, bot_id: str, meeting_url: str, timestamp: str) -> Dict[str, Any]:
+def retry_webhook_processing_task(self, bot_id: str, meeting_url: str) -> Dict[str, Any]:  # noqa: ARG001
     """Retry failed webhook processing with exponential backoff"""
     import logging
 
@@ -469,7 +469,7 @@ def retry_webhook_processing_task(self, bot_id: str, meeting_url: str, timestamp
 
 
 @celery_app.task(bind=True)
-def schedule_meeting_bot_task(self, meeting_id: str, user_id: str, bearer_token: str, meeting_url: str, webhook_url: str = ""):
+def schedule_meeting_bot_task(self, meeting_id: str, user_id: str, bearer_token: str, meeting_url: str, webhook_url: str = ""):  # noqa: ARG001
     """Schedule bot to join meeting at specified time"""
     import random
 
