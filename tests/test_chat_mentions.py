@@ -102,6 +102,40 @@ async def test_query_documents_for_mentions_merges_expansion(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_query_documents_for_mentions_skips_expansion_when_disabled(monkeypatch):
+    mentions = [Mention(entity_type="meeting", entity_id="meeting-123", offset_start=0, offset_end=10)]
+
+    async def fake_meeting_query(entity_id: str, top_k: int = 5, **_kwargs):
+        return [
+            {
+                "id": "mention-doc",
+                "score": 0.6,
+                "payload": {"file_id": "file-a", "chunk_index": 0, "text": "meeting note"},
+                "key": "file-a:0",
+            }
+        ]
+
+    expansion_called = {"value": False}
+
+    async def fake_perform_query_expansion_search(*_args, **_kwargs):
+        expansion_called["value"] = True
+        return []
+
+    monkeypatch.setattr(chat_service, "query_documents_by_meeting_id", fake_meeting_query)
+    monkeypatch.setattr(chat_service, "perform_query_expansion_search", fake_perform_query_expansion_search)
+
+    results = await chat_service.query_documents_for_mentions(
+        mentions,
+        content="Need summary",
+        include_query_expansion=False,
+    )
+
+    assert expansion_called["value"] is False
+    assert len(results) == 1
+    assert results[0]["payload"]["text"] == "meeting note"
+
+
+@pytest.mark.asyncio
 async def test_query_documents_by_project_id_builds_filter(monkeypatch):
     captured = {}
 
