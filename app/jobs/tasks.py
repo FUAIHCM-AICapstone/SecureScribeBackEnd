@@ -15,8 +15,10 @@ from app.jobs.celery_worker import celery_app
 from app.models.chat import ChatMessage, ChatMessageType
 from app.models.file import File
 from app.models.meeting import AudioFile, Meeting, Transcript
+from app.schemas.chat import Mention
 from app.schemas.notification import NotificationCreate
 from app.services.audit_service import AuditLogService
+from app.services import chat as chat_service
 from app.services.notification import create_notifications_bulk, send_fcm_notification
 from app.services.qdrant_service import (
     chunk_text,
@@ -512,7 +514,7 @@ def process_chat_message(
     user_message_id: str,
     content: str,
     user_id: str,
-    query_results: Optional[List[dict]] = None,
+    mentions: Optional[List[dict]] = None,
 ) -> Dict[str, Any]:
     """
     Process chat message in background and broadcast response via SSE.
@@ -540,8 +542,54 @@ def process_chat_message(
         history = fetch_conversation_history_sync(conversation_id)
 
         # Prepare retrieval contexts (already deduped/expanded at API layer)
-        combined_candidates: List[Dict[str, Any]] = list(query_results or [])
-        if combined_candidates:
+        mention_models: List[Mention] = []
+        if mentions:
+            for raw_mention in mentions:
+                try:
+                    if isinstance(raw_mention, Mention):
+                        mention_models.append(raw_mention)
+                    elif isinstance(raw_mention, dict):
+                        mention_models.append(Mention(**raw_mention))
+                    else:
+                        mention_models.append(Mention.model_validate(raw_mention))
+                except Exception as mention_parse_error:
+                    print(f"[process_chat_message] Failed to parse mention payload: {mention_parse_error}")
+
+        combined_candidates: List[Dict[str, Any]] = []
+        if mention_models:
+            try:
+                mention_candidates = asyncio.run(
+                    chat_service.query_documents_for_mentions(
+                        mention_models,
+                        current_user_id=user_id_str or None,
+                        db=db,
+                        content=content,
+                        include_query_expansion=False,
+                    )
+                )
+                if mention_candidates:
+                    print(f"[process_chat_message] Retrieved {len(mention_candidates)} mention-based context documents.")
+                    combined_candidates.extend(mention_candidates)
+            except Exception as mention_error:
+                print(f"[process_chat_message] Mention query failed: {mention_error}")
+
+        expansion_candidates: List[Dict[str, Any]] = []
+        normalized_content = (content or "").strip()
+        if normalized_content:
+            try:
+                expansion_candidates = asyncio.run(
+                    chat_service.perform_query_expansion_search(
+                        normalized_content,
+                        mentions=mention_models or None,
+                        top_k=5,
+                        num_expansions=3,
+                    )
+                )
+                if expansion_candidates:
+                    print(f"[process_chat_message] Retrieved {len(expansion_candidates)} expansion documents.")
+                    combined_candidates.extend(expansion_candidates)
+            except Exception as expansion_error:
+                print(f"[process_chat_message] Expansion search failed: {expansion_error}")
             print(f"[process_chat_message] Received {len(combined_candidates)} retrieval documents for context.")
         else:
             print("[process_chat_message] No retrieval documents provided; proceeding without external context.")

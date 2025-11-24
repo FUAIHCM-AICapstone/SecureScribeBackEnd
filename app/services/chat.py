@@ -111,9 +111,10 @@ async def query_documents_for_mentions(
     content: Optional[str] = None,
     top_k: int = 5,
     num_expansions: int = 3,
+    include_query_expansion: bool = True,
 ) -> List[Dict[str, Any]]:
     """
-    Query documents based on mentions, augment with expansion search (if content is provided),
+    Query documents based on mentions, optionally augment with expansion search (if content is provided),
     and return a deduplicated list limited by top_k.
     """
     if not mentions:
@@ -145,7 +146,7 @@ async def query_documents_for_mentions(
 
     expansion_results: List[Dict[str, Any]] = []
     normalized_content = (content or "").strip()
-    if normalized_content:
+    if normalized_content and include_query_expansion:
         expansion_results = await perform_query_expansion_search(
             normalized_content,
             mentions=mentions,
