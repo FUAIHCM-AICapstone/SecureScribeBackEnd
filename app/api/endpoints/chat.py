@@ -42,21 +42,19 @@ async def send_chat_message_endpoint(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Handle mention-based querying (adapted from Agno_chat)
-    query_results = []
+    # Serialize mention payloads for async task
     mention_payloads = []
     if message_data.mentions:
         mention_payloads = [mention.dict() for mention in message_data.mentions]
-        query_results = await chat_service.query_documents_for_mentions(
-            message_data.mentions,
-            current_user_id=str(current_user.id),
-            db=db,
-            content=message_data.content,
-            include_query_expansion=False,
-        )
 
     # Trigger background AI processing task (core Agno_chat logic)
-    task = process_chat_message.delay(conversation_id=str(conversation_id), user_message_id=str(user_message.id), content=message_data.content, user_id=str(current_user.id), query_results=query_results, mentions=mention_payloads)
+    task = process_chat_message.delay(
+        conversation_id=str(conversation_id),
+        user_message_id=str(user_message.id),
+        content=message_data.content,
+        user_id=str(current_user.id),
+        mentions=mention_payloads,
+    )
 
     print(f"Triggered background task {task.id} for conversation_id={conversation_id}")
 

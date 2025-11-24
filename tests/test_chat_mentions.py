@@ -418,18 +418,25 @@ def test_process_chat_message_optimizer_selects_top_contexts(monkeypatch):
     monkeypatch.setattr(tasks, "ChatMessage", FakeChatMessage)
     monkeypatch.setattr(tasks, "ChatMessageType", FakeChatMessageType())
 
-    query_results = [
-        {"id": "mention-1", "score": 0.8, "payload": {"file_id": "file-m", "chunk_index": 2, "text": "mention doc"}, "key": "file-m:2"},
-        {"id": "exp-1", "score": 0.9, "payload": {"file_id": "file-a", "chunk_index": 0, "text": "expansion doc"}, "key": "file-a:0"},
-        {"id": "exp-2", "score": 0.5, "payload": {"file_id": "file-b", "chunk_index": 1, "text": "less relevant"}, "key": "file-b:1"},
-    ]
+    async def fake_query_documents_for_mentions(*_args, **_kwargs):
+        return [
+            {"id": "mention-1", "score": 0.8, "payload": {"file_id": "file-m", "chunk_index": 2, "text": "mention doc"}, "key": "file-m:2"},
+        ]
+
+    async def fake_perform_query_expansion_search(*_args, **_kwargs):
+        return [
+            {"id": "exp-1", "score": 0.9, "payload": {"file_id": "file-a", "chunk_index": 0, "text": "expansion doc"}, "key": "file-a:0"},
+            {"id": "exp-2", "score": 0.5, "payload": {"file_id": "file-b", "chunk_index": 1, "text": "less relevant"}, "key": "file-b:1"},
+        ]
+
+    monkeypatch.setattr("app.jobs.tasks.chat_service.query_documents_for_mentions", fake_query_documents_for_mentions)
+    monkeypatch.setattr("app.jobs.tasks.chat_service.perform_query_expansion_search", fake_perform_query_expansion_search)
 
     result = tasks.process_chat_message(
         conversation_id="conv-1",
         user_message_id="msg-1",
         content="How was the meeting?",
         user_id="user-1",
-        query_results=query_results,
     )
 
     assert result["status"] == "success"
@@ -525,17 +532,24 @@ def test_process_chat_message_optimizer_fallback(monkeypatch):
     monkeypatch.setattr(tasks, "ChatMessage", FakeChatMessage)
     monkeypatch.setattr(tasks, "ChatMessageType", FakeChatMessageType())
 
-    query_results = [
-        {"id": "mention-1", "score": 0.8, "payload": {"file_id": "file-m", "chunk_index": 2, "text": "mention doc"}, "key": "file-m:2"},
-        {"id": "exp-1", "score": 0.9, "payload": {"file_id": "file-z", "chunk_index": 0, "text": "expansion doc"}, "key": "file-z:0"},
-    ]
+    async def fake_query_documents_for_mentions(*_args, **_kwargs):
+        return [
+            {"id": "mention-1", "score": 0.8, "payload": {"file_id": "file-m", "chunk_index": 2, "text": "mention doc"}, "key": "file-m:2"},
+        ]
+
+    async def fake_perform_query_expansion_search(*_args, **_kwargs):
+        return [
+            {"id": "exp-1", "score": 0.9, "payload": {"file_id": "file-z", "chunk_index": 0, "text": "expansion doc"}, "key": "file-z:0"},
+        ]
+
+    monkeypatch.setattr("app.jobs.tasks.chat_service.query_documents_for_mentions", fake_query_documents_for_mentions)
+    monkeypatch.setattr("app.jobs.tasks.chat_service.perform_query_expansion_search", fake_perform_query_expansion_search)
 
     tasks.process_chat_message(
         conversation_id="conv-2",
         user_message_id="msg-2",
         content="Provide highlights",
         user_id="user-2",
-        query_results=query_results,
     )
 
     prompt_text = captured["prompt"]
