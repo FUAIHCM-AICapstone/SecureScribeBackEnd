@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 """
-This module contains system prompts for different types of meetings.
+Generic meeting prompts module for summarizing and extracting information from meeting transcripts.
+This module provides standardized prompts that work across different industries and organizations.
 """
 
 GENERAL_MEETING_PROMPT = """Tóm tắt nội dung cuộc họp dưới dạng các ý chính, dễ hiểu và đầy đủ. Ghi rõ các chủ đề được thảo luận, quyết định được đưa ra, và các việc cần làm sau cuộc họp (bao gồm deadline từng task nếu có đề cập).
@@ -70,7 +71,7 @@ HƯỚNG DẪN TRÍCH XUẤT NHIỆM VỤ CHI TIẾT:
 TASKS (Nhiệm vụ cụ thể giao cho từng người):
 - Trích xuất tất cả các nhiệm vụ được giao cho các thành viên trong cuộc họp
 - Ghi nhận chi tiết về nhiệm vụ, người được giao, thời hạn, và độ ưu tiên nếu được đề cập
-- Ví dụ về nhiệm vụ: "Anh Minh sẽ chuẩn bị báo cáo phân tích thị trường và gửi cho cả nhóm trước thứ 6"
+- Ví dụ về nhiệm vụ: "Người A sẽ chuẩn bị báo cáo phân tích và gửi cho nhóm trước cuối tuần"
 - Cho mỗi nhiệm vụ, xác định:
   * description: Mô tả chi tiết của nhiệm vụ cần thực hiện
   * assignee: Người được giao nhiệm vụ (tên hoặc chức vụ nếu được đề cập)
@@ -126,7 +127,7 @@ Mỗi nhiệm vụ phải có các trường sau:
 HƯỚNG DẪN TRÍCH XUẤT CHI TIẾT:
 - Trích xuất các nhiệm vụ rõ ràng: "X sẽ làm...", "X cần...", "giao cho X..."
 - Trích xuất các nhiệm vụ ngầm định: "Chúng ta cần...", "Sẽ tốt hơn nếu..."
-- Ví dụ: "Chuẩn bị báo cáo tài chính cho tuần tới" (description), due_date "1 week", priority "Trung bình"
+- Ví dụ: "Chuẩn bị báo cáo tổng kết cho tuần tới" (description), due_date "1 week", priority "Trung bình"
 - Nếu tên người được đề cập, đưa vào description hoặc notes, KHÔNG đưa vào assignee_id
 - CHỈ ĐỊ THEO STRICT FORMAT cho due_date - KHÔNG dùng các dạng khác
 
@@ -140,6 +141,7 @@ QUAN TRỌNG:
 
 def get_prompt_for_meeting_type(meeting_type: str = "general") -> str:
     """Get the appropriate prompt for a given meeting type. Always returns GENERAL_MEETING_PROMPT."""
+    print(f"Requested prompt for meeting type: {meeting_type}, returning general prompt.")
     return GENERAL_MEETING_PROMPT
 
 

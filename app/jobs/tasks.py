@@ -14,12 +14,16 @@ from app.core.config import settings
 from app.jobs.celery_worker import celery_app
 from app.models.chat import ChatMessage, ChatMessageType
 from app.models.file import File
-from app.models.meeting import AudioFile, Meeting
+from app.models.meeting import AudioFile, Meeting, Transcript
 from app.schemas.notification import NotificationCreate
 from app.services.audit_service import AuditLogService
 from app.services.chat import perform_query_expansion_search
 from app.services.notification import create_notifications_bulk, send_fcm_notification
-from app.services.qdrant_service import reindex_file
+from app.services.qdrant_service import (
+    chunk_text,
+    delete_transcript_vectors,
+    reindex_file,
+)
 from app.services.transcript import transcribe_audio_file
 from app.utils.llm import (
     create_general_chat_agent,
@@ -42,6 +46,63 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Attempt to establish Redis connection, but fall back to a no-op client in test
 sync_redis_client = get_redis_client()
+
+
+async def update_meeting_vectors_with_project_id(meeting_id: str, project_id: str, collection_name: str) -> bool:
+    """Update all vectors for a meeting with project_id"""
+    try:
+        import qdrant_client.models as qmodels
+
+        from app.services.qdrant_service import get_qdrant_client
+
+        client = get_qdrant_client()
+
+        # Query all vectors for this meeting
+        filter_condition = qmodels.Filter(must=[qmodels.FieldCondition(key="meeting_id", match=qmodels.MatchValue(value=meeting_id))])
+
+        # Get all point IDs for this meeting
+        all_points = []
+        offset = None
+        limit = 100
+
+        while True:
+            points, next_offset = client.scroll(
+                collection_name=collection_name,
+                scroll_filter=filter_condition,
+                limit=limit,
+                offset=offset,
+                with_payload=False,
+            )
+
+            if not points:
+                break
+
+            all_points.extend([point.id for point in points])
+            offset = next_offset
+
+            if not offset:
+                break
+
+        if not all_points:
+            print(f"🟡 \033[93mNo vectors found for meeting {meeting_id}\033[0m")
+            return True
+
+        # Update payload with project_id
+        payload = {"project_id": project_id}
+
+        client.set_payload(
+            collection_name=collection_name,
+            payload=payload,
+            points=all_points,
+            wait=True,
+        )
+
+        print(f"🟢 \033[92mUpdated {len(all_points)} vectors for meeting {meeting_id} with project_id {project_id}\033[0m")
+        return True
+
+    except Exception as e:
+        print(f"🔴 \033[91mFailed to update vectors for meeting {meeting_id}: {e}\033[0m")
+        return False
 
 
 # --- Domain Event Processing (Audit) ---
@@ -410,7 +471,9 @@ def retry_webhook_processing_task(self, bot_id: str, meeting_url: str, timestamp
 def schedule_meeting_bot_task(self, meeting_id: str, user_id: str, bearer_token: str, meeting_url: str, webhook_url: str = ""):
     """Schedule bot to join meeting at specified time"""
     import random
+
     import requests
+
     from app.core.config import settings
 
     try:
@@ -490,6 +553,16 @@ def process_chat_message(
         # Perform query expansion search for ALL chat messages
         print("[process_chat_message] Starting query expansion search...")
         try:
+            # Ensure Qdrant client uses HTTP (avoid incorrect gRPC attempts to 6333)
+            try:
+                from qdrant_client import QdrantClient
+
+                from app.utils.qdrant import qdrant_client_manager
+                # Recreate client forcing HTTP only
+                qdrant_client_manager._client = QdrantClient(host=settings.QDRANT_HOST, port=getattr(settings, "QDRANT_PORT", 6333), prefer_grpc=False, timeout=30.0)
+                print("[process_chat_message] Reinitialized Qdrant client (HTTP mode)")
+            except Exception as init_error:
+                print(f"[process_chat_message] Failed to reinitialize Qdrant client: {init_error}")
             # Get mentions from user message to pass as filters
             user_message = db.query(ChatMessage).filter(ChatMessage.id == user_message_id).first()
             mentions = user_message.mentions if user_message and user_message.mentions else []
@@ -522,7 +595,29 @@ def process_chat_message(
                 print("[process_chat_message] No expansion results found")
 
         except Exception as expansion_error:
-            print(f"[process_chat_message] Query expansion failed: {expansion_error}")
+            # Detect gRPC-to-HTTP mismatch error and retry once with forced HTTP client
+            error_text = str(expansion_error)
+            print(f"[process_chat_message] Query expansion failed: {error_text}")
+            if "Trying to connect an http1.x server" in error_text or "failed to connect to all addresses" in error_text:
+                try:
+                    from qdrant_client import QdrantClient
+
+                    from app.utils.qdrant import qdrant_client_manager
+                    qdrant_client_manager._client = QdrantClient(host=settings.QDRANT_HOST, port=getattr(settings, "QDRANT_PORT", 6333), prefer_grpc=False, timeout=30.0)
+                    print("[process_chat_message] Retrying expansion search with HTTP-only Qdrant client")
+                    expansion_results = asyncio.run(
+                        perform_query_expansion_search(
+                            query=content,
+                            mentions=mention_objects if mention_objects else None,
+                            top_k=5,
+                            num_expansions=3,
+                        )
+                    )
+                    if expansion_results:
+                        print(f"[process_chat_message] Retry succeeded with {len(expansion_results)} results")
+                        combined_candidates.extend(expansion_results)
+                except Exception as retry_error:
+                    print(f"[process_chat_message] Retry after HTTP reinit failed: {retry_error}")
             expansion_results = []
             # Continue with mention-based results only
 
@@ -858,6 +953,8 @@ def process_meeting_analysis_task(
     - 30%: Extracting tasks (concurrent with note generation)
     - 60%: Generating meeting note (concurrent with task extraction)
     - 90%: Saving to database
+    - 95%: Indexing meeting note to Qdrant
+    - 97%: Updating project_id for existing vectors
     - 100%: Completed
 
     Args:
@@ -928,6 +1025,68 @@ def process_meeting_analysis_task(
             print(f"\033[92m✅ Meeting {meeting_id} updated with analysis results\033[0m")
             print(f"\033[92m✅ Saved {len(saved_results.get('task_items', []))} tasks to database\033[0m")
 
+            # Step 4.5: Indexing meeting note to Qdrant (95%)
+            update_task_progress(task_id, user_id, 95, "indexing_note", task_type="meeting_analysis")
+            publish_task_progress_sync(user_id, 95, "indexing_note", "5s", "meeting_analysis", task_id)
+            print(f"\033[93m🔍 Indexing meeting note to Qdrant for meeting {meeting_id}\033[0m")
+
+            meeting_note_content = analysis_result.get("meeting_note", "")
+            if meeting_note_content and len(meeting_note_content.strip()) > 0:
+                try:
+                    from app.core.config import settings as _settings
+                    from app.services.qdrant_service import (
+                        chunk_text,
+                        create_collection_if_not_exist,
+                        upsert_vectors,
+                    )
+                    from app.utils.llm import embed_documents
+
+                    chunks = chunk_text(meeting_note_content)
+                    if chunks:
+                        vectors = asyncio.run(embed_documents(chunks))
+                        if vectors:
+                            asyncio.run(create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, len(vectors[0])))
+                        payloads = [
+                            {
+                                "text": ch,
+                                "chunk_index": i,
+                                "meeting_id": meeting_id,
+                                "note_type": "meeting_note",
+                                "total_chunks": len(chunks),
+                            }
+                            for i, ch in enumerate(chunks)
+                        ]
+                        asyncio.run(upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads))
+                        print(f"\033[92m✅ Meeting note indexed to Qdrant: {len(chunks)} chunks\033[0m")
+                    else:
+                        print("\033[93m⚠️ No chunks generated from meeting note\033[0m")
+                except Exception as index_error:
+                    print(f"\033[91m❌ Failed to index meeting note to Qdrant: {index_error}\033[0m")
+            else:
+                print("\033[93m⚠️ No meeting note content to index\033[0m")
+
+            # Step 4.6: Update project_id for existing vectors (97%)
+            update_task_progress(task_id, user_id, 97, "updating_vectors", task_type="meeting_analysis")
+            publish_task_progress_sync(user_id, 97, "updating_vectors", "3s", "meeting_analysis", task_id)
+            print(f"\033[93m🔄 Updating project_id for existing vectors of meeting {meeting_id}\033[0m")
+
+            try:
+                # Get meeting's project_id from database
+                meeting_obj = db.query(Meeting).filter(Meeting.id == uuid.UUID(meeting_id)).first()
+                project_ids = []
+                if meeting_obj and hasattr(meeting_obj, 'projects') and meeting_obj.projects:
+                    project_ids = [str(project_meeting.project_id) for project_meeting in meeting_obj.projects if project_meeting.project]
+
+                if project_ids:
+                    # Update vectors for this meeting with project_id
+                    asyncio.run(update_meeting_vectors_with_project_id(meeting_id, project_ids[0], _settings.QDRANT_COLLECTION_NAME))
+                    print(f"\033[92m✅ Updated vectors for meeting {meeting_id} with project_id {project_ids[0]}\033[0m")
+                else:
+                    print(f"\033[93m⚠️ Meeting {meeting_id} has no associated projects\033[0m")
+
+            except Exception as update_error:
+                print(f"\033[91m❌ Failed to update vectors with project_id: {update_error}\033[0m")
+
         finally:
             db.close()
 
@@ -989,6 +1148,220 @@ def process_meeting_analysis_task(
                     "task_id": task_id,
                     "meeting_id": meeting_id,
                     "task_type": "meeting_analysis",
+                    "status": "failed",
+                    "error": str(exc),
+                },
+                channel="in_app",
+            )
+            create_notifications_bulk(
+                db,
+                notification_data.user_ids,
+                type=notification_data.type,
+                payload=notification_data.payload,
+                channel=notification_data.channel,
+            )
+        finally:
+            db.close()
+
+        raise
+
+
+@celery_app.task(bind=True, soft_time_limit=300, time_limit=600)
+def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str, Any]:
+    """
+    Background task to reindex a transcript for search.
+
+    Progress stages:
+    - 0%: Started
+    - 10%: Validating transcript
+    - 25%: Deleting old vectors
+    - 40%: Chunking text
+    - 60%: Generating embeddings
+    - 80%: Storing vectors
+    - 95%: Updating database
+    - 100%: Completed
+
+    Args:
+        transcript_id: Transcript UUID
+        user_id: User UUID who triggered the reindex
+
+    Returns:
+        Dictionary with status, transcript_id, meeting_id
+    """
+    task_id = self.request.id or f"reindex_transcript_{transcript_id}_{int(time.time())}"
+
+    print(f"\033[94m[reindex_transcript_task] Starting transcript reindex for {transcript_id}\033[0m")
+
+    try:
+        # Step 1: Started (0%)
+        update_task_progress(task_id, user_id, 0, "started", task_type="transcript_reindex")
+        publish_task_progress_sync(user_id, 0, "started", "60s", "transcript_reindex", task_id)
+        print(f"\033[93m[reindex_transcript_task] Task {task_id}: Reindex started\033[0m")
+
+        # Step 2: Validating transcript (10%)
+        update_task_progress(task_id, user_id, 10, "validating", task_type="transcript_reindex")
+        publish_task_progress_sync(user_id, 10, "validating", "55s", "transcript_reindex", task_id)
+        print(f"\033[95m[reindex_transcript_task] Validating transcript {transcript_id}\033[0m")
+
+        db = SessionLocal()
+
+        try:
+            # Get transcript
+            transcript = db.query(Transcript).filter(Transcript.id == uuid.UUID(transcript_id)).first()
+            if not transcript:
+                raise Exception(f"Transcript {transcript_id} not found")
+
+            # Get meeting and validate access
+            meeting = db.query(Meeting).filter(Meeting.id == transcript.meeting_id).first()
+            if not meeting:
+                raise Exception(f"Meeting {transcript.meeting_id} not found for transcript")
+
+            if not transcript.content or len(transcript.content.strip()) < 10:
+                raise Exception(f"Transcript content too short or empty: {len(transcript.content.strip()) if transcript.content else 0} characters")
+
+            print(f"\033[92m[reindex_transcript_task] Transcript validated: {len(transcript.content)} characters\033[0m")
+
+            # Step 3: Deleting old vectors (25%)
+            update_task_progress(task_id, user_id, 25, "deleting_old_vectors", task_type="transcript_reindex")
+            publish_task_progress_sync(user_id, 25, "deleting_old_vectors", "45s", "transcript_reindex", task_id)
+            print(f"\033[93m[reindex_transcript_task] Deleting old vectors for transcript {transcript_id}\033[0m")
+
+            # Delete old vectors using async function
+            asyncio.run(delete_transcript_vectors(transcript_id, settings.QDRANT_COLLECTION_NAME))
+
+            # Step 4: Chunking text (40%)
+            update_task_progress(task_id, user_id, 40, "chunking_text", task_type="transcript_reindex")
+            publish_task_progress_sync(user_id, 40, "chunking_text", "35s", "transcript_reindex", task_id)
+            print("\033[96m[reindex_transcript_task] Chunking transcript text\033[0m")
+
+            chunks = chunk_text(transcript.content)
+            if not chunks:
+                raise Exception("No chunks generated from transcript content")
+
+            print(f"\033[92m[reindex_transcript_task] Created {len(chunks)} chunks\033[0m")
+
+            # Step 5: Generating embeddings (60%)
+            update_task_progress(task_id, user_id, 60, "generating_embeddings", task_type="transcript_reindex")
+            publish_task_progress_sync(user_id, 60, "generating_embeddings", "25s", "transcript_reindex", task_id)
+            print(f"\033[95m[reindex_transcript_task] Generating embeddings for {len(chunks)} chunks\033[0m")
+
+            from app.core.config import settings as _settings
+            from app.services.qdrant_service import (
+                create_collection_if_not_exist,
+                upsert_vectors,
+            )
+            from app.utils.llm import embed_documents
+
+            vectors = asyncio.run(embed_documents(chunks))
+            if not vectors:
+                raise Exception("Failed to generate embeddings")
+
+            print(f"\033[92m[reindex_transcript_task] Generated {len(vectors)} embeddings\033[0m")
+
+            # Step 6: Storing vectors (80%)
+            update_task_progress(task_id, user_id, 80, "storing_vectors", task_type="transcript_reindex")
+            publish_task_progress_sync(user_id, 80, "storing_vectors", "15s", "transcript_reindex", task_id)
+            print("\033[93m[reindex_transcript_task] Storing vectors in Qdrant\033[0m")
+
+            # Ensure collection exists
+            asyncio.run(create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, len(vectors[0])))
+
+            # Get project_id(s) from meeting
+            project_ids = []
+            primary_project_id = None
+            if hasattr(meeting, "projects") and meeting.projects:
+                project_ids = [str(project_meeting.project_id) for project_meeting in meeting.projects if project_meeting.project]
+                primary_project_id = project_ids[0] if project_ids else None
+
+            # Prepare payloads
+            payloads = [
+                {
+                    "text": chunk,
+                    "chunk_index": i,
+                    "total_chunks": len(chunks),
+                    "meeting_id": str(transcript.meeting_id),
+                    "transcript_id": transcript_id,
+                    "project_id": primary_project_id,
+                    "note_type": "transcript",
+                    "is_global": bool(not primary_project_id),
+                }
+                for i, chunk in enumerate(chunks)
+            ]
+
+            # Upsert vectors
+            asyncio.run(upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads))
+            print("\033[92m[reindex_transcript_task] Vectors stored successfully\033[0m")
+
+            # Step 7: Updating database (95%)
+            update_task_progress(task_id, user_id, 95, "updating_database", task_type="transcript_reindex")
+            publish_task_progress_sync(user_id, 95, "updating_database", "5s", "transcript_reindex", task_id)
+            print("\033[93m[reindex_transcript_task] Updating database\033[0m")
+
+            # Update transcript
+            transcript.qdrant_vector_id = transcript_id
+            transcript.updated_at = datetime.utcnow()
+            db.commit()
+            print("\033[92m[reindex_transcript_task] Database updated\033[0m")
+
+            # Step 8: Completed (100%)
+            update_task_progress(task_id, user_id, 100, "completed", task_type="transcript_reindex")
+            publish_task_progress_sync(user_id, 100, "completed", "0s", "transcript_reindex", task_id)
+
+            # Create notification
+            notification_data = NotificationCreate(
+                user_ids=[uuid.UUID(user_id)],
+                type="task.transcript_reindex.completed",
+                payload={
+                    "task_id": task_id,
+                    "transcript_id": transcript_id,
+                    "meeting_id": str(transcript.meeting_id),
+                    "task_type": "transcript_reindex",
+                    "status": "completed",
+                    "chunks": len(chunks),
+                    "vectors": len(vectors),
+                },
+                channel="in_app",
+            )
+            create_notifications_bulk(
+                db,
+                notification_data.user_ids,
+                type=notification_data.type,
+                payload=notification_data.payload,
+                channel=notification_data.channel,
+            )
+
+            print("\033[92m[reindex_transcript_task] Transcript reindex completed successfully\033[0m")
+
+            return {
+                "status": "success",
+                "transcript_id": transcript_id,
+                "meeting_id": str(transcript.meeting_id),
+                "task_id": task_id,
+                "chunks": len(chunks),
+                "vectors": len(vectors),
+                "message": "Transcript reindexed successfully",
+            }
+
+        finally:
+            db.close()
+
+    except Exception as exc:
+        print(f"\033[91m[reindex_transcript_task] Transcript reindex failed: {exc}\033[0m")
+
+        # Publish failure state
+        update_task_progress(task_id, user_id, 0, "failed", task_type="transcript_reindex")
+        publish_task_progress_sync(user_id, 0, "failed", "0s", "transcript_reindex", task_id)
+
+        # Create failure notification
+        db = SessionLocal()
+        try:
+            notification_data = NotificationCreate(
+                user_ids=[uuid.UUID(user_id)],
+                type="task.transcript_reindex.failed",
+                payload={
+                    "task_id": task_id,
+                    "transcript_id": transcript_id,
+                    "task_type": "transcript_reindex",
                     "status": "failed",
                     "error": str(exc),
                 },

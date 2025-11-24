@@ -306,3 +306,18 @@ def bulk_delete_transcripts(db: Session, transcript_ids: List[uuid.UUID], user_i
 
 def serialize_transcript(transcript: Transcript) -> dict:
     return {"id": transcript.id, "meeting_id": transcript.meeting_id, "content": transcript.content, "audio_concat_file_id": transcript.audio_concat_file_id, "extracted_text_for_search": transcript.extracted_text_for_search, "qdrant_vector_id": transcript.qdrant_vector_id, "created_at": transcript.created_at, "updated_at": transcript.updated_at}
+
+
+def validate_transcript_access(db: Session, transcript_id: uuid.UUID, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Transcript:
+    """Validate transcript access and return transcript object"""
+    transcript = db.query(Transcript).filter(Transcript.id == transcript_id).first()
+    if not transcript:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
+    if transcript.meeting_id != meeting_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript does not belong to this meeting")
+    meeting = get_meeting(db, meeting_id, user_id)
+    if not meeting:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
+    if not check_meeting_access(db, meeting, user_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to meeting")
+    return transcript
