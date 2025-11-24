@@ -180,6 +180,7 @@ def update_bot_status(
     # Send notifications asynchronously for key status changes
     try:
         from app.services.bot_notification import send_bot_status_notification
+
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -191,6 +192,7 @@ def update_bot_status(
     except Exception as e:
         # Log but don't fail the status update if notification fails
         import logging
+
         logger = logging.getLogger(__name__)
         logger.exception("Failed to queue bot status notification: %s", e)
 
@@ -415,7 +417,7 @@ def trigger_meeting_bot_join(
 
 def serialize_meeting_bot(bot: MeetingBot) -> MeetingBotResponse:
     """Serialize MeetingBot ORM object to MeetingBotResponse with meeting information.
-    
+
     Maps meeting data including projects and creator information.
     """
     from app.schemas.meeting import MeetingResponse, ProjectResponse
@@ -425,20 +427,12 @@ def serialize_meeting_bot(bot: MeetingBot) -> MeetingBotResponse:
     meeting_response = None
     if hasattr(bot, "meeting") and bot.meeting:
         meeting = bot.meeting
-        creator = (
-            UserResponse.model_validate(meeting.created_by_user, from_attributes=True)
-            if getattr(meeting, "created_by_user", None)
-            else None
-        )
+        creator = UserResponse.model_validate(meeting.created_by_user, from_attributes=True) if getattr(meeting, "created_by_user", None) else None
 
         # Map projects from ProjectMeeting relationships
         projects = []
         if hasattr(meeting, "projects") and meeting.projects:
-            projects = [
-                ProjectResponse.model_validate(pm.project, from_attributes=True)
-                for pm in meeting.projects
-                if pm.project
-            ]
+            projects = [ProjectResponse.model_validate(pm.project, from_attributes=True) for pm in meeting.projects if pm.project]
 
         meeting_obj = MeetingResponse(
             id=meeting.id,
@@ -472,8 +466,5 @@ def serialize_meeting_bot(bot: MeetingBot) -> MeetingBotResponse:
         created_by=bot.created_by,
         created_at=bot.created_at,
         updated_at=bot.updated_at,
-        logs=[
-            MeetingBotLogResponse.model_validate(log, from_attributes=True)
-            for log in (bot.logs or [])
-        ],
+        logs=[MeetingBotLogResponse.model_validate(log, from_attributes=True) for log in (bot.logs or [])],
     )

@@ -4,8 +4,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, EmailStr
 
-from app.schemas.notification import NotificationResponse
-
 
 class FileResponse(BaseModel):
     id: uuid.UUID

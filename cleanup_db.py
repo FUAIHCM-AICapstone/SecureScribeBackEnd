@@ -17,7 +17,7 @@ if __name__ == "__main__":
     db = SessionLocal()
     try:
         prune_database(db)
-    except Exception as e:
+    except Exception:
         sys.exit(1)
     finally:
         db.close()

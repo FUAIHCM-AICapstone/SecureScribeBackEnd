@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException

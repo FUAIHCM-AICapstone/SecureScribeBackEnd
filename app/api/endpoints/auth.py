@@ -49,7 +49,7 @@ def refresh_token_endpoint(request: RefreshTokenRequest):
                 "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             },
         )
-    except Exception as e:
+    except Exception:
         raise
 
 

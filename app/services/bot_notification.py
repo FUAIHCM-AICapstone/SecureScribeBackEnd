@@ -24,11 +24,7 @@ async def send_bot_status_notification(
     """
     try:
         # Fetch bot with meeting details
-        bot = (
-            db.query(MeetingBot)
-            .filter(MeetingBot.id == bot_id)
-            .first()
-        )
+        bot = db.query(MeetingBot).filter(MeetingBot.id == bot_id).first()
 
         if not bot:
             logger.warning("Bot not found for notification: %s", bot_id)
@@ -76,9 +72,7 @@ async def send_bot_status_notification(
         ws_success = await publish_to_user_channel(creator_id, notification_data)
 
         # Send FCM notification asynchronously (don't block on FCM)
-        asyncio.create_task(
-            _send_fcm_notification_async(bot.created_by, status, meeting.title, error)
-        )
+        asyncio.create_task(_send_fcm_notification_async(bot.created_by, status, meeting.title, error))
 
         return ws_success
 

@@ -1047,7 +1047,7 @@ def process_meeting_analysis_task(
                 # Get meeting's project_id from database
                 meeting_obj = db.query(Meeting).filter(Meeting.id == uuid.UUID(meeting_id)).first()
                 project_ids = []
-                if meeting_obj and hasattr(meeting_obj, 'projects') and meeting_obj.projects:
+                if meeting_obj and hasattr(meeting_obj, "projects") and meeting_obj.projects:
                     project_ids = [str(project_meeting.project_id) for project_meeting in meeting_obj.projects if project_meeting.project]
 
                 if project_ids:

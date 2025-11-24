@@ -1,9 +1,8 @@
 from typing import Any, Dict
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import FileResponse
 from fastapi.routing import APIRoute
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -15,7 +14,6 @@ from app.db import get_db
 from app.events.listeners.notification_listener import NotificationListener
 from app.events.listeners.websocket_listener import WebSocketListener
 from app.services.event_manager import EventManager
-from app.utils.auth import get_current_user_from_token
 from app.utils.throttling import ThrottlingMiddleware
 
 

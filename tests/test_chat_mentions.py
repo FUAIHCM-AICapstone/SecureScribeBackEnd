@@ -317,8 +317,9 @@ async def test_perform_query_expansion_dedupe_keeps_best_score(monkeypatch):
 
 
 def test_process_chat_message_optimizer_selects_top_contexts(monkeypatch):
-    from app.jobs import tasks
     from agno.models.message import Message
+
+    from app.jobs import tasks
 
     captured = {}
 
@@ -451,8 +452,9 @@ def test_process_chat_message_optimizer_selects_top_contexts(monkeypatch):
 
 
 def test_process_chat_message_optimizer_fallback(monkeypatch):
-    from app.jobs import tasks
     from agno.models.message import Message
+
+    from app.jobs import tasks
 
     captured = {}
 

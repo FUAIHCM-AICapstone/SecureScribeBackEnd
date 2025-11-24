@@ -1,10 +1,12 @@
-import uuid
-import requests
 import logging
+import uuid
 from typing import Tuple
+
+import requests
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, HttpUrl
 from sqlalchemy.orm import Session
+
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User

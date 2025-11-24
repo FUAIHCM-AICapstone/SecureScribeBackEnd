@@ -242,7 +242,6 @@ def join_meeting_bot_endpoint(
 ):
     """Trigger meeting bot to join a meeting"""
     try:
-
         # Validate meeting_id format (UUID validation is automatic via FastAPI)
 
         # Extract bearer token from Authorization header
@@ -316,12 +315,12 @@ def bot_webhook_status_endpoint(
             end_time = None
             if actual_start_time:
                 try:
-                    start_time = dt.fromisoformat(actual_start_time.replace('Z', '+00:00'))
+                    start_time = dt.fromisoformat(actual_start_time.replace("Z", "+00:00"))
                 except (ValueError, AttributeError):
                     pass
             if actual_end_time:
                 try:
-                    end_time = dt.fromisoformat(actual_end_time.replace('Z', '+00:00'))
+                    end_time = dt.fromisoformat(actual_end_time.replace("Z", "+00:00"))
                 except (ValueError, AttributeError):
                     pass
 
@@ -421,12 +420,12 @@ def bot_webhook_recording_endpoint(
                 end_time = None
                 if actual_start_time:
                     try:
-                        start_time = dt.fromisoformat(actual_start_time.replace('Z', '+00:00'))
+                        start_time = dt.fromisoformat(actual_start_time.replace("Z", "+00:00"))
                     except (ValueError, AttributeError):
                         pass
                 if actual_end_time:
                     try:
-                        end_time = dt.fromisoformat(actual_end_time.replace('Z', '+00:00'))
+                        end_time = dt.fromisoformat(actual_end_time.replace("Z", "+00:00"))
                     except (ValueError, AttributeError):
                         pass
 

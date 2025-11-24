@@ -386,7 +386,7 @@ def get_user_by_id(db: Session, user_id: uuid.UUID) -> Optional[User]:
 
 def get_user_projects_stats(db: Session, user_id: uuid.UUID) -> dict:
     """Get user's project statistics"""
-    from app.models.project import Project, UserProject
+    from app.models.project import UserProject
 
     # Get user's projects directly
     user_projects = db.query(UserProject).options(selectinload(UserProject.project)).filter(UserProject.user_id == user_id).all()
