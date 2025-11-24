@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import SessionLocal, get_db
 from app.jobs.tasks import process_chat_message
@@ -35,12 +36,12 @@ async def send_chat_message_endpoint(
     # Create user message with mentions (existing logic)
     user_message = chat_service.create_chat_message(db=db, conversation_id=conversation_id, user_id=current_user.id, content=message_data.content, message_type=ChatMessageType.user, mentions=message_data.mentions)
     if not user_message:
-        raise HTTPException(status_code=404, detail="Conversation not found or inactive")
+        raise HTTPException(status_code=404, detail=MessageConstants.CONVERSATION_NOT_FOUND)
 
     # Get conversation for context (existing logic)
     conversation = get_conversation(db, conversation_id, current_user.id)
     if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise HTTPException(status_code=404, detail=MessageConstants.CONVERSATION_NOT_FOUND)
 
     # Serialize mention payloads for async task
     mention_payloads = []
@@ -61,7 +62,7 @@ async def send_chat_message_endpoint(
     # Return user message + task_id immediately (Agno_chat logic)
     return ApiResponse(  # Standardized to SecureScribeBackEnd's ApiResponse
         success=True,
-        message="Message sent and background AI processing started",
+        message=MessageConstants.CHAT_CREATED_SUCCESS,
         data={
             "user_message": {"id": str(user_message.id), "conversation_id": str(user_message.conversation_id), "role": "user", "content": user_message.content, "timestamp": user_message.created_at.isoformat(), "mentions": user_message.mentions if isinstance(user_message.mentions, list) else []},
             "task_id": task.id,

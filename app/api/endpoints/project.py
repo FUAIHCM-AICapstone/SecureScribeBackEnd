@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
@@ -65,7 +66,7 @@ def create_project_endpoint(
 
         return ApiResponse(
             success=True,
-            message="Project created successfully",
+            message=MessageConstants.PROJECT_CREATED_SUCCESS,
             data=response_data,
         )
     except Exception as e:
@@ -107,7 +108,7 @@ def get_projects_endpoint(
             try:
                 created_by_uuid = uuid.UUID(created_by)
             except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid created_by UUID format")
+                raise HTTPException(status_code=400, detail=MessageConstants.PROJECT_INVALID_UUID_FORMAT)
 
         member_id_uuid = current_user.id
 
@@ -137,7 +138,7 @@ def get_projects_endpoint(
 
         return PaginatedResponse(
             success=True,
-            message="Projects retrieved successfully",
+            message=MessageConstants.PROJECT_LIST_RETRIEVED_SUCCESS,
             data=projects_data,
             pagination=pagination_meta,
         )
@@ -160,12 +161,12 @@ def get_project_endpoint(
     try:
         project = get_project(db, project_id, include_members=include_members)
         if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.PROJECT_NOT_FOUND)
 
         # Check if user has access to this project
         print(f"user id {current_user.id}, project id {project_id}")
         if not is_user_in_project(db, project_id, current_user.id):
-            raise HTTPException(status_code=403, detail="Access denied")
+            raise HTTPException(status_code=403, detail=MessageConstants.ACCESS_DENIED)
 
         if include_members:
             response_data = format_project_with_members_response(project)
@@ -174,7 +175,7 @@ def get_project_endpoint(
 
         return ApiResponse(
             success=True,
-            message="Project retrieved successfully",
+            message=MessageConstants.PROJECT_RETRIEVED_SUCCESS,
             data=response_data,
         )
     except HTTPException:
@@ -197,17 +198,17 @@ def update_project_endpoint(
         # Check if user has admin access to this project
         user_role = get_user_role_in_project(db, project_id, current_user.id)
         if not user_role or user_role not in ["admin", "owner"]:
-            raise HTTPException(status_code=403, detail="Admin access required")
+            raise HTTPException(status_code=403, detail=MessageConstants.ADMIN_ACCESS_REQUIRED)
 
         updated_project = update_project(db, project_id, updates, current_user.id)
         if not updated_project:
-            raise HTTPException(status_code=404, detail="Project not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.PROJECT_NOT_FOUND)
 
         response_data = format_project_response(updated_project)
 
         return ApiResponse(
             success=True,
-            message="Project updated successfully",
+            message=MessageConstants.PROJECT_UPDATED_SUCCESS,
             data=response_data,
         )
     except HTTPException:
@@ -229,15 +230,15 @@ def delete_project_endpoint(
         # Check if user has admin access to this project
         user_role = get_user_role_in_project(db, project_id, current_user.id)
         if not user_role or user_role not in ["admin", "owner"]:
-            raise HTTPException(status_code=403, detail="Admin access required")
+            raise HTTPException(status_code=403, detail=MessageConstants.ADMIN_ACCESS_REQUIRED)
 
         success = delete_project(db, project_id, current_user.id)
         if not success:
-            raise HTTPException(status_code=404, detail="Project not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.PROJECT_NOT_FOUND)
 
         return ApiResponse(
             success=True,
-            message="Project deleted successfully",
+            message=MessageConstants.PROJECT_DELETED_SUCCESS,
             data={},
         )
     except HTTPException:
@@ -265,7 +266,7 @@ def bulk_add_members_endpoint(
         # Check if current user has admin access to this project
         user_role = get_user_role_in_project(db, project_id, current_user.id)
         if not user_role or user_role not in ["admin", "owner"]:
-            raise HTTPException(status_code=403, detail="Admin access required")
+            raise HTTPException(status_code=403, detail=MessageConstants.ADMIN_ACCESS_REQUIRED)
 
         results = bulk_add_users_to_project(db, project_id, bulk_data.users, current_user.id)
 
@@ -301,7 +302,7 @@ def bulk_remove_members_endpoint(
         # Check if current user has admin access to this project
         user_role = get_user_role_in_project(db, project_id, current_user.id)
         if not user_role or user_role not in ["admin", "owner"]:
-            raise HTTPException(status_code=403, detail="Admin access required")
+            raise HTTPException(status_code=403, detail=MessageConstants.ADMIN_ACCESS_REQUIRED)
 
         # Parse comma-separated UUIDs
         if not user_ids.strip():
@@ -325,7 +326,7 @@ def bulk_remove_members_endpoint(
             members = get_project_members(db, project_id)
             admin_count = sum(1 for m in members if m.role in ["admin", "owner"] and m.user_id not in user_id_list)
             if admin_count == 0:
-                raise HTTPException(status_code=400, detail="Cannot remove all admins from project")
+                raise HTTPException(status_code=400, detail=MessageConstants.PROJECT_CANNOT_REMOVE_ALL_ADMINS)
 
         results = bulk_remove_users_from_project(db, project_id, user_id_list)
 
@@ -364,17 +365,17 @@ def add_member_to_project_endpoint(
         # Check if current user has admin access to this project
         user_role = get_user_role_in_project(db, project_id, current_user.id)
         if not user_role or user_role not in ["admin", "owner"]:
-            raise HTTPException(status_code=403, detail="Admin access required")
+            raise HTTPException(status_code=403, detail=MessageConstants.ADMIN_ACCESS_REQUIRED)
 
         user_project = add_user_to_project(db, project_id, member_data.user_id, member_data.role, current_user.id)
         if not user_project:
-            raise HTTPException(status_code=400, detail="Failed to add user to project")
+            raise HTTPException(status_code=400, detail=MessageConstants.PROJECT_MEMBER_ADD_FAILED)
 
         response_data = format_user_project_response(user_project)
 
         return ApiResponse(
             success=True,
-            message="User added to project successfully",
+            message=MessageConstants.PROJECT_MEMBER_ADDED_SUCCESS,
             data=response_data,
         )
     except HTTPException:
@@ -404,22 +405,22 @@ def remove_member_from_project_endpoint(
                 members = get_project_members(db, project_id)
                 admin_count = sum(1 for m in members if m.role in ["admin", "owner"] and m.user_id != current_user.id)
                 if admin_count == 0:
-                    raise HTTPException(status_code=400, detail="Cannot leave project as the last admin")
+                    raise HTTPException(status_code=400, detail=MessageConstants.PROJECT_CANNOT_LEAVE_LAST_ADMIN)
         else:
             # Require admin access for removing other users
             user_role = get_user_role_in_project(db, project_id, current_user.id)
             if not user_role or user_role not in ["admin", "owner"]:
                 raise HTTPException(
                     status_code=403,
-                    detail="Admin access required to remove other members",
+                    detail=MessageConstants.ADMIN_ACCESS_REQUIRED,
                 )
 
         success = remove_user_from_project(db, project_id, user_id, current_user.id, is_self_removal)
         if not success:
-            raise HTTPException(status_code=404, detail="User not found in project")
+            raise HTTPException(status_code=404, detail=MessageConstants.PROJECT_MEMBER_NOT_FOUND)
 
         # Different success messages for self-removal vs admin removal
-        message = "Successfully left project" if is_self_removal else "User removed from project successfully"
+        message = MessageConstants.PROJECT_LEFT_SUCCESS if is_self_removal else MessageConstants.PROJECT_MEMBER_REMOVED_SUCCESS
 
         return ApiResponse(
             success=True,
@@ -447,24 +448,24 @@ def update_member_role_endpoint(
         # Check if current user has admin access to this project
         user_role = get_user_role_in_project(db, project_id, current_user.id)
         if not user_role or user_role not in ["admin", "owner"]:
-            raise HTTPException(status_code=403, detail="Admin access required")
+            raise HTTPException(status_code=403, detail=MessageConstants.ADMIN_ACCESS_REQUIRED)
 
         # Prevent changing your own role if you're the only admin
         if user_id == current_user.id and role_update.role not in ["admin", "owner"]:
             members = get_project_members(db, project_id)
             admin_count = sum(1 for m in members if m.role in ["admin", "owner"])
             if admin_count <= 1:
-                raise HTTPException(status_code=400, detail="Cannot change role of the last admin")
+                raise HTTPException(status_code=400, detail=MessageConstants.PROJECT_CANNOT_CHANGE_LAST_ADMIN_ROLE)
 
         updated_user_project = update_user_role_in_project(db, project_id, user_id, role_update.role, current_user.id)
         if not updated_user_project:
-            raise HTTPException(status_code=404, detail="User not found in project")
+            raise HTTPException(status_code=404, detail=MessageConstants.PROJECT_MEMBER_NOT_FOUND)
 
         response_data = format_user_project_response(updated_user_project)
 
         return ApiResponse(
             success=True,
-            message="User role updated successfully",
+            message=MessageConstants.PROJECT_MEMBER_ROLE_UPDATED_SUCCESS,
             data=response_data,
         )
     except HTTPException:
@@ -487,7 +488,7 @@ def get_my_project_stats_endpoint(
 
         return ApiResponse(
             success=True,
-            message="Project statistics retrieved successfully",
+            message=MessageConstants.PROJECT_STATS_RETRIEVED_SUCCESS,
             data=stats,
         )
     except Exception as e:
@@ -507,21 +508,21 @@ def request_role_change_endpoint(
     try:
         # Check if user is a member
         if not is_user_in_project(db, project_id, current_user.id):
-            raise HTTPException(status_code=403, detail="You are not a member of this project")
+            raise HTTPException(status_code=403, detail=MessageConstants.PROJECT_NOT_MEMBER)
 
         # Get current role
         current_role = get_user_role_in_project(db, project_id, current_user.id)
         if not current_role:
-            raise HTTPException(status_code=404, detail="Current role not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.PROJECT_ROLE_NOT_FOUND)
 
         # Prevent requesting same role
         if role_request.role == current_role:
-            raise HTTPException(status_code=400, detail=f"You already have the '{current_role}' role")
+            raise HTTPException(status_code=400, detail=MessageConstants.PROJECT_ROLE_ALREADY_SET)
 
         # Get project details
         project = get_project(db, project_id)
         if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.PROJECT_NOT_FOUND)
 
         # Create notification for project admins
         try:
@@ -560,7 +561,7 @@ def request_role_change_endpoint(
 
         return ApiResponse(
             success=True,
-            message="Role change request submitted successfully",
+            message=MessageConstants.PROJECT_ROLE_CHANGE_REQUESTED,
             data={
                 "project_id": str(project_id),
                 "current_role": current_role,

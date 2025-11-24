@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, WebSocket
 from sqlalchemy.orm import Session
 
 # Local imports
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import SessionLocal, get_db
 from app.jobs.tasks import (
@@ -61,7 +62,7 @@ def get_notifications_endpoint(
 
     return PaginatedResponse(
         success=True,
-        message="Notifications retrieved successfully",
+        message=MessageConstants.NOTIFICATION_RETRIEVED_SUCCESS,
         data=notifications,
         pagination=pagination_meta,
     )
@@ -76,7 +77,7 @@ def get_notification_endpoint(
     notification = get_notification(db, notification_id, current_user.id)
     return ApiResponse(
         success=True,
-        message="Notification retrieved successfully",
+        message=MessageConstants.NOTIFICATION_RETRIEVED_SUCCESS,
         data=notification,
     )
 
@@ -123,7 +124,7 @@ def send_notification_endpoint(
 
     return ApiResponse(
         success=True,
-        message="Notifications sent successfully",
+        message=MessageConstants.NOTIFICATION_CREATED_SUCCESS,
         data=notifications,
     )
 
@@ -171,7 +172,7 @@ def send_global_notification_endpoint(
 
     return ApiResponse(
         success=True,
-        message="Global notifications sent successfully",
+        message=MessageConstants.NOTIFICATION_CREATED_SUCCESS,
         data=notifications,
     )
 
@@ -194,7 +195,7 @@ def mark_notification_read_endpoint(
     )
     return ApiResponse(
         success=True,
-        message="Notification updated successfully",
+        message=MessageConstants.OPERATION_SUCCESSFUL,
         data=notification,
     )
 
@@ -208,7 +209,7 @@ def delete_notification_endpoint(
     delete_notification(db, notification_id, current_user.id)
     return ApiResponse(
         success=True,
-        message="Notification deleted successfully",
+        message=MessageConstants.NOTIFICATION_DELETED_SUCCESS,
         data=None,
     )
 

@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.jobs.tasks import process_audio_task
@@ -58,7 +59,7 @@ def create_meeting_endpoint(
 
         return ApiResponse(
             success=True,
-            message="Meeting created successfully",
+            message=MessageConstants.MEETING_CREATED_SUCCESS,
             data=response_data,
         )
     except Exception as e:
@@ -112,7 +113,7 @@ def get_meetings_endpoint(
 
         return PaginatedResponse(
             success=True,
-            message="Meetings retrieved successfully",
+            message=MessageConstants.MEETING_LIST_RETRIEVED_SUCCESS,
             data=meetings_data,
             pagination=pagination_meta,
         )
@@ -156,7 +157,7 @@ def get_meeting_endpoint(
 
         return ApiResponse(
             success=True,
-            message="Meeting retrieved successfully",
+            message=MessageConstants.MEETING_RETRIEVED_SUCCESS,
             data=response_data,
         )
     except HTTPException:
@@ -177,14 +178,14 @@ def update_meeting_endpoint(
         meeting = get_meeting(db, meeting_id, current_user.id, raise_404=True)
         updated_meeting = update_meeting(db, meeting.id, updates, current_user.id)
         if not updated_meeting:
-            raise HTTPException(status_code=400, detail="Failed to update meeting")
+            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_UPDATE_FAILED)
 
         updated_meeting = get_meeting(db, updated_meeting.id, current_user.id)
         response_data = serialize_meeting(updated_meeting)
 
         return ApiResponse(
             success=True,
-            message="Meeting updated successfully",
+            message=MessageConstants.MEETING_UPDATED_SUCCESS,
             data=response_data,
         )
     except HTTPException:
@@ -205,11 +206,11 @@ def delete_meeting_endpoint(
         check_delete_permissions(db, meeting, current_user.id)
         success = delete_meeting(db, meeting.id, current_user.id)
         if not success:
-            raise HTTPException(status_code=404, detail="Meeting not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.MEETING_NOT_FOUND)
 
         return ApiResponse(
             success=True,
-            message="Meeting deleted successfully",
+            message=MessageConstants.MEETING_DELETED_SUCCESS,
             data={},
         )
     except HTTPException:
@@ -229,11 +230,11 @@ def add_meeting_to_project_endpoint(
     try:
         success = add_meeting_to_project(db, meeting_id, project_id, current_user.id)
         if not success:
-            raise HTTPException(status_code=400, detail="Failed to add meeting to project")
+            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_ADD_TO_PROJECT_FAILED)
 
         return ApiResponse(
             success=True,
-            message="Meeting added to project successfully",
+            message=MessageConstants.MEETING_ADDED_TO_PROJECT_SUCCESS,
             data={},
         )
     except HTTPException:
@@ -253,11 +254,11 @@ def remove_meeting_from_project_endpoint(
     try:
         success = remove_meeting_from_project(db, meeting_id, project_id, current_user.id)
         if not success:
-            raise HTTPException(status_code=400, detail="Failed to remove meeting from project")
+            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_REMOVE_FROM_PROJECT_FAILED)
 
         return ApiResponse(
             success=True,
-            message="Meeting removed from project successfully",
+            message=MessageConstants.MEETING_REMOVED_FROM_PROJECT_SUCCESS,
             data={},
         )
     except HTTPException:
@@ -283,7 +284,7 @@ def upload_meeting_audio_endpoint(
         content = file.file.read()
         size_bytes = len(content)
         if size_bytes > 100 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="File too large (max 100MB)")
+            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_FILE_TOO_LARGE)
 
         allowed_types = {
             "audio/mpeg",
@@ -294,7 +295,7 @@ def upload_meeting_audio_endpoint(
             "audio/m4a",
         }
         if file.content_type not in allowed_types:
-            raise HTTPException(status_code=400, detail="Unsupported audio type")
+            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_UNSUPPORTED_AUDIO_TYPE)
 
         # Create and upload
         audio = create_audio_file(
@@ -307,14 +308,14 @@ def upload_meeting_audio_endpoint(
             seq_order=seq_order,
         )
         if not audio:
-            raise HTTPException(status_code=400, detail="Failed to upload audio")
+            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_AUDIO_UPLOAD_FAILED)
 
         # Enqueue Celery task (mock ASR)
         async_result = process_audio_task.delay(str(audio.id), str(current_user.id))
 
         return ApiResponse(
             success=True,
-            message="Audio uploaded successfully",
+            message=MessageConstants.MEETING_AUDIO_UPLOADED_SUCCESS,
             data={
                 "audio_file_id": str(audio.id),
                 "storage_url": audio.file_url,
@@ -360,7 +361,7 @@ def list_meeting_audio_endpoint(
 
         return PaginatedResponse(
             success=True,
-            message="Audio files retrieved successfully",
+            message=MessageConstants.MEETING_AUDIO_FILES_RETRIEVED_SUCCESS,
             data=items,
             pagination=pagination_meta,
         )

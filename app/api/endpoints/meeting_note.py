@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
@@ -54,7 +55,7 @@ async def create_meeting_note_endpoint(
     if not transcript or not transcript.content:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No transcript found for this meeting. Please transcribe the audio first.",
+            detail=MessageConstants.TRANSCRIPT_NOT_FOUND,
         )
 
     # Queue the Celery task
@@ -67,7 +68,7 @@ async def create_meeting_note_endpoint(
 
     return ApiResponse(
         success=True,
-        message="Meeting note generation queued. Listen to WebSocket for progress updates.",
+        message=MessageConstants.MEETING_NOTE_CREATED_SUCCESS,
         data={
             "task_id": task.id,
             "meeting_id": str(meeting_id),
@@ -85,10 +86,10 @@ def get_meeting_note_endpoint(
 ):
     note = get_meeting_note(db, meeting_id, current_user.id)
     if note is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.MEETING_NOTE_NOT_FOUND)
     return ApiResponse(
         success=True,
-        message="Meeting note retrieved",
+        message=MessageConstants.MEETING_NOTE_RETRIEVED_SUCCESS,
         data=MeetingNoteResponse.model_validate(note),
     )
 
@@ -107,10 +108,10 @@ def update_meeting_note_endpoint(
         content=payload.content,
     )
     if note is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.MEETING_NOTE_NOT_FOUND)
     return ApiResponse(
         success=True,
-        message="Meeting note updated",
+        message=MessageConstants.MEETING_NOTE_UPDATED_SUCCESS,
         data=MeetingNoteResponse.model_validate(note),
     )
 
@@ -123,8 +124,8 @@ def delete_meeting_note_endpoint(
 ):
     success = delete_meeting_note(db, meeting_id, current_user.id)
     if not success:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found")
-    return ApiResponse(success=True, message="Meeting note deleted")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.MEETING_NOTE_NOT_FOUND)
+    return ApiResponse(success=True, message=MessageConstants.MEETING_NOTE_DELETED_SUCCESS)
 
 
 @router.get("/meetings/{meeting_id}/notes/download")
@@ -135,7 +136,7 @@ def download_meeting_note_pdf_endpoint(
 ):
     note = get_meeting_note(db, meeting_id, current_user.id)
     if note is None or not note.content:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting note not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.MEETING_NOTE_NOT_FOUND)
     converter = MDToPDFConverter(note.content)
     pdf_data = converter.convert()
 

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
@@ -34,4 +35,4 @@ def get_dashboard_statistics(
     """
     service = StatisticsService(db, current_user.id)
     stats = service.get_dashboard_stats(period, scope)
-    return ApiResponse(data=stats)
+    return ApiResponse(success=True, message=MessageConstants.STATISTICS_RETRIEVED_SUCCESS, data=stats)

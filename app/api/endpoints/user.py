@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.jobs.celery_worker import send_test_notification_task
@@ -66,7 +67,7 @@ def get_users_endpoint(
 
     return PaginatedResponse(
         success=True,
-        message="Users retrieved successfully",
+        message=MessageConstants.USER_RETRIEVED_SUCCESS,
         data=users,
         pagination=pagination_meta,
     )
@@ -75,7 +76,7 @@ def get_users_endpoint(
 @router.post("/users", response_model=ApiResponse[UserResponse])
 def create_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
     created_user = create_user(db, **user.model_dump())
-    return ApiResponse(success=True, message="User created successfully", data=created_user)
+    return ApiResponse(success=True, message=MessageConstants.USER_CREATED_SUCCESS, data=created_user)
 
 
 @router.post("/users/bulk", response_model=BulkUserResponse)
@@ -89,7 +90,7 @@ def bulk_create_users_endpoint(bulk_request: BulkUserCreate, db: Session = Depen
 
     return BulkUserResponse(
         success=total_failed == 0,
-        message=f"Bulk user creation completed. {total_success} successful, {total_failed} failed.",
+        message=MessageConstants.OPERATION_SUCCESSFUL,
         data=results,
         total_processed=total_processed,
         total_success=total_success,
@@ -108,7 +109,7 @@ def bulk_update_users_endpoint(bulk_request: BulkUserUpdate, db: Session = Depen
 
     return BulkUserResponse(
         success=total_failed == 0,
-        message=f"Bulk user update completed. {total_success} successful, {total_failed} failed.",
+        message=MessageConstants.OPERATION_SUCCESSFUL,
         data=results,
         total_processed=total_processed,
         total_success=total_success,
@@ -125,7 +126,7 @@ def bulk_delete_users_endpoint(
     try:
         user_id_list = [uuid.UUID(uid.strip()) for uid in user_ids.split(",") if uid.strip()]
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid UUID format: {e}")
+        raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
 
     results = bulk_delete_users(db, user_id_list)
 
@@ -135,7 +136,7 @@ def bulk_delete_users_endpoint(
 
     return BulkUserResponse(
         success=total_failed == 0,
-        message=f"Bulk user deletion completed. {total_success} successful, {total_failed} failed.",
+        message=MessageConstants.OPERATION_SUCCESSFUL,
         data=results,
         total_processed=total_processed,
         total_success=total_success,
@@ -146,13 +147,13 @@ def bulk_delete_users_endpoint(
 @router.put("/users/{user_id}", response_model=ApiResponse[UserResponse])
 def update_user_endpoint(user_id: uuid.UUID, user: UserUpdate, db: Session = Depends(get_db)):
     updated_user = update_user(db, user_id=user_id, **user.model_dump(exclude_unset=True))
-    return ApiResponse(success=True, message="User updated successfully", data=updated_user)
+    return ApiResponse(success=True, message=MessageConstants.USER_UPDATED_SUCCESS, data=updated_user)
 
 
 @router.delete("/users/{user_id}", response_model=ApiResponse[dict])
 def delete_user_endpoint(user_id: uuid.UUID, db: Session = Depends(get_db)):
     delete_user(db, user_id=user_id)
-    return ApiResponse(success=True, message="User deleted successfully", data={})
+    return ApiResponse(success=True, message=MessageConstants.USER_DELETED_SUCCESS, data={})
 
 
 @router.post("/users/me/devices/fcm-token", response_model=ApiResponse[dict])
@@ -172,7 +173,7 @@ def update_fcm_token_endpoint(
 
     return ApiResponse(
         success=True,
-        message="FCM token updated successfully",
+        message=MessageConstants.USER_UPDATED_SUCCESS,
         data={"device_id": device.id},
     )
 
@@ -184,7 +185,7 @@ def test_stream_progress(current_user: User = Depends(get_current_user)):
 
     return ApiResponse(
         success=True,
-        message="Stream test started",
+        message=MessageConstants.OPERATION_SUCCESSFUL,
         data={"task_id": task.id, "user_id": user_id_str, "status": "started"},
     )
 
@@ -200,7 +201,7 @@ def get_websocket_status(current_user: User = Depends(get_current_user)):
 
     return ApiResponse(
         success=True,
-        message="WebSocket status retrieved",
+        message=MessageConstants.USER_RETRIEVED_SUCCESS,
         data={
             "user_id": user_id_str,
             "is_connected": user_id_str in websocket_manager.connections,

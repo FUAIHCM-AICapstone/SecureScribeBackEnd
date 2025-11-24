@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
@@ -36,7 +37,7 @@ def create_conversation_endpoint(
     """Create a new conversation for the current user"""
     conversation = create_conversation(db, current_user.id, conversation_data)
 
-    return ApiResponse(success=True, message="Conversation created successfully", data=conversation)
+    return ApiResponse(success=True, message=MessageConstants.CONVERSATION_CREATED_SUCCESS, data=conversation)
 
 
 @router.get("/conversations", response_model=ConversationsPaginatedResponse)
@@ -53,7 +54,7 @@ def get_user_conversations_endpoint(
 
     return ConversationsPaginatedResponse(
         success=True,
-        message="Conversations retrieved successfully",
+        message=MessageConstants.CONVERSATION_RETRIEVED_SUCCESS,
         data=conversations,
         pagination=pagination_meta,
     )
@@ -68,9 +69,9 @@ def get_conversation_endpoint(
     """Get a specific conversation"""
     conversation = get_conversation(db, conversation_id, current_user.id)
     if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise HTTPException(status_code=404, detail=MessageConstants.CONVERSATION_NOT_FOUND)
 
-    return ApiResponse(success=True, message="Conversation retrieved successfully", data=conversation)
+    return ApiResponse(success=True, message=MessageConstants.CONVERSATION_RETRIEVED_SUCCESS, data=conversation)
 
 
 @router.put("/conversations/{conversation_id}", response_model=ConversationApiResponse)
@@ -83,9 +84,9 @@ def update_conversation_endpoint(
     """Update a conversation"""
     conversation = update_conversation(db, conversation_id, current_user.id, update_data)
     if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise HTTPException(status_code=404, detail=MessageConstants.CONVERSATION_NOT_FOUND)
 
-    return ApiResponse(success=True, message="Conversation updated successfully", data=conversation)
+    return ApiResponse(success=True, message=MessageConstants.CONVERSATION_UPDATED_SUCCESS, data=conversation)
 
 
 @router.delete("/conversations/{conversation_id}", response_model=ApiResponse[None])
@@ -97,9 +98,9 @@ def delete_conversation_endpoint(
     """Delete a conversation"""
     success = delete_conversation(db, conversation_id, current_user.id)
     if not success:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise HTTPException(status_code=404, detail=MessageConstants.CONVERSATION_NOT_FOUND)
 
-    return ApiResponse(success=True, message="Conversation deleted successfully", data=None)
+    return ApiResponse(success=True, message=MessageConstants.CONVERSATION_DELETED_SUCCESS, data=None)
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=ConversationWithMessagesApiResponse)
@@ -112,6 +113,6 @@ def get_conversation_with_messages_endpoint(
     """Get a conversation with its messages"""
     conversation = get_conversation_with_messages(db, conversation_id, current_user.id, limit)
     if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise HTTPException(status_code=404, detail=MessageConstants.CONVERSATION_NOT_FOUND)
 
-    return ApiResponse(success=True, message="Conversation with messages retrieved successfully", data=conversation)
+    return ApiResponse(success=True, message=MessageConstants.CONVERSATION_RETRIEVED_SUCCESS, data=conversation)

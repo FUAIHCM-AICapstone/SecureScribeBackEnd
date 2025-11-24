@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
@@ -50,7 +51,7 @@ def create_meeting_bot_endpoint(
         new_bot = get_meeting_bot(db, new_bot.id, current_user.id)
         return ApiResponse(
             success=True,
-            message="Meeting bot created successfully",
+            message=MessageConstants.MEETING_BOT_CREATED_SUCCESS,
             data=serialize_meeting_bot(new_bot),
         )
     except Exception as e:
@@ -71,7 +72,7 @@ def get_meeting_bots_endpoint(
         bots, total = get_meeting_bots(db, current_user.id, page, limit)
         return PaginatedResponse(
             success=True,
-            message="Meeting bots retrieved successfully",
+            message=MessageConstants.MEETING_BOT_LIST_RETRIEVED_SUCCESS,
             data=[serialize_meeting_bot(bot) for bot in bots],
             meta=create_pagination_meta(total, page, limit),
         )
@@ -90,11 +91,11 @@ def get_meeting_bot_endpoint(
 
     bot = get_meeting_bot(db, bot_id, current_user.id)
     if not bot:
-        raise HTTPException(status_code=404, detail="Meeting bot not found")
+        raise HTTPException(status_code=404, detail=MessageConstants.MEETING_BOT_NOT_FOUND)
 
     return ApiResponse(
         success=True,
-        message="Meeting bot retrieved successfully",
+        message=MessageConstants.MEETING_BOT_RETRIEVED_SUCCESS,
         data=serialize_meeting_bot(bot),
     )
 
@@ -110,11 +111,11 @@ def get_meeting_bot_by_meeting_endpoint(
 
     bot = get_meeting_bot_by_meeting(db, meeting_id, current_user.id)
     if not bot:
-        raise HTTPException(status_code=404, detail="Meeting bot not found for this meeting")
+        raise HTTPException(status_code=404, detail=MessageConstants.MEETING_BOT_NOT_FOUND)
 
     return ApiResponse(
         success=True,
-        message="Meeting bot retrieved successfully",
+        message=MessageConstants.MEETING_BOT_RETRIEVED_SUCCESS,
         data=serialize_meeting_bot(bot),
     )
 
@@ -132,13 +133,13 @@ def update_meeting_bot_endpoint(
 
         updated_bot = update_meeting_bot(db, bot_id, bot_data, current_user.id)
         if not updated_bot:
-            raise HTTPException(status_code=404, detail="Meeting bot not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.MEETING_BOT_NOT_FOUND)
 
         # Reload with meeting data
         updated_bot = get_meeting_bot(db, bot_id, current_user.id)
         return ApiResponse(
             success=True,
-            message="Meeting bot updated successfully",
+            message=MessageConstants.MEETING_BOT_UPDATED_SUCCESS,
             data=serialize_meeting_bot(updated_bot),
         )
     except Exception as e:
@@ -155,11 +156,11 @@ def delete_meeting_bot_endpoint(
     try:
         success = delete_meeting_bot(db, bot_id, current_user.id)
         if not success:
-            raise HTTPException(status_code=404, detail="Meeting bot not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.MEETING_BOT_NOT_FOUND)
 
         return ApiResponse(
             success=True,
-            message="Meeting bot deleted successfully",
+            message=MessageConstants.MEETING_BOT_DELETED_SUCCESS,
             data={},
         )
     except Exception as e:
@@ -177,7 +178,7 @@ def create_bot_log_endpoint(
         log = create_bot_log(db, bot_id, log_data)
         return ApiResponse(
             success=True,
-            message="Bot log created successfully",
+            message=MessageConstants.MEETING_BOT_LOG_CREATED_SUCCESS,
             data=MeetingBotLogResponse.model_validate(log),
         )
     except Exception as e:
@@ -197,7 +198,7 @@ def get_bot_logs_endpoint(
 
         return PaginatedResponse(
             success=True,
-            message="Bot logs retrieved successfully",
+            message=MessageConstants.MEETING_BOT_LOG_LIST_RETRIEVED_SUCCESS,
             data=[MeetingBotLogResponse.model_validate(log) for log in logs],
             meta=create_pagination_meta(total, page, limit),
         )
@@ -219,13 +220,13 @@ def update_bot_status_endpoint(
 
         updated_bot = update_bot_status(db, bot_id, status, error)
         if not updated_bot:
-            raise HTTPException(status_code=404, detail="Meeting bot not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.MEETING_BOT_NOT_FOUND)
 
         # Reload with meeting data
         updated_bot = get_meeting_bot(db, bot_id, current_user.id)
         return ApiResponse(
             success=True,
-            message="Bot status updated successfully",
+            message=MessageConstants.MEETING_BOT_UPDATED_SUCCESS,
             data=serialize_meeting_bot(updated_bot),
         )
     except Exception as e:
@@ -246,12 +247,12 @@ def join_meeting_bot_endpoint(
 
         # Extract bearer token from Authorization header
         if not authorization:
-            raise HTTPException(status_code=401, detail="Authorization header required")
+            raise HTTPException(status_code=401, detail=MessageConstants.AUTHORIZATION_HEADER_REQUIRED)
 
         # Parse bearer token (format: "Bearer {token}")
         auth_parts = authorization.split()
         if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
-            raise HTTPException(status_code=400, detail="Invalid bearer token format")
+            raise HTTPException(status_code=400, detail=MessageConstants.INVALID_BEARER_TOKEN_FORMAT)
 
         bearer_token = auth_parts[1]
 
@@ -268,7 +269,7 @@ def join_meeting_bot_endpoint(
         # Return 202 Accepted response with task info
         return ApiResponse(
             success=True,
-            message="Bot join triggered successfully",
+            message=MessageConstants.MEETING_BOT_JOIN_TRIGGERED_SUCCESS,
             data=MeetingBotJoinResponse(
                 task_id=task_info["task_id"],
                 bot_id=uuid.UUID(task_info["bot_id"]),
@@ -283,7 +284,7 @@ def join_meeting_bot_endpoint(
         raise
     except Exception:
         # Catch any other exceptions and return 500
-        raise HTTPException(status_code=500, detail="Failed to queue bot join task")
+        raise HTTPException(status_code=500, detail=MessageConstants.MEETING_BOT_JOIN_FAILED)
 
 
 @router.post("/bot/webhook/status", status_code=202)
@@ -299,11 +300,11 @@ def bot_webhook_status_endpoint(
     """Webhook endpoint for bot status updates during recording"""
     try:
         if not authorization:
-            raise HTTPException(status_code=401, detail="Authorization header required")
+            raise HTTPException(status_code=401, detail=MessageConstants.AUTHORIZATION_HEADER_REQUIRED)
 
         auth_parts = authorization.split()
         if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
-            raise HTTPException(status_code=400, detail="Invalid bearer token format")
+            raise HTTPException(status_code=400, detail=MessageConstants.INVALID_BEARER_TOKEN_FORMAT)
 
         from datetime import datetime as dt
 
@@ -343,19 +344,19 @@ def bot_webhook_status_endpoint(
 
                 return ApiResponse(
                     success=True,
-                    message="Bot status updated successfully",
+                    message=MessageConstants.MEETING_BOT_UPDATED_SUCCESS,
                     data={"bot_id": str(bot_uuid), "status": status},
                 )
             else:
-                raise HTTPException(status_code=404, detail="Bot not found")
+                raise HTTPException(status_code=404, detail=MessageConstants.MEETING_BOT_NOT_FOUND)
 
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid botId format")
+            raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update bot status: {str(e)}")
+        raise HTTPException(status_code=500, detail=MessageConstants.INTERNAL_SERVER_ERROR)
 
 
 @router.post("/bot/webhook/recording", status_code=202)
@@ -374,11 +375,11 @@ def bot_webhook_recording_endpoint(
     """Webhook endpoint to receive bot recording and update bot status"""
     try:
         if not authorization:
-            raise HTTPException(status_code=401, detail="Authorization header required")
+            raise HTTPException(status_code=401, detail=MessageConstants.AUTHORIZATION_HEADER_REQUIRED)
 
         auth_parts = authorization.split()
         if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
-            raise HTTPException(status_code=400, detail="Invalid bearer token format")
+            raise HTTPException(status_code=400, detail=MessageConstants.INVALID_BEARER_TOKEN_FORMAT)
 
         from datetime import datetime as dt
 
@@ -390,7 +391,7 @@ def bot_webhook_recording_endpoint(
         if recording and meetingUrl:
             meeting = db.query(Meeting).filter(Meeting.url == meetingUrl).first()
             if not meeting:
-                raise HTTPException(status_code=404, detail="Meeting not found")
+                raise HTTPException(status_code=404, detail=MessageConstants.MEETING_NOT_FOUND)
 
             file_bytes = recording.file.read()
             if file_bytes:
@@ -447,11 +448,11 @@ def bot_webhook_recording_endpoint(
                     create_bot_log(db, bot_uuid, log_data)
                     result["bot_status_updated"] = True
             except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid botId format")
+                raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
 
         return ApiResponse(
             success=True,
-            message="Webhook processed successfully",
+            message=MessageConstants.MEETING_BOT_WEBHOOK_PROCESSED_SUCCESS,
             data=result,
         )
     except HTTPException:
@@ -466,12 +467,12 @@ def bot_webhook_recording_endpoint(
             )
             return ApiResponse(
                 success=True,
-                message="Webhook received, queued for retry",
+                message=MessageConstants.MEETING_BOT_WEBHOOK_QUEUED_FOR_RETRY,
                 data={"retry_task_id": retry_task.id},
             )
 
         return ApiResponse(
             success=True,
-            message="Webhook received",
+            message=MessageConstants.MEETING_BOT_WEBHOOK_RECEIVED,
             data={},
         )

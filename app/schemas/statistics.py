@@ -99,3 +99,4 @@ class DashboardResponse(BaseModel):
     projects: ProjectStats
     storage: StorageStats
     quick_access: QuickAccessData
+    chart_data: List[ChartDataPoint]

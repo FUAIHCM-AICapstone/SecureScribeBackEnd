@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.models.user import User
 from app.schemas.common import ApiResponse
@@ -19,10 +20,10 @@ def connect_google_calendar(current_user: User = Depends(get_current_user)):
             "auth_url": result.auth_url,
             "state": result.state,
         }
-        return ApiResponse(success=True, message="OAuth flow initiated", data=result_response)
+        return ApiResponse(success=True, message=MessageConstants.OPERATION_SUCCESSFUL, data=result_response)
     except Exception as e:
         print(f"\033[91mError initiating Google Calendar OAuth: {e}\033[0m")
-        raise HTTPException(status_code=500, detail="Failed to initiate OAuth flow")
+        raise HTTPException(status_code=500, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.get("/auth/google/callback", response_model=ApiResponse)
@@ -40,15 +41,15 @@ def google_calendar_callback(request: Request):
 
     if error:
         print(f"\033[91mOAuth error received: {error}\033[0m")
-        raise HTTPException(status_code=400, detail="OAuth error: " + error)
+        raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
 
     if not code:
         print("\033[91mNo authorization code received\033[0m")
-        raise HTTPException(status_code=400, detail="No authorization code received")
+        raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
 
     if not state:
         print("\033[91mNo state parameter received\033[0m")
-        raise HTTPException(status_code=400, detail="No state parameter received")
+        raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
 
     # Get user_id from Redis using the state as key
     from app.utils.google_calendar import get_user_id_from_state
@@ -57,18 +58,18 @@ def google_calendar_callback(request: Request):
 
     if not user_id:
         print(f"\033[91mNo user ID found for state: {state}\033[0m")
-        raise HTTPException(status_code=400, detail="Invalid or expired state parameter")
+        raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
 
     service = GoogleCalendarService()
     try:
         success = service.handle_oauth_callback(code, user_id)
         if success:
-            return ApiResponse(success=True, message="Google Calendar connected successfully")
+            return ApiResponse(success=True, message=MessageConstants.CALENDAR_SYNCED_SUCCESS)
         else:
-            raise HTTPException(status_code=500, detail="Failed to store refresh token")
+            raise HTTPException(status_code=500, detail=MessageConstants.OPERATION_FAILED)
     except Exception as e:
         print(f"\033[91mError in OAuth callback: {e}\033[0m")
-        raise HTTPException(status_code=500, detail="OAuth callback failed")
+        raise HTTPException(status_code=500, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.get("/calendar/events", response_model=ApiResponse)
@@ -77,9 +78,9 @@ def get_calendar_events(current_user: User = Depends(get_current_user)):
     service = GoogleCalendarService()
     try:
         events = service.fetch_events(current_user.id)
-        return ApiResponse(success=True, message="Events retrieved successfully", data=events)
+        return ApiResponse(success=True, message=MessageConstants.OPERATION_SUCCESSFUL, data=events)
     except HTTPException:
         raise
     except Exception as e:
         print(f"\033[91mError fetching Google Calendar events: {e}\033[0m")
-        raise HTTPException(status_code=500, detail="Failed to fetch events, please retry")
+        raise HTTPException(status_code=500, detail=MessageConstants.OPERATION_FAILED)

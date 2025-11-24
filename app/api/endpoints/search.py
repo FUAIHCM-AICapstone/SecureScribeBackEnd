@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
@@ -201,13 +202,13 @@ async def search_documents(
 
         return ApiResponse(
             success=True,
-            message=f"Found {len(filtered_results)} matching documents",
+            message=MessageConstants.SEARCH_COMPLETED_SUCCESS if filtered_results else MessageConstants.SEARCH_NO_RESULTS,
             data=search_response,
         )
 
     except Exception as e:
         print(f"\033[91m❌ Search failed: {e}\033[0m")
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=MessageConstants.SEARCH_FAILED)
 
 
 @router.get("/search/status/{file_id}", response_model=IndexingStatusResponse)
@@ -223,10 +224,10 @@ def get_indexing_status(
         # Check if file exists and user has access
         file = get_file(db, file_id)
         if not file:
-            raise HTTPException(status_code=404, detail="File not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.FILE_NOT_FOUND)
 
         if not check_file_access(db, file, current_user.id):
-            raise HTTPException(status_code=403, detail="Access denied")
+            raise HTTPException(status_code=403, detail=MessageConstants.ACCESS_DENIED)
 
         # Determine indexing status
         if file.qdrant_vector_id:
@@ -246,7 +247,7 @@ def get_indexing_status(
 
         return ApiResponse(
             success=True,
-            message="Indexing status retrieved",
+            message=MessageConstants.OPERATION_SUCCESSFUL,
             data={
                 "file_id": str(file_id),
                 "status": status,
@@ -261,7 +262,7 @@ def get_indexing_status(
         raise
     except Exception as e:
         print(f"\033[91m❌ Failed to get indexing status: {e}\033[0m")
-        raise HTTPException(status_code=500, detail=f"Failed to get status: {str(e)}")
+        raise HTTPException(status_code=500, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.post("/search/rag")
@@ -278,7 +279,7 @@ async def rag_search(
         project_id=request.project_id,
         meeting_id=request.meeting_id,
     )
-    return ApiResponse(success=True, message="RAG completed", data=data)
+    return ApiResponse(success=True, message=MessageConstants.OPERATION_SUCCESSFUL, data=data)
 
 
 @router.get("/search/dynamic", response_model=ApiResponse)
@@ -294,7 +295,7 @@ def dynamic_search(
     pagination_meta = create_pagination_meta(page, limit, total)
     return ApiResponse(
         success=True,
-        message="Search completed" if results else "No results found.",
+        message=MessageConstants.SEARCH_COMPLETED_SUCCESS if results else MessageConstants.SEARCH_NO_RESULTS,
         data=results,
         pagination=pagination_meta if results else None,
     )

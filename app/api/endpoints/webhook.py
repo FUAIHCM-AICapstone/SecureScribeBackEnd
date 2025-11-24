@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, HttpUrl
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
@@ -68,21 +69,21 @@ def webhook_audio_upload(
 
         if not audio_file:
             logger.error("Failed to create audio file record")
-            raise HTTPException(status_code=500, detail="Failed to save audio file")
+            raise HTTPException(status_code=500, detail=MessageConstants.OPERATION_FAILED)
 
         logger.info(f"Successfully created audio file: id={audio_file.id}")
         return {
             "success": True,
-            "message": "Audio file uploaded successfully",
+            "message": MessageConstants.AUDIO_UPLOADED_SUCCESS,
             "data": audio_file,
         }
 
     except requests.RequestException as e:
         logger.error(f"Failed to download file from {request.file_url}: {e}")
-        raise HTTPException(status_code=400, detail=f"Failed to download file: {str(e)}")
+        raise HTTPException(status_code=400, detail=MessageConstants.OPERATION_FAILED)
     except ValueError as e:
         logger.error(f"File validation error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=MessageConstants.VALIDATION_ERROR)
     except Exception as e:
         logger.error(f"Error processing webhook audio upload: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail=MessageConstants.INTERNAL_SERVER_ERROR)

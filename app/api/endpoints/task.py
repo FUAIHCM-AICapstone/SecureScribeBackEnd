@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
@@ -62,7 +63,7 @@ def get_tasks_endpoint(
 
     return PaginatedResponse(
         success=True,
-        message="Tasks retrieved successfully",
+        message=MessageConstants.TASK_RETRIEVED_SUCCESS,
         data=[serialize_task(t) for t in tasks],
         pagination=pagination_meta,
     )
@@ -76,11 +77,11 @@ def get_task_endpoint(
 ):
     task = get_task(db, task_id, current_user.id)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise HTTPException(status_code=404, detail=MessageConstants.TASK_NOT_FOUND)
 
     return ApiResponse(
         success=True,
-        message="Task retrieved successfully",
+        message=MessageConstants.TASK_RETRIEVED_SUCCESS,
         data=serialize_task(task),
     )
 
@@ -96,7 +97,7 @@ def create_task_endpoint(
     loaded_task = get_task(db, created_task.id, current_user.id)
     return ApiResponse(
         success=True,
-        message="Task created successfully",
+        message=MessageConstants.TASK_CREATED_SUCCESS,
         data=serialize_task(loaded_task or created_task),
     )
 
@@ -115,7 +116,7 @@ def bulk_create_tasks_endpoint(
 
     return BulkTaskResponse(
         success=total_failed == 0,
-        message=f"Bulk task creation completed. {total_success} successful, {total_failed} failed.",
+        message=MessageConstants.TASK_CREATED_SUCCESS,
         data=results,
         total_processed=total_processed,
         total_success=total_success,
@@ -135,7 +136,7 @@ def update_task_endpoint(
     loaded_task = get_task(db, task_id, current_user.id)
     return ApiResponse(
         success=True,
-        message="Task updated successfully",
+        message=MessageConstants.TASK_UPDATED_SUCCESS,
         data=serialize_task(loaded_task or updated_task),
     )
 
@@ -149,6 +150,6 @@ def delete_task_endpoint(
     delete_task(db, task_id, current_user.id)
     return ApiResponse(
         success=True,
-        message="Task deleted successfully",
+        message=MessageConstants.TASK_DELETED_SUCCESS,
         data={"id": task_id},
     )

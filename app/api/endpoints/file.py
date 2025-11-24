@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.jobs.tasks import index_file_task
@@ -59,7 +60,7 @@ def upload_file_endpoint(
         file_size = len(file_content)
 
         if not validate_file(file.filename, file.content_type, file_size):
-            raise HTTPException(status_code=400, detail="File validation failed")
+            raise HTTPException(status_code=400, detail=MessageConstants.VALIDATION_ERROR)
 
         file_data = FileCreate(
             filename=file.filename,
@@ -72,7 +73,7 @@ def upload_file_endpoint(
 
         new_file = create_file(db, file_data, current_user.id, file_content)
         if not new_file:
-            raise HTTPException(status_code=400, detail="Failed to upload file")
+            raise HTTPException(status_code=400, detail=MessageConstants.OPERATION_FAILED)
 
         # Trigger background indexing for supported file types
         supported_mimes = [
@@ -92,7 +93,7 @@ def upload_file_endpoint(
 
         return ApiResponse(
             success=True,
-            message="File uploaded successfully",
+            message=MessageConstants.FILE_UPLOADED_SUCCESS,
             data={
                 "id": new_file.id,
                 "filename": new_file.filename,
@@ -138,7 +139,7 @@ def get_files_endpoint(
 
         return PaginatedResponse(
             success=True,
-            message="Files retrieved successfully",
+            message=MessageConstants.FILE_RETRIEVED_SUCCESS,
             data=[
                 {
                     "id": file.id,
@@ -169,14 +170,14 @@ def get_file_endpoint(
     try:
         file = get_file(db, file_id)
         if not file:
-            raise HTTPException(status_code=404, detail="File not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.FILE_NOT_FOUND)
 
         if not check_file_access(db, file, current_user.id):
-            raise HTTPException(status_code=403, detail="Access denied")
+            raise HTTPException(status_code=403, detail=MessageConstants.ACCESS_DENIED)
 
         return ApiResponse(
             success=True,
-            message="File retrieved successfully",
+            message=MessageConstants.FILE_RETRIEVED_SUCCESS,
             data={
                 "id": file.id,
                 "filename": file.filename,
@@ -206,17 +207,17 @@ def update_file_endpoint(
     try:
         file = get_file(db, file_id)
         if not file:
-            raise HTTPException(status_code=404, detail="File not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.FILE_NOT_FOUND)
 
         check_delete_permissions(db, file, current_user.id)
 
         updated_file = update_file(db, file_id, updates)
         if not updated_file:
-            raise HTTPException(status_code=400, detail="Failed to update file")
+            raise HTTPException(status_code=400, detail=MessageConstants.OPERATION_FAILED)
 
         return ApiResponse(
             success=True,
-            message="File updated successfully",
+            message=MessageConstants.OPERATION_SUCCESSFUL,
             data={
                 "id": updated_file.id,
                 "filename": updated_file.filename,
@@ -247,7 +248,7 @@ async def move_file_endpoint(
     try:
         file = get_file(db, file_id)
         if not file:
-            raise HTTPException(status_code=404, detail="File not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.FILE_NOT_FOUND)
 
         check_delete_permissions(db, file, current_user.id)
 
@@ -256,7 +257,7 @@ async def move_file_endpoint(
             from app.services.project import is_user_in_project
 
             if not is_user_in_project(db, move_request.project_id, current_user.id):
-                raise HTTPException(status_code=403, detail="Access denied to project")
+                raise HTTPException(status_code=403, detail=MessageConstants.ACCESS_DENIED)
 
         if move_request.meeting_id:
             from app.models.meeting import Meeting
@@ -266,7 +267,7 @@ async def move_file_endpoint(
 
             target_meeting = db.query(Meeting).filter(Meeting.id == move_request.meeting_id, Meeting.is_deleted == False).first()
             if not target_meeting or not check_meeting_access_utils(db, target_meeting, current_user.id):
-                raise HTTPException(status_code=403, detail="Access denied to meeting")
+                raise HTTPException(status_code=403, detail=MessageConstants.ACCESS_DENIED)
 
         # Store old values for rollback
         old_project_id = file.project_id
@@ -295,11 +296,11 @@ async def move_file_endpoint(
             file.project_id = old_project_id
             file.meeting_id = old_meeting_id
             db.commit()
-            raise HTTPException(status_code=400, detail="Failed to update vector metadata")
+            raise HTTPException(status_code=400, detail=MessageConstants.OPERATION_FAILED)
 
         return ApiResponse(
             success=True,
-            message="File moved successfully",
+            message=MessageConstants.OPERATION_SUCCESSFUL,
             data={
                 "id": file.id,
                 "filename": file.filename,
@@ -328,15 +329,15 @@ def delete_file_endpoint(
     try:
         file = get_file(db, file_id)
         if not file:
-            raise HTTPException(status_code=404, detail="File not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.FILE_NOT_FOUND)
 
         check_delete_permissions(db, file, current_user.id)
 
         success = delete_file(db, file_id)
         if not success:
-            raise HTTPException(status_code=400, detail="Failed to delete file")
+            raise HTTPException(status_code=400, detail=MessageConstants.OPERATION_FAILED)
 
-        return ApiResponse(success=True, message="File deleted successfully", data={})
+        return ApiResponse(success=True, message=MessageConstants.FILE_DELETED_SUCCESS, data={})
     except HTTPException:
         raise
     except Exception as e:
@@ -371,7 +372,7 @@ async def bulk_files_endpoint(
 
         return BulkFileResponse(
             success=total_failed == 0,
-            message=f"Bulk {operation.operation} completed. {total_success} successful, {total_failed} failed.",
+            message=MessageConstants.OPERATION_SUCCESSFUL if total_failed == 0 else MessageConstants.OPERATION_FAILED,
             data=results,
             total_processed=total_processed,
             total_success=total_success,
@@ -397,13 +398,13 @@ def get_project_files_endpoint(
         files, project_name, total = get_project_files_with_info(db, project_id, current_user.id, page, limit, filename)
 
         if files is None:
-            raise HTTPException(status_code=403, detail="Access denied")
+            raise HTTPException(status_code=403, detail=MessageConstants.ACCESS_DENIED)
 
         pagination_meta = create_pagination_meta(page, limit, total)
 
         return PaginatedResponse(
             success=True,
-            message="Project files retrieved successfully",
+            message=MessageConstants.FILE_RETRIEVED_SUCCESS,
             data=[
                 FileWithProject(
                     **file.__dict__,
@@ -433,13 +434,13 @@ def get_meeting_files_endpoint(
         files, meeting_title, total = get_meeting_files_with_info(db, meeting_id, current_user.id, page, limit)
 
         if files is None:
-            raise HTTPException(status_code=404, detail="Meeting not found or access denied")
+            raise HTTPException(status_code=404, detail=MessageConstants.MEETING_NOT_FOUND)
 
         pagination_meta = create_pagination_meta(page, limit, total)
 
         return PaginatedResponse(
             success=True,
-            message="Meeting files retrieved successfully",
+            message=MessageConstants.FILE_RETRIEVED_SUCCESS,
             data=[
                 FileWithMeeting(
                     **file.__dict__,
@@ -467,11 +468,11 @@ def get_file_with_project_endpoint(
         file, project_name = get_file_with_project_info(db, file_id, current_user.id)
 
         if not file:
-            raise HTTPException(status_code=404, detail="File not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.FILE_NOT_FOUND)
 
         return ApiResponse(
             success=True,
-            message="File with project info retrieved successfully",
+            message=MessageConstants.FILE_RETRIEVED_SUCCESS,
             data=FileWithProject(
                 **file.__dict__,
                 project_name=project_name,
@@ -495,11 +496,11 @@ def get_file_with_meeting_endpoint(
         file, meeting_title = get_file_with_meeting_info(db, file_id, current_user.id)
 
         if not file:
-            raise HTTPException(status_code=404, detail="File not found")
+            raise HTTPException(status_code=404, detail=MessageConstants.FILE_NOT_FOUND)
 
         return ApiResponse(
             success=True,
-            message="File with meeting info retrieved successfully",
+            message=MessageConstants.FILE_RETRIEVED_SUCCESS,
             data=FileWithMeeting(
                 **file.__dict__,
                 meeting_title=meeting_title,

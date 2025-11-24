@@ -338,4 +338,4 @@ class StatisticsService:
     def get_dashboard_stats(self, period: DashboardPeriod, scope: DashboardScope) -> DashboardResponse:
         start_date = self.get_date_range(period)
 
-        return DashboardResponse(period=period, scope=scope, tasks=self.get_task_stats(start_date, scope), meetings=self.get_meeting_stats(start_date, scope), projects=self.get_project_stats(), storage=self.get_storage_stats(), quick_access=self.get_quick_access())
+        return DashboardResponse(period=period, scope=scope, tasks=self.get_task_stats(start_date, scope), meetings=self.get_meeting_stats(start_date, scope), projects=self.get_project_stats(), storage=self.get_storage_stats(), quick_access=self.get_quick_access(), chart_data=self.get_task_stats(start_date, scope).chart_data)

@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
@@ -50,7 +51,7 @@ def upload_audio_file(
     if file.content_type not in supported_formats:
         error_msg = f"Invalid audio format: {file.content_type}. Supported formats: {', '.join(supported_formats)}"
         print(error_msg)
-        raise HTTPException(status_code=400, detail=error_msg)
+        raise HTTPException(status_code=400, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
 
     # Handle meeting_id: auto-create personal meeting or validate RBAC
     if meeting_id is None:
@@ -72,7 +73,7 @@ def upload_audio_file(
         if len(file_content) == 0:
             error_msg = "Uploaded file is empty"
             print(error_msg)
-            raise HTTPException(status_code=400, detail=error_msg)
+            raise HTTPException(status_code=400, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
 
         audio_data = AudioFileCreate(meeting_id=meeting_id, uploaded_by=current_user.id)
         audio_file = create_audio_file(db, audio_data, file_content, file.content_type)
@@ -80,13 +81,13 @@ def upload_audio_file(
         if not audio_file:
             error_msg = "Failed to upload audio file to storage"
             print(error_msg)
-            raise HTTPException(status_code=500, detail=error_msg)
+            raise HTTPException(status_code=500, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
 
         print(f"Audio file uploaded: {audio_file.id}, file_url: {audio_file.file_url}")
 
         return ApiResponse(
             success=True,
-            message="Audio file uploaded successfully",
+            message=MessageConstants.AUDIO_UPLOADED_SUCCESS,
             data=AudioFileResponse.model_validate(audio_file),
         )
 
@@ -95,7 +96,7 @@ def upload_audio_file(
     except Exception as e:
         error_msg = f"Unexpected error during audio upload: {str(e)}"
         print(error_msg)
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=500, detail=MessageConstants.INTERNAL_SERVER_ERROR)
 
 
 @router.get("/audio-files/{audio_id}", response_model=AudioFileApiResponse)
@@ -106,11 +107,11 @@ def get_audio_file_endpoint(
 ):
     audio_file = get_audio_file(db, audio_id)
     if not audio_file:
-        raise HTTPException(status_code=404, detail="Audio file not found")
+        raise HTTPException(status_code=404, detail=MessageConstants.AUDIO_NOT_FOUND)
 
     return ApiResponse(
         success=True,
-        message="Audio file retrieved successfully",
+        message=MessageConstants.AUDIO_UPLOADED_SUCCESS,
         data=AudioFileResponse.model_validate(audio_file),
     )
 
@@ -124,7 +125,7 @@ def get_meeting_audio_files(
     audio_files = get_audio_files_by_meeting(db, meeting_id)
     return ApiResponse(
         success=True,
-        message="Audio files retrieved successfully",
+        message=MessageConstants.AUDIO_UPLOADED_SUCCESS,
         data=[AudioFileResponse.model_validate(af) for af in audio_files],
     )
 
@@ -138,11 +139,11 @@ def update_audio_file_endpoint(
 ):
     audio_file = update_audio_file(db, audio_id, updates)
     if not audio_file:
-        raise HTTPException(status_code=404, detail="Audio file not found")
+        raise HTTPException(status_code=404, detail=MessageConstants.AUDIO_NOT_FOUND)
 
     return ApiResponse(
         success=True,
-        message="Audio file updated successfully",
+        message=MessageConstants.AUDIO_UPLOADED_SUCCESS,
         data=AudioFileResponse.model_validate(audio_file),
     )
 
@@ -154,6 +155,6 @@ def delete_audio_file_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     if not delete_audio_file(db, audio_id):
-        raise HTTPException(status_code=404, detail="Audio file not found")
+        raise HTTPException(status_code=404, detail=MessageConstants.AUDIO_NOT_FOUND)
 
-    return ApiResponse(success=True, message="Audio file deleted successfully", data={})
+    return ApiResponse(success=True, message=MessageConstants.AUDIO_DELETED_SUCCESS, data={})

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
@@ -31,18 +32,18 @@ def refresh_token_endpoint(request: RefreshTokenRequest):
     try:
         payload = verify_token(refresh_token)
         if not payload or payload.get("type") != "refresh":
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
+            raise HTTPException(status_code=401, detail=MessageConstants.INVALID_CREDENTIALS)
 
         user_id = payload.get("sub")
 
         if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
+            raise HTTPException(status_code=401, detail=MessageConstants.INVALID_CREDENTIALS)
 
         access_token = create_access_token({"sub": user_id})
 
         return ApiResponse(
             success=True,
-            message="Token refreshed",
+            message=MessageConstants.OPERATION_SUCCESSFUL,
             data={
                 "access_token": access_token,
                 "token_type": "bearer",
@@ -57,7 +58,7 @@ def refresh_token_endpoint(request: RefreshTokenRequest):
 def get_current_user_info(current_user: User = Depends(get_current_user)):
     return ApiResponse(
         success=True,
-        message="User information retrieved",
+        message=MessageConstants.USER_RETRIEVED_SUCCESS,
         data={
             "id": current_user.id,
             "email": current_user.email,
@@ -81,7 +82,7 @@ def update_current_user_info(
     updated_user = update_user(db, current_user.id, **update_data)
     return ApiResponse(
         success=True,
-        message="User information updated",
+        message=MessageConstants.USER_UPDATED_SUCCESS,
         data={
             "id": updated_user.id,
             "email": updated_user.email,
@@ -99,6 +100,6 @@ def update_current_user_info(
 def firebase_login_endpoint(request: GoogleAuthRequest, db: Session = Depends(get_db)):
     try:
         result = firebase_login(db, request.id_token)
-        return ApiResponse(success=True, message="Firebase login successful", data=result)
+        return ApiResponse(success=True, message=MessageConstants.OPERATION_SUCCESSFUL, data=result)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=MessageConstants.AUTH_FAILED)
