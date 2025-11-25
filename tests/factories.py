@@ -251,13 +251,14 @@ class TranscriptFactory:
         meeting: Meeting,
         content: Optional[str] = None,
         audio_concat_file: Optional[AudioFile] = None,
+        extracted_text_for_search: Optional[str] = None,
     ) -> Transcript:
         """Create a test transcript"""
         transcript = Transcript(
             meeting_id=meeting.id,
             content=content or fake.text(max_nb_chars=500),
             audio_concat_file_id=audio_concat_file.id if audio_concat_file else None,
-            extracted_text_for_search=content or fake.text(max_nb_chars=500),
+            extracted_text_for_search=extracted_text_for_search or content or fake.text(max_nb_chars=500),
         )
         db.add(transcript)
         db.commit()
@@ -411,3 +412,48 @@ class FileFactory:
             file = FileFactory.create(db, uploaded_by)
             files.append(file)
         return files
+
+
+class NotificationFactory:
+    """Factory for creating test Notification objects"""
+
+    @staticmethod
+    def create(
+        db: Session,
+        user: User,
+        notification_type: Optional[str] = None,
+        payload: Optional[dict] = None,
+        is_read: bool = False,
+        channel: Optional[str] = None,
+        icon: Optional[str] = None,
+        badge: Optional[str] = None,
+        sound: Optional[str] = None,
+        ttl: Optional[int] = None,
+    ) -> "Notification":
+        """Create a test notification"""
+        from app.models.notification import Notification
+
+        notification = Notification(
+            user_id=user.id,
+            type=notification_type or "info",
+            payload=payload or {"message": fake.sentence()},
+            is_read=is_read,
+            channel=channel or "in-app",
+            icon=icon or "info",
+            badge=badge,
+            sound=sound,
+            ttl=ttl,
+        )
+        db.add(notification)
+        db.commit()
+        db.refresh(notification)
+        return notification
+
+    @staticmethod
+    def create_batch(db: Session, user: User, count: int = 5) -> list["Notification"]:
+        """Create multiple test notifications"""
+        notifications = []
+        for _ in range(count):
+            notification = NotificationFactory.create(db, user)
+            notifications.append(notification)
+        return notifications

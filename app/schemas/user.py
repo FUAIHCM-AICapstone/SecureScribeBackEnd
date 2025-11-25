@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 
 
 class FileResponse(BaseModel):
@@ -158,6 +158,16 @@ class UserCreate(BaseModel):
     avatar_url: Optional[str] = None
     bio: Optional[str] = None
     position: Optional[str] = None
+
+    @field_validator('email')
+    @classmethod
+    def validate_email_ascii(cls, v: str) -> str:
+        """Ensure email contains only ASCII characters"""
+        try:
+            v.encode('ascii')
+        except UnicodeEncodeError:
+            raise ValueError('Email must contain only ASCII characters')
+        return v
 
 
 class UserUpdate(BaseModel):

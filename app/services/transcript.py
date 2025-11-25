@@ -176,8 +176,9 @@ def get_transcript_by_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.
 
 
 def get_transcripts(db: Session, user_id: uuid.UUID, content_search: Optional[str] = None, meeting_id: Optional[uuid.UUID] = None, page: int = 1, limit: int = 20) -> Tuple[List[Transcript], int]:
+    from sqlalchemy import and_
     query = db.query(Transcript).options(joinedload(Transcript.meeting), joinedload(Transcript.audio_concat_file))
-    accessible_meetings = db.query(Meeting.id).outerjoin(ProjectMeeting).outerjoin(Project).outerjoin(UserProject).filter(or_(Meeting.created_by == user_id, Meeting.is_personal == True, UserProject.user_id == user_id)).subquery()
+    accessible_meetings = db.query(Meeting.id).outerjoin(ProjectMeeting).outerjoin(Project).outerjoin(UserProject).filter(or_(and_(Meeting.is_personal == True, Meeting.created_by == user_id), UserProject.user_id == user_id)).subquery()
     query = query.filter(Transcript.meeting_id.in_(accessible_meetings))
     if content_search:
         query = query.filter(or_(Transcript.content.ilike(f"%{content_search}%"), Transcript.extracted_text_for_search.ilike(f"%{content_search}%")))
