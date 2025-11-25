@@ -161,8 +161,10 @@ jobs:
           - 9000:9000
           - 9001:9001
         options: >-
-          --entrypoint sh
-          -c "mkdir -p /data && minio server /data --address ':9000' --console-address ':9001'"
+          --health-cmd "curl -f http://localhost:9000/minio/health/ready"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
       qdrant:
         image: qdrant/qdrant:latest
