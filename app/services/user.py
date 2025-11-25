@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
@@ -13,7 +13,7 @@ from app.models.project import Project, UserProject
 from app.models.task import Task, TaskProject
 from app.models.user import User
 from app.services.event_manager import EventManager
-from app.utils.minio import delete_file_from_minio
+from app.constants.messages import MessageConstants, MessageDescriptions
 
 
 def get_users(db: Session, **kwargs) -> Tuple[List[User], int]:
@@ -79,7 +79,7 @@ def check_email_exists(db: Session, email: str) -> bool:
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error while checking email: {str(e)}",
+            detail=MessageDescriptions.INTERNAL_SERVER_ERROR,
         )
 
 
@@ -96,7 +96,7 @@ def update_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
                 metadata={"reason": "not_found"},
             )
         )
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.USER_NOT_FOUND)
 
     original = {k: getattr(user, k, None) for k in updates.keys() if hasattr(user, k)}
     for key, value in updates.items():
@@ -149,7 +149,7 @@ def update_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"User update failed: {str(e)}",
+            detail=MessageDescriptions.INTERNAL_SERVER_ERROR,
         )
 
 
@@ -159,7 +159,7 @@ def create_user(db: Session, actor_user_id: uuid.UUID | None = None, **user_data
     if email and check_email_exists(db, email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"User with email '{email}' already exists",
+            detail=MessageDescriptions.RESOURCE_ALREADY_EXISTS,
         )
 
     user = User(**user_data)
@@ -190,7 +190,7 @@ def create_user(db: Session, actor_user_id: uuid.UUID | None = None, **user_data
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"User creation failed: {str(e)}",
+            detail=MessageDescriptions.INTERNAL_SERVER_ERROR,
         )
 
 
@@ -206,7 +206,7 @@ def delete_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
                 metadata={"reason": "not_found"},
             )
         )
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.USER_NOT_FOUND)
     try:
         db.query(UserProject).filter(UserProject.user_id == user_id).delete()
 
@@ -287,7 +287,7 @@ def delete_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"User deletion failed: {e}",
+            detail=MessageDescriptions.INTERNAL_SERVER_ERROR,
         )
 
 
@@ -298,6 +298,16 @@ def bulk_create_users(db: Session, users_data: List[dict]) -> List[dict]:
 
     for user_data in users_data:
         try:
+            # Check if email already exists before creating
+            email = user_data.get("email")
+            if email and check_email_exists(db, email):
+                results.append({
+                    "success": False,
+                    "id": None,
+                    "error": MessageDescriptions.RESOURCE_ALREADY_EXISTS
+                })
+                continue
+
             user = User(**user_data)
             db.add(user)
             db.flush()  # Get the ID without committing
@@ -314,12 +324,13 @@ def bulk_create_users(db: Session, users_data: List[dict]) -> List[dict]:
         for user in created_users:
             db.refresh(user)
     except Exception as e:
+        print("Bulk create commit failed:", str(e))
         db.rollback()
         # Mark all as failed if commit fails
         for result in results:
             if result["success"]:
                 result["success"] = False
-                result["error"] = f"Commit failed: {str(e)}"
+                result["error"] = MessageDescriptions.INTERNAL_SERVER_ERROR
                 result["id"] = None
 
     return results
@@ -336,7 +347,7 @@ def bulk_update_users(db: Session, updates: List[dict]) -> List[dict]:
         try:
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
-                results.append({"success": False, "id": user_id, "error": "User not found"})
+                results.append({"success": False, "id": user_id, "error": MessageDescriptions.USER_NOT_FOUND})
                 continue
 
             for key, value in update_data.items():
@@ -355,7 +366,7 @@ def bulk_update_users(db: Session, updates: List[dict]) -> List[dict]:
         for result in results:
             if result["success"]:
                 result["success"] = False
-                result["error"] = f"Commit failed: {str(e)}"
+                result["error"] = MessageDescriptions.INTERNAL_SERVER_ERROR
 
     return results
 
@@ -368,7 +379,7 @@ def bulk_delete_users(db: Session, user_ids: List[uuid.UUID]) -> List[dict]:
         try:
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
-                results.append({"success": False, "id": user_id, "error": "User not found"})
+                results.append({"success": False, "id": user_id, "error": MessageDescriptions.USER_NOT_FOUND})
                 continue
 
             db.delete(user)
@@ -384,7 +395,7 @@ def bulk_delete_users(db: Session, user_ids: List[uuid.UUID]) -> List[dict]:
         for result in results:
             if result["success"]:
                 result["success"] = False
-                result["error"] = f"Commit failed: {str(e)}"
+                result["error"] = MessageDescriptions.INTERNAL_SERVER_ERROR
 
     return results
 
@@ -434,7 +445,7 @@ def get_or_create_user_device(db: Session, user_id: uuid.UUID, device_name: str,
     if device:
         device.fcm_token = fcm_token
         device.device_type = device_type
-        device.last_active_at = datetime.utcnow()
+        device.last_active_at = datetime.now(timezone.utc)
         device.is_active = True
     else:
         device = UserDevice(

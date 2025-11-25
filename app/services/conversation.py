@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
@@ -63,7 +63,7 @@ def update_conversation(db: Session, conversation_id: uuid.UUID, user_id: uuid.U
     if update_data.is_active is not None:
         conversation.is_active = update_data.is_active
 
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(conversation)
     return conversation
@@ -77,6 +77,6 @@ def delete_conversation(db: Session, conversation_id: uuid.UUID, user_id: uuid.U
         return False
 
     conversation.is_active = False
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True

@@ -1,6 +1,7 @@
 """Mock objects for external services"""
-from unittest.mock import MagicMock, patch
+
 from typing import Any, Dict, List, Optional
+from unittest.mock import MagicMock
 
 
 class MockMinIOClient:
@@ -110,11 +111,13 @@ class MockQdrantClient:
         # Return mock results (in real implementation, would do similarity search)
         results = []
         for point_id, point in list(self.collections[collection_name]["points"].items())[:limit]:
-            results.append({
-                "id": point_id,
-                "score": 0.95,
-                "payload": point.get("payload", {}),
-            })
+            results.append(
+                {
+                    "id": point_id,
+                    "score": 0.95,
+                    "payload": point.get("payload", {}),
+                }
+            )
         return results
 
     def delete(
@@ -221,7 +224,7 @@ class MockRedisClient:
             if end == -1:
                 return self.cache[key][start:]
             else:
-                return self.cache[key][start:end + 1]
+                return self.cache[key][start : end + 1]
         return []
 
     def hset(self, key: str, mapping: Dict[str, Any]) -> int:

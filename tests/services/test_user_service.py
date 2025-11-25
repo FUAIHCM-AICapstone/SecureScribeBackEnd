@@ -1,11 +1,13 @@
 """Unit tests for user service functions"""
+
 import uuid
-from datetime import datetime
 
 import pytest
+from faker import Faker
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageDescriptions
 from app.models.user import User
 from app.services.user import (
     bulk_create_users,
@@ -20,6 +22,8 @@ from app.services.user import (
 )
 from tests.factories import UserFactory
 
+fake = Faker()
+
 
 class TestCreateUser:
     """Tests for create_user function"""
@@ -27,52 +31,56 @@ class TestCreateUser:
     def test_create_user_success(self, db_session: Session):
         """Test creating a user with valid data"""
         user_data = {
-            "email": "newuser@example.com",
-            "name": "New User",
-            "avatar_url": "https://example.com/avatar.jpg",
-            "bio": "Test bio",
-            "position": "Engineer",
+            "email": fake.email(),
+            "name": fake.name(),
+            "avatar_url": fake.image_url(),
+            "bio": fake.text(max_nb_chars=100),
+            "position": fake.job(),
         }
 
         user = create_user(db_session, **user_data)
 
         assert user.id is not None
-        assert user.email == "newuser@example.com"
-        assert user.name == "New User"
-        assert user.avatar_url == "https://example.com/avatar.jpg"
-        assert user.bio == "Test bio"
-        assert user.position == "Engineer"
+        assert user.email == user_data["email"]
+        assert user.name == user_data["name"]
+        assert user.avatar_url == user_data["avatar_url"]
+        assert user.bio == user_data["bio"]
+        assert user.position == user_data["position"]
         assert user.created_at is not None
 
     def test_create_user_duplicate_email(self, db_session: Session):
         """Test creating a user with duplicate email raises error"""
+        duplicate_email = fake.email()
         # Create first user
-        user_data = {"email": "dup_email_test@example.com", "name": "User 1"}
+        user_data = {"email": duplicate_email, "name": fake.name()}
         user1 = create_user(db_session, **user_data)
         assert user1.id is not None
 
         # Try to create second user with same email
-        duplicate_data = {"email": "dup_email_test@example.com", "name": "User 2"}
+        duplicate_data = {"email": duplicate_email, "name": fake.name()}
         with pytest.raises(HTTPException) as exc_info:
             create_user(db_session, **duplicate_data)
 
-        # Service raises 500 for database errors (including unique constraint violations)
-        assert exc_info.value.status_code == 500
+        # Service now validates email uniqueness before database operations
+        assert exc_info.value.status_code == 400
+        assert "already exists" in str(exc_info.value.detail).lower()
 
     def test_create_user_minimal_data(self, db_session: Session):
         """Test creating a user with only required email field"""
-        user = create_user(db_session, email="minimal@example.com")
+        minimal_email = fake.email()
+        user = create_user(db_session, email=minimal_email)
 
-        assert user.email == "minimal@example.com"
+        assert user.email == minimal_email
         assert user.name is None
         assert user.avatar_url is None
 
     def test_create_user_with_actor(self, db_session: Session):
         """Test creating a user with actor_user_id for audit"""
+        actor_email = fake.email()
         actor_id = uuid.uuid4()
-        user = create_user(db_session, actor_user_id=actor_id, email="actor@example.com")
+        user = create_user(db_session, actor_user_id=actor_id, email=actor_email)
 
-        assert user.email == "actor@example.com"
+        assert user.email == actor_email
         assert user.id is not None
 
 
@@ -81,17 +89,20 @@ class TestUpdateUser:
 
     def test_update_user_success(self, db_session: Session):
         """Test updating a user with valid data"""
-        user = UserFactory.create(db_session, name="Original Name")
+        original_name = fake.name()
+        user = UserFactory.create(db_session, name=original_name)
 
+        updated_name = fake.name()
+        updated_bio = fake.text(max_nb_chars=100)
         updated_user = update_user(
             db_session,
             user.id,
-            name="Updated Name",
-            bio="Updated bio",
+            name=updated_name,
+            bio=updated_bio,
         )
 
-        assert updated_user.name == "Updated Name"
-        assert updated_user.bio == "Updated bio"
+        assert updated_user.name == updated_name
+        assert updated_user.bio == updated_bio
         assert updated_user.id == user.id
 
     def test_update_user_not_found(self, db_session: Session):
@@ -105,18 +116,22 @@ class TestUpdateUser:
 
     def test_update_user_partial_fields(self, db_session: Session):
         """Test updating only some fields"""
+        original_name = fake.name()
+        original_bio = fake.text(max_nb_chars=100)
+        original_position = fake.job()
         user = UserFactory.create(
             db_session,
-            name="Original",
-            bio="Original bio",
-            position="Engineer",
+            name=original_name,
+            bio=original_bio,
+            position=original_position,
         )
 
-        updated_user = update_user(db_session, user.id, name="Updated")
+        updated_name = fake.name()
+        updated_user = update_user(db_session, user.id, name=updated_name)
 
-        assert updated_user.name == "Updated"
-        assert updated_user.bio == "Original bio"
-        assert updated_user.position == "Engineer"
+        assert updated_user.name == updated_name
+        assert updated_user.bio == original_bio
+        assert updated_user.position == original_position
 
     def test_update_user_with_actor(self, db_session: Session):
         """Test updating user with actor_user_id for audit"""
@@ -134,11 +149,12 @@ class TestUpdateUser:
 
     def test_update_user_empty_updates(self, db_session: Session):
         """Test updating user with no changes"""
-        user = UserFactory.create(db_session, name="Original")
+        original_name = fake.name()
+        user = UserFactory.create(db_session, name=original_name)
 
         updated_user = update_user(db_session, user.id)
 
-        assert updated_user.name == "Original"
+        assert updated_user.name == original_name
         assert updated_user.id == user.id
 
 
@@ -219,27 +235,30 @@ class TestGetUsers:
 
     def test_get_users_filter_by_email(self, db_session: Session):
         """Test filtering users by email"""
-        user = UserFactory.create(db_session, email="specific@example.com")
+        filter_email = fake.email()
+        user = UserFactory.create(db_session, email=filter_email)
 
-        users, total = get_users(db_session, email="specific@example.com")
+        users, total = get_users(db_session, email=filter_email)
 
         assert len(users) == 1
         assert users[0].id == user.id
 
     def test_get_users_filter_by_name(self, db_session: Session):
         """Test filtering users by name"""
-        user = UserFactory.create(db_session, name="John Doe")
+        search_name = fake.name()
+        user = UserFactory.create(db_session, name=search_name)
 
-        users, total = get_users(db_session, name="John")
+        users, total = get_users(db_session, name=search_name.split()[0])  # Search by first name
 
         assert len(users) >= 1
         assert any(u.id == user.id for u in users)
 
     def test_get_users_filter_by_position(self, db_session: Session):
         """Test filtering users by position"""
-        user = UserFactory.create(db_session, position="Engineer")
+        search_position = fake.job()
+        user = UserFactory.create(db_session, position=search_position)
 
-        users, total = get_users(db_session, position="Engineer")
+        users, total = get_users(db_session, position=search_position)
 
         assert len(users) >= 1
         assert any(u.id == user.id for u in users)
@@ -280,24 +299,28 @@ class TestCheckEmailExists:
 
     def test_check_email_exists_true(self, db_session: Session):
         """Test checking if existing email exists"""
-        user = UserFactory.create(db_session, email="exists@example.com")
+        exists_email = fake.email()
+        user = UserFactory.create(db_session, email=exists_email)
 
-        exists = check_email_exists(db_session, "exists@example.com")
+        exists = check_email_exists(db_session, exists_email)
 
         assert exists is True
 
     def test_check_email_exists_false(self, db_session: Session):
         """Test checking if non-existent email exists"""
-        exists = check_email_exists(db_session, "notexists@example.com")
+        # Generate a unique email that definitely doesn't exist
+        non_existent_email = f"nonexistent_{uuid.uuid4()}@testdomain.com"
+        exists = check_email_exists(db_session, non_existent_email)
 
         assert exists is False
 
     def test_check_email_exists_case_sensitive(self, db_session: Session):
         """Test that email check is case-sensitive"""
-        UserFactory.create(db_session, email="test@example.com")
+        case_email = fake.email()
+        UserFactory.create(db_session, email=case_email)
 
         # Different case should not match
-        exists = check_email_exists(db_session, "TEST@EXAMPLE.COM")
+        exists = check_email_exists(db_session, case_email.upper())
 
         assert exists is False
 
@@ -307,10 +330,11 @@ class TestBulkCreateUsers:
 
     def test_bulk_create_users_success(self, db_session: Session):
         """Test bulk creating multiple users"""
+        # Generate unique emails to avoid conflicts
         users_data = [
-            {"email": "user1@example.com", "name": "User 1"},
-            {"email": "user2@example.com", "name": "User 2"},
-            {"email": "user3@example.com", "name": "User 3"},
+            {"email": f"bulk_user1_{uuid.uuid4()}@testdomain.com", "name": fake.name()},
+            {"email": f"bulk_user2_{uuid.uuid4()}@testdomain.com", "name": fake.name()},
+            {"email": f"bulk_user3_{uuid.uuid4()}@testdomain.com", "name": fake.name()},
         ]
 
         results = bulk_create_users(db_session, users_data)
@@ -321,9 +345,10 @@ class TestBulkCreateUsers:
 
     def test_bulk_create_users_with_duplicate(self, db_session: Session):
         """Test bulk creating users with duplicate email"""
+        duplicate_email = fake.email()
         users_data = [
-            {"email": "bulk_dup_user1@example.com", "name": "User 1"},
-            {"email": "bulk_dup_user1@example.com", "name": "User 1 Duplicate"},
+            {"email": duplicate_email, "name": fake.name()},
+            {"email": duplicate_email, "name": fake.name()},
         ]
 
         results = bulk_create_users(db_session, users_data)
@@ -332,9 +357,9 @@ class TestBulkCreateUsers:
         assert results[0]["success"] is True
         # Second should fail due to duplicate email
         assert results[1]["success"] is False
-        # Error should mention duplicate or unique constraint or commit failed
+        # Error should mention email already exists
         error_msg = results[1]["error"].lower()
-        assert any(keyword in error_msg for keyword in ["duplicate", "unique", "commit"])
+        assert "already exists" in error_msg
 
     def test_bulk_create_users_empty_list(self, db_session: Session):
         """Test bulk creating with empty list"""
@@ -345,8 +370,8 @@ class TestBulkCreateUsers:
     def test_bulk_create_users_partial_data(self, db_session: Session):
         """Test bulk creating users with partial data"""
         users_data = [
-            {"email": "partial_user1@example.com"},
-            {"email": "partial_user2@example.com", "name": "User 2"},
+            {"email": fake.email()},
+            {"email": fake.email(), "name": fake.name()},
         ]
 
         results = bulk_create_users(db_session, users_data)
@@ -364,12 +389,16 @@ class TestBulkUpdateUsers:
 
     def test_bulk_update_users_success(self, db_session: Session):
         """Test bulk updating multiple users"""
-        user1 = UserFactory.create(db_session, name="User 1")
-        user2 = UserFactory.create(db_session, name="User 2")
+        user1_name = fake.name()
+        user2_name = fake.name()
+        user1 = UserFactory.create(db_session, name=user1_name)
+        user2 = UserFactory.create(db_session, name=user2_name)
 
+        updated_name1 = fake.name()
+        updated_name2 = fake.name()
         updates = [
-            {"id": user1.id, "updates": {"name": "Updated User 1"}},
-            {"id": user2.id, "updates": {"name": "Updated User 2"}},
+            {"id": user1.id, "updates": {"name": updated_name1}},
+            {"id": user2.id, "updates": {"name": updated_name2}},
         ]
 
         results = bulk_update_users(db_session, updates)
@@ -379,7 +408,7 @@ class TestBulkUpdateUsers:
 
         # Verify updates
         updated_user1 = db_session.query(User).filter(User.id == user1.id).first()
-        assert updated_user1.name == "Updated User 1"
+        assert updated_user1.name == updated_name1
 
     def test_bulk_update_users_not_found(self, db_session: Session):
         """Test bulk updating with non-existent user"""
@@ -392,16 +421,18 @@ class TestBulkUpdateUsers:
         results = bulk_update_users(db_session, updates)
 
         assert results[0]["success"] is False
-        assert "not found" in results[0]["error"].lower()
+        assert MessageDescriptions.USER_NOT_FOUND.lower() in results[0]["error"].lower()
 
     def test_bulk_update_users_mixed_success(self, db_session: Session):
         """Test bulk updating with mix of valid and invalid users"""
-        user1 = UserFactory.create(db_session, name="User 1")
+        user1_name = fake.name()
+        user1 = UserFactory.create(db_session, name=user1_name)
         fake_id = uuid.uuid4()
 
+        updated_name = fake.name()
         updates = [
-            {"id": user1.id, "updates": {"name": "Updated User 1"}},
-            {"id": fake_id, "updates": {"name": "Updated"}},
+            {"id": user1.id, "updates": {"name": updated_name}},
+            {"id": fake_id, "updates": {"name": fake.name()}},
         ]
 
         results = bulk_update_users(db_session, updates)
@@ -440,7 +471,7 @@ class TestBulkDeleteUsers:
         results = bulk_delete_users(db_session, [fake_id])
 
         assert results[0]["success"] is False
-        assert "not found" in results[0]["error"].lower()
+        assert MessageDescriptions.USER_NOT_FOUND.lower() in results[0]["error"].lower()
 
     def test_bulk_delete_users_mixed_success(self, db_session: Session):
         """Test bulk deleting with mix of valid and invalid users"""

@@ -101,5 +101,5 @@ def firebase_login_endpoint(request: GoogleAuthRequest, db: Session = Depends(ge
     try:
         result = firebase_login(db, request.id_token)
         return ApiResponse(success=True, message=MessageConstants.OPERATION_SUCCESSFUL, data=result)
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail=MessageConstants.AUTH_FAILED)

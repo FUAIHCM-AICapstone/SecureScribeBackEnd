@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 
@@ -35,7 +35,7 @@ class BaseDomainEvent:
             target_type=data.get("target_type"),
             target_id=uuid.UUID(data["target_id"]) if data.get("target_id") else None,
             metadata=data.get("metadata", {}) or {},
-            timestamp=datetime.fromisoformat(data["timestamp"]) if data.get("timestamp") else datetime.utcnow(),
+            timestamp=datetime.fromisoformat(data["timestamp"]) if data.get("timestamp") else datetime.now(timezone.utc),
         )
 
 

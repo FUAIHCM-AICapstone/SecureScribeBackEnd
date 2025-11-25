@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
@@ -74,7 +74,7 @@ def update_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.U
     for key, value in kwargs.items():
         if value is not None:
             setattr(notification, key, value)
-    notification.updated_at = datetime.utcnow()
+    notification.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(notification)
     return notification

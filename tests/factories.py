@@ -1,6 +1,6 @@
 """Test data factories for creating test objects"""
-import uuid
-from datetime import datetime, timedelta
+
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from faker import Faker
@@ -28,17 +28,31 @@ class UserFactory:
         position: Optional[str] = None,
     ) -> User:
         """Create a test user"""
-        user = User(
-            email=email or fake.email(),
-            name=name or fake.name(),
-            avatar_url=avatar_url or fake.image_url(),
-            bio=bio or fake.text(max_nb_chars=100),
-            position=position or fake.job(),
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return user
+        from app.services.user import create_user
+
+        # Generate unique email if not provided
+        if email is None:
+            email = fake.email()
+            # Ensure uniqueness by checking existing emails
+            counter = 1
+            base_email = email
+            while db.query(User).filter(User.email == email).first() is not None:
+                # Extract username and domain
+                username, domain = email.split('@', 1)
+                email = f"{username}{counter}@{domain}"
+                counter += 1
+                if counter > 100:  # Prevent infinite loop
+                    email = f"testuser{counter}@{domain}"
+
+        user_data = {
+            "email": email,
+            "name": name or fake.name(),
+            "avatar_url": avatar_url or fake.image_url(),
+            "bio": bio or fake.text(max_nb_chars=100),
+            "position": position or fake.job(),
+        }
+
+        return create_user(db, **user_data)
 
     @staticmethod
     def create_batch(db: Session, count: int = 5) -> list[User]:
@@ -109,8 +123,8 @@ class ProjectFactory:
         is_archived: bool = False,
     ) -> Project:
         """Create a test project"""
-        from app.services.project import create_project
         from app.schemas.project import ProjectCreate
+        from app.services.project import create_project
 
         project_data = ProjectCreate(
             name=name or fake.word(),
@@ -166,7 +180,7 @@ class MeetingFactory:
             created_by=created_by.id,
             is_personal=is_personal,
             status=status,
-            start_time=datetime.utcnow() + timedelta(hours=1),
+            start_time=datetime.now(timezone.utc) + timedelta(hours=1),
         )
         db.add(meeting)
         db.commit()
@@ -266,7 +280,7 @@ class MeetingNoteFactory:
             meeting_id=meeting.id,
             content=content or fake.text(max_nb_chars=500),
             last_editor_id=last_editor.id if last_editor else None,
-            last_edited_at=datetime.utcnow(),
+            last_edited_at=datetime.now(timezone.utc),
         )
         db.add(note)
         db.commit()
@@ -291,7 +305,7 @@ class MeetingBotFactory:
             created_by=created_by.id,
             status=status,
             meeting_url=meeting_url or fake.url(),
-            scheduled_start_time=datetime.utcnow() + timedelta(hours=1),
+            scheduled_start_time=datetime.now(timezone.utc) + timedelta(hours=1),
         )
         db.add(bot)
         db.commit()
@@ -322,7 +336,7 @@ class TaskFactory:
             status=status,
             priority=priority,
             meeting_id=meeting.id if meeting else None,
-            due_date=datetime.utcnow() + timedelta(days=7),
+            due_date=datetime.now(timezone.utc) + timedelta(days=7),
         )
         db.add(task)
         db.commit()

@@ -53,8 +53,8 @@ def ensure_bucket_public_access(client: Minio, bucket_name: str) -> None:
     """Đảm bảo bucket có public read access"""
     try:
         # Tạo bucket nếu chưa tồn tại
-        if not client.bucket_exists(bucket_name):
-            client.make_bucket(bucket_name)
+        if not client.bucket_exists(bucket_name=bucket_name):
+            client.make_bucket(bucket_name=bucket_name)
 
         # Cấu hình bucket policy cho public read
         policy = {
@@ -74,7 +74,7 @@ def ensure_bucket_public_access(client: Minio, bucket_name: str) -> None:
 
         import json
 
-        client.set_bucket_policy(bucket_name, json.dumps(policy))
+        client.set_bucket_policy(bucket_name=bucket_name, policy=json.dumps(policy))
 
     except Exception as e:
         logger.exception(f"Bucket policy configuration error for {bucket_name}: {e}")
@@ -106,8 +106,8 @@ def upload_bytes_to_minio(
         client = get_minio_client()
 
         # Ensure bucket exists
-        if not client.bucket_exists(bucket_name):
-            client.make_bucket(bucket_name)
+        if not client.bucket_exists(bucket_name=bucket_name):
+            client.make_bucket(bucket_name=bucket_name)
 
         # Upload bytes directly
         file_size = len(file_bytes)
@@ -152,7 +152,7 @@ def download_file_from_minio(bucket_name: str, object_name: str) -> Optional[byt
 def delete_file_from_minio(bucket_name: str, object_name: str) -> bool:
     try:
         client = get_minio_client()
-        client.remove_object(bucket_name, object_name)
+        client.remove_object(bucket_name=bucket_name, object_name=object_name)
         return True
     except S3Error as e:
         logger.exception(f"MinIO delete error: {e}")
@@ -193,7 +193,7 @@ def generate_presigned_url(bucket_name: str, object_name: str) -> Optional[str]:
 def file_exists_in_minio(bucket_name: str, object_name: str) -> bool:
     try:
         client = get_minio_client()
-        client.stat_object(bucket_name, object_name)
+        client.stat_object(bucket_name=bucket_name, object_name=object_name)
         return True
     except S3Error:
         return False

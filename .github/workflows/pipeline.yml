@@ -234,7 +234,8 @@ jobs:
             --cov-report=html:coverage_reports/html \
             --cov-report=term-missing \
             --cov-report=xml:coverage_reports/coverage.xml \
-            --junitxml=coverage_reports/junit.xml
+            --junitxml=coverage_reports/junit.xml \
+            --tb=short
         env:
           POSTGRES_SERVER: localhost
           POSTGRES_PORT: 5432
@@ -256,8 +257,18 @@ jobs:
           SECRET_KEY: test-secret-key-for-ci
           BACKEND_CORS_ORIGINS: http://localhost:3000
 
+      - name: 📊 Generate comprehensive test report
+        if: always()
+        run: |
+          python .github/scripts/generate_test_report.py
+
+      - name: 📈 Generate coverage badge
+        if: always()
+        run: |
+          python .github/scripts/generate_coverage_badge.py
+
       - name: 📊 Upload coverage reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: coverage-reports
@@ -265,12 +276,62 @@ jobs:
           retention-days: 30
 
       - name: 📊 Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
           path: coverage_reports/junit.xml
           retention-days: 30
+
+      - name: 📈 Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: coverage_reports/junit.xml
+          check_name: Test Results
+          comment_title: Test Execution Report
+
+      - name: 🔴 Fail if tests failed
+        if: failure()
+        run: |
+          echo "❌ Tests failed! Check the test results above."
+          exit 1
+
+  # Stage 4: Test Failure Notification
+  test-notification:
+    name: Test Failure Notification
+    runs-on: ubuntu-latest
+    needs: test
+    if: failure() && needs.test.result == 'failure'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📧 Notify on test failure
+        run: |
+          echo "Test job failed. Generating failure report..."
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Branch: ${{ github.ref }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Author: ${{ github.actor }}"
+          echo "Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: 💬 Comment on PR with test failure
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `❌ **Test Execution Failed**\n\n` +
+                    `Tests failed in this PR. Please review the [test results](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).\n\n` +
+                    `**Details:**\n` +
+                    `- Branch: \`${{ github.ref }}\`\n` +
+                    `- Commit: \`${{ github.sha }}\`\n` +
+                    `- Author: @${{ github.actor }}`
+            })
 
   # Stage 5: Deploy (only on push to main/master)
   # Final: Summary
@@ -289,3 +350,9 @@ jobs:
           echo "Build Backend: ${{ needs.build-backend.result }}"
           echo "Run Tests: ${{ needs.test.result }}"
           echo "=========================================="
+
+      - name: 📈 Coverage Badge Update
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "Coverage badge would be updated here"
+          echo "This step can be extended to update coverage badges in README"

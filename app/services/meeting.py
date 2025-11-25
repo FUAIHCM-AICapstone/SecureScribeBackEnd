@@ -2,7 +2,7 @@ import uuid
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
@@ -301,6 +301,7 @@ def add_meeting_to_project(db: Session, meeting_id: uuid.UUID, project_id: uuid.
 
     # Validate that project exists
     from app.models.project import Project
+
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         return False
@@ -337,6 +338,7 @@ def remove_meeting_from_project(db: Session, meeting_id: uuid.UUID, project_id: 
 
     # Validate that project exists
     from app.models.project import Project
+
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         return False

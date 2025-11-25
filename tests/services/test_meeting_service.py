@@ -1,12 +1,12 @@
 """Unit tests for meeting service functions"""
+
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy.orm import Session
 
 from app.models.meeting import Meeting, ProjectMeeting
-from app.models.project import UserProject
 from app.schemas.meeting import MeetingCreate, MeetingUpdate
 from app.services.meeting import (
     add_meeting_to_project,
@@ -17,7 +17,7 @@ from app.services.meeting import (
     remove_meeting_from_project,
     update_meeting,
 )
-from tests.factories import MeetingFactory, ProjectFactory, UserFactory, UserProjectFactory, ProjectMeetingFactory
+from tests.factories import MeetingFactory, ProjectFactory, ProjectMeetingFactory, UserFactory, UserProjectFactory
 
 
 class TestCreateMeeting:
@@ -62,7 +62,7 @@ class TestCreateMeeting:
         creator = UserFactory.create(db_session)
         project1 = ProjectFactory.create(db_session, creator)
         project2 = ProjectFactory.create(db_session, creator)
-        
+
         meeting_data = MeetingCreate(
             title="Project Meeting",
             is_personal=False,
@@ -72,9 +72,7 @@ class TestCreateMeeting:
         meeting = create_meeting(db_session, meeting_data, creator.id)
 
         # Verify projects are linked
-        project_meetings = db_session.query(ProjectMeeting).filter(
-            ProjectMeeting.meeting_id == meeting.id
-        ).all()
+        project_meetings = db_session.query(ProjectMeeting).filter(ProjectMeeting.meeting_id == meeting.id).all()
         assert len(project_meetings) == 2
         project_ids = [pm.project_id for pm in project_meetings]
         assert project1.id in project_ids
@@ -82,9 +80,10 @@ class TestCreateMeeting:
 
     def test_create_meeting_timestamps(self, db_session: Session):
         """Test that meeting has correct timestamps"""
+
         creator = UserFactory.create(db_session)
         meeting_data = MeetingCreate(title="Timestamp Test")
-        before_creation = datetime.utcnow()  # Use timezone-naive datetime to match model
+        before_creation = datetime.now(timezone.utc)  # Use timezone-aware datetime
 
         meeting = create_meeting(db_session, meeting_data, creator.id)
 
@@ -160,7 +159,7 @@ class TestGetMeeting:
         member = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, creator)
         UserProjectFactory.create(db_session, member, project, role="member")
-        
+
         meeting = MeetingFactory.create(db_session, creator, is_personal=False)
         ProjectMeetingFactory.create(db_session, project, meeting)
 
@@ -174,7 +173,7 @@ class TestGetMeeting:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, creator)
-        
+
         meeting = MeetingFactory.create(db_session, creator, is_personal=False)
         ProjectMeetingFactory.create(db_session, project, meeting)
 
@@ -215,7 +214,7 @@ class TestGetMeetings:
         member = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, creator)
         UserProjectFactory.create(db_session, member, project, role="member")
-        
+
         project_meeting = MeetingFactory.create(db_session, creator, is_personal=False)
         ProjectMeetingFactory.create(db_session, project, project_meeting)
 
@@ -242,6 +241,7 @@ class TestGetMeetings:
         MeetingFactory.create(db_session, creator, title="Planning Session", is_personal=True)
 
         from app.schemas.meeting import MeetingFilter
+
         filters = MeetingFilter(title="Standup")
         meetings, total = get_meetings(db_session, creator.id, filters=filters)
 
@@ -255,6 +255,7 @@ class TestGetMeetings:
         meeting2 = MeetingFactory.create(db_session, creator, status="completed", is_personal=True)
 
         from app.schemas.meeting import MeetingFilter
+
         filters = MeetingFilter(status="active")
         meetings, total = get_meetings(db_session, creator.id, filters=filters)
 
@@ -413,7 +414,7 @@ class TestDeleteMeeting:
         admin = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, creator)
         UserProjectFactory.create(db_session, admin, project, role="admin")
-        
+
         meeting = MeetingFactory.create(db_session, creator, is_personal=False)
         ProjectMeetingFactory.create(db_session, project, meeting)
 
@@ -424,7 +425,7 @@ class TestDeleteMeeting:
     def test_delete_meeting_cascade_cleanup_files(self, db_session: Session):
         """Test that deleting meeting cleans up associated files"""
         from tests.factories import FileFactory
-        
+
         creator = UserFactory.create(db_session)
         meeting = MeetingFactory.create(db_session, creator)
         file = FileFactory.create(db_session, creator, meeting=meeting)
@@ -434,6 +435,7 @@ class TestDeleteMeeting:
         assert result is True
         # Verify file is deleted
         from app.models.file import File
+
         deleted_file = db_session.query(File).filter(File.id == file.id).first()
         assert deleted_file is None
 
@@ -462,10 +464,14 @@ class TestAddMeetingToProject:
 
         assert result is True
         # Verify relationship is created
-        project_meeting = db_session.query(ProjectMeeting).filter(
-            ProjectMeeting.meeting_id == meeting.id,
-            ProjectMeeting.project_id == project.id,
-        ).first()
+        project_meeting = (
+            db_session.query(ProjectMeeting)
+            .filter(
+                ProjectMeeting.meeting_id == meeting.id,
+                ProjectMeeting.project_id == project.id,
+            )
+            .first()
+        )
         assert project_meeting is not None
 
     def test_add_meeting_to_project_already_linked(self, db_session: Session):
@@ -526,10 +532,14 @@ class TestRemoveMeetingFromProject:
 
         assert result is True
         # Verify relationship is deleted
-        project_meeting = db_session.query(ProjectMeeting).filter(
-            ProjectMeeting.meeting_id == meeting.id,
-            ProjectMeeting.project_id == project.id,
-        ).first()
+        project_meeting = (
+            db_session.query(ProjectMeeting)
+            .filter(
+                ProjectMeeting.meeting_id == meeting.id,
+                ProjectMeeting.project_id == project.id,
+            )
+            .first()
+        )
         assert project_meeting is None
 
     def test_remove_meeting_from_project_not_linked(self, db_session: Session):

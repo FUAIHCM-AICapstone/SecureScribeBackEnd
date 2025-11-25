@@ -3,7 +3,7 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -64,7 +64,7 @@ def update_task_progress(
             "progress": int(progress),
             "status": status,
             "estimated_time": estimated_time or "",
-            "last_update": datetime.utcnow().isoformat() + "Z",
+            "last_update": datetime.now(timezone.utc).isoformat() + "Z",
             "task_type": task_type,
         }
 

@@ -3,7 +3,7 @@ import json
 import re
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -46,7 +46,7 @@ def create_chat_message(db: Session, conversation_id: uuid.UUID, user_id: uuid.U
     db.add(db_message)
 
     # Update conversation's updated_at timestamp
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_message)
     return db_message

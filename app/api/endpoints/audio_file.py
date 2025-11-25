@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -56,7 +56,7 @@ def upload_audio_file(
     # Handle meeting_id: auto-create personal meeting or validate RBAC
     if meeting_id is None:
         # Auto-create a personal meeting
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         meeting_data = MeetingCreate(title=f"Audio Upload - {timestamp}", description="Auto-created meeting from audio upload", is_personal=True, project_ids=[])
         new_meeting = create_meeting(db, meeting_data, current_user.id)
         meeting_id = new_meeting.id

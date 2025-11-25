@@ -306,7 +306,7 @@ def bot_webhook_status_endpoint(
         if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
             raise HTTPException(status_code=400, detail=MessageConstants.INVALID_BEARER_TOKEN_FORMAT)
 
-        from datetime import datetime as dt
+        from datetime import timezone as dt
 
         try:
             bot_uuid = uuid.UUID(botId)
@@ -355,7 +355,7 @@ def bot_webhook_status_endpoint(
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail=MessageConstants.INTERNAL_SERVER_ERROR)
 
 
@@ -381,7 +381,7 @@ def bot_webhook_recording_endpoint(
         if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
             raise HTTPException(status_code=400, detail=MessageConstants.INVALID_BEARER_TOKEN_FORMAT)
 
-        from datetime import datetime as dt
+        from datetime import timezone as dt
 
         from app.models.meeting import Meeting
 

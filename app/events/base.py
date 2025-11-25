@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 
-class BaseEvent:
+class BaseEvent(ABC):
     def __init__(self, timestamp: datetime = None):
         self.timestamp = timestamp or datetime.utcnow()
 

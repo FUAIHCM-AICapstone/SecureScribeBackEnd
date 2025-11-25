@@ -3,7 +3,7 @@ import hashlib
 import json
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from agno.models.message import Message
@@ -158,7 +158,7 @@ async def _perform_async_indexing(
         from app.utils.minio import get_minio_client
 
         minio_client = get_minio_client()
-        file_content = minio_client.get_object(settings.MINIO_BUCKET_NAME, file_id)
+        file_content = minio_client.get_object(bucket_name=settings.MINIO_BUCKET_NAME, object_name=file_id)
 
         # Create temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{filename}") as temp_file:
@@ -264,7 +264,7 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         # Update database with indexing completion
         print(f"\033[93m💾 Updating database for file {file_id}\033[0m")
         file.qdrant_vector_id = str(file_id)  # Mark as indexed
-        file.updated_at = datetime.utcnow()
+        file.updated_at = datetime.now(timezone.utc)
         db.commit()
         print(f"\033[92m✅ Database updated: file {file_id} marked as indexed\033[0m")
 
@@ -1272,7 +1272,7 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
 
             # Update transcript
             transcript.qdrant_vector_id = transcript_id
-            transcript.updated_at = datetime.utcnow()
+            transcript.updated_at = datetime.now(timezone.utc)
             db.commit()
             print("\033[92m[reindex_transcript_task] Database updated\033[0m")
 

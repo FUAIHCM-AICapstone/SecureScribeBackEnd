@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
@@ -50,7 +50,7 @@ class Meeting(SQLModel, table=True):
         sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
@@ -108,7 +108,7 @@ class AudioFile(SQLModel, table=True):
         sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
@@ -143,7 +143,7 @@ class Transcript(SQLModel, table=True):
         sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
@@ -172,7 +172,7 @@ class MeetingNote(SQLModel, table=True):
         sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
@@ -200,7 +200,7 @@ class MeetingBot(SQLModel, table=True):
         sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
@@ -234,7 +234,7 @@ class MeetingBotLog(SQLModel, table=True):
         sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))

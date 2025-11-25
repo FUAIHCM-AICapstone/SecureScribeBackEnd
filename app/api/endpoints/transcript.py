@@ -67,7 +67,7 @@ def transcribe_audio_endpoint(audio_id: uuid.UUID, db: Session = Depends(get_db)
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail=MessageConstants.OPERATION_FAILED)
 
 

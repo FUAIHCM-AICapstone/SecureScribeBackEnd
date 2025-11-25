@@ -1,11 +1,11 @@
 """Test to verify test fixtures and factories are working correctly"""
-import pytest
+
 from tests.factories import (
-    UserFactory,
-    ProjectFactory,
-    MeetingFactory,
-    TaskFactory,
     FileFactory,
+    MeetingFactory,
+    ProjectFactory,
+    TaskFactory,
+    UserFactory,
 )
 from tests.mocks import (
     MockMinIOClient,
@@ -68,18 +68,18 @@ def test_file_factory(db_session):
 def test_mock_minio_client():
     """Test MockMinIOClient functionality"""
     client = MockMinIOClient()
-    
+
     # Test put_object
     client.put_object("test-bucket", "test-file.txt", b"test data")
-    
+
     # Test get_object
     response = client.get_object("test-bucket", "test-file.txt")
     assert response.data == b"test data"
-    
+
     # Test list_objects
     objects = client.list_objects("test-bucket")
     assert len(objects) == 1
-    
+
     # Test remove_object
     client.remove_object("test-bucket", "test-file.txt")
     objects = client.list_objects("test-bucket")
@@ -89,16 +89,14 @@ def test_mock_minio_client():
 def test_mock_qdrant_client():
     """Test MockQdrantClient functionality"""
     client = MockQdrantClient()
-    
+
     # Test recreate_collection
     client.recreate_collection("test-collection", {"size": 384, "distance": "Cosine"})
     assert client.collection_exists("test-collection")
-    
+
     # Test upsert
-    client.upsert("test-collection", [
-        {"id": 1, "vector": [0.1, 0.2, 0.3], "payload": {"text": "test"}}
-    ])
-    
+    client.upsert("test-collection", [{"id": 1, "vector": [0.1, 0.2, 0.3], "payload": {"text": "test"}}])
+
     # Test search
     results = client.search("test-collection", [0.1, 0.2, 0.3], limit=10)
     assert len(results) > 0
@@ -107,31 +105,31 @@ def test_mock_qdrant_client():
 def test_mock_redis_client():
     """Test MockRedisClient functionality"""
     client = MockRedisClient()
-    
+
     # Test set/get
     client.set("test-key", "test-value")
     assert client.get("test-key") == "test-value"
-    
+
     # Test delete
     deleted_count = client.delete("test-key")
     assert deleted_count == 1
     assert client.get("test-key") is None
-    
+
     # Test exists
     client.set("key1", "value1")
     assert client.exists("key1") == 1
     assert client.exists("key2") == 0
-    
+
     # Test incr/decr
     client.set("counter", 0)
     assert client.incr("counter") == 1
     assert client.decr("counter") == 0
-    
+
     # Test list operations
     client.rpush("list", "a", "b", "c")
     result = client.lrange("list", 0, -1)
     assert result == ["a", "b", "c"]
-    
+
     # Test hash operations
     client.hset("hash", {"field1": "value1", "field2": "value2"})
     assert client.hget("hash", "field1") == "value1"

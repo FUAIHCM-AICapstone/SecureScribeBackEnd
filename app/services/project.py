@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import and_
@@ -152,7 +152,7 @@ def update_project(db: Session, project_id: uuid.UUID, updates: ProjectUpdate, a
     for key, value in update_data.items():
         setattr(project, key, value)
 
-    project.updated_at = datetime.utcnow()
+    project.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(project)
 

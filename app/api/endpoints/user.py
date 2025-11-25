@@ -125,7 +125,7 @@ def bulk_delete_users_endpoint(
     # Parse comma-separated user IDs
     try:
         user_id_list = [uuid.UUID(uid.strip()) for uid in user_ids.split(",") if uid.strip()]
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
 
     results = bulk_delete_users(db, user_id_list)

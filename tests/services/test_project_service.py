@@ -1,12 +1,11 @@
 """Unit tests for project service functions"""
-import uuid
-from datetime import datetime
 
-import pytest
+import uuid
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from app.models.project import Project, UserProject
-from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectUpdate, UserProjectCreate
 from app.services.project import (
     add_user_to_project,
@@ -75,7 +74,7 @@ class TestCreateProject:
 
     def test_create_project_timestamps(self, db_session: Session):
         """Test that project has correct timestamps"""
-        from datetime import timezone
+
         creator = UserFactory.create(db_session)
         project_data = ProjectCreate(name="Timestamp Test")
         before_creation = datetime.now(timezone.utc)
@@ -332,11 +331,7 @@ class TestDeleteProject:
         UserProjectFactory.create(db_session, user=member, project=project)
 
         # Verify relationships exist
-        user_projects = (
-            db_session.query(UserProject)
-            .filter(UserProject.project_id == project.id)
-            .all()
-        )
+        user_projects = db_session.query(UserProject).filter(UserProject.project_id == project.id).all()
         assert len(user_projects) >= 2  # Creator and member
 
         # Delete project
@@ -347,11 +342,7 @@ class TestDeleteProject:
         assert deleted_project is None
 
         # Verify user-project relationships are deleted
-        remaining_user_projects = (
-            db_session.query(UserProject)
-            .filter(UserProject.project_id == project.id)
-            .all()
-        )
+        remaining_user_projects = db_session.query(UserProject).filter(UserProject.project_id == project.id).all()
         assert len(remaining_user_projects) == 0
 
     def test_delete_project_cascade_cleanup_meetings(self, db_session: Session):

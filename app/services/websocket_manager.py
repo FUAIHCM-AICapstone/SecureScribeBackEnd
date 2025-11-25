@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional, Set
 
 from fastapi import WebSocket
@@ -137,7 +137,7 @@ class WebSocketConnectionManager:
                 return
 
             # Add metadata
-            message["received_at"] = datetime.utcnow().isoformat() + "Z"
+            message["received_at"] = datetime.now(timezone.utc).isoformat() + "Z"
             message["channel"] = channel
 
             self._metrics["messages_received"] += 1

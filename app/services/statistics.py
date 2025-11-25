@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 from uuid import UUID
 
@@ -31,7 +31,7 @@ class StatisticsService:
         self.user_id = user_id
 
     def get_date_range(self, period: DashboardPeriod) -> Optional[datetime]:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if period == DashboardPeriod.SEVEN_DAYS:
             return now - timedelta(days=7)
         elif period == DashboardPeriod.THIRTY_DAYS:
@@ -52,7 +52,7 @@ class StatisticsService:
 
         result = []
         current_date = start_date.date()
-        end_date = datetime.utcnow().date()
+        end_date = datetime.now(timezone.utc).date()
 
         while current_date <= end_date:
             if current_date in data_map:
@@ -108,7 +108,7 @@ class StatisticsService:
         total = todo + in_progress + done
 
         # Overdue count (only active tasks)
-        overdue_query = select(func.count(Task.id)).where(Task.status != "done", Task.due_date < datetime.utcnow())
+        overdue_query = select(func.count(Task.id)).where(Task.status != "done", Task.due_date < datetime.now(timezone.utc))
         if scope == DashboardScope.PROJECT:
             overdue_query = overdue_query.join(TaskProject).join(UserProject, TaskProject.project_id == UserProject.project_id)
             overdue_query = overdue_query.where(UserProject.user_id == self.user_id)
@@ -270,13 +270,13 @@ class StatisticsService:
     def get_quick_access(self) -> QuickAccessData:
         # 1. Upcoming Meetings (Next 5)
         upcoming_query = select(Meeting).join(ProjectMeeting).join(UserProject, ProjectMeeting.project_id == UserProject.project_id)
-        upcoming_query = upcoming_query.where(UserProject.user_id == self.user_id, Meeting.start_time > datetime.utcnow(), Meeting.status != MeetingStatus.cancelled).distinct().order_by(Meeting.start_time).limit(5)
+        upcoming_query = upcoming_query.where(UserProject.user_id == self.user_id, Meeting.start_time > datetime.now(timezone.utc), Meeting.status != MeetingStatus.cancelled).distinct().order_by(Meeting.start_time).limit(5)
 
         upcoming_meetings = self.db.exec(upcoming_query).all()
 
         # 2. Recent Meetings (Last 5 completed)
         recent_query = select(Meeting).join(ProjectMeeting).join(UserProject, ProjectMeeting.project_id == UserProject.project_id)
-        recent_query = recent_query.where(UserProject.user_id == self.user_id, Meeting.start_time < datetime.utcnow()).distinct().order_by(desc(Meeting.start_time)).limit(5)
+        recent_query = recent_query.where(UserProject.user_id == self.user_id, Meeting.start_time < datetime.now(timezone.utc)).distinct().order_by(desc(Meeting.start_time)).limit(5)
 
         recent_meetings = self.db.exec(recent_query).all()
 

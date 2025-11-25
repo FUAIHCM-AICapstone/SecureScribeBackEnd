@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException
@@ -100,7 +100,7 @@ def update_meeting_bot(db: Session, bot_id: uuid.UUID, bot_data: MeetingBotUpdat
     for field, value in bot_data.model_dump(exclude_unset=True).items():
         setattr(bot, field, value)
 
-    bot.updated_at = datetime.utcnow()
+    bot.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(bot)
     return bot
@@ -115,6 +115,10 @@ def delete_meeting_bot(db: Session, bot_id: uuid.UUID, user_id: uuid.UUID) -> bo
     if bot.created_by != user_id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this bot")
 
+    # Delete logs first (cascade delete)
+    db.query(MeetingBotLog).filter(MeetingBotLog.meeting_bot_id == bot_id).delete()
+    
+    # Then delete the bot
     db.delete(bot)
     db.commit()
     return True
@@ -173,7 +177,7 @@ def update_bot_status(
     if actual_end_time:
         bot.actual_end_time = actual_end_time
 
-    bot.updated_at = datetime.utcnow()
+    bot.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(bot)
 
@@ -363,7 +367,7 @@ def trigger_meeting_bot_join(
 
     # 6. Scheduling logic (immediate vs scheduled with time validation)
     print(f"\033[93m📋 [SERVICE] Determining scheduling logic (immediate: {immediate})\033[0m")
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     if immediate:
         # Immediate join - set status to pending
@@ -389,7 +393,7 @@ def trigger_meeting_bot_join(
     # 7. MeetingBot status update (pending or scheduled)
     print(f"\033[93m📋 [SERVICE] Updating bot status to: {status}\033[0m")
     bot.status = status
-    bot.updated_at = datetime.utcnow()
+    bot.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(bot)
     print("\033[92m✅ [SERVICE] Bot status updated\033[0m")

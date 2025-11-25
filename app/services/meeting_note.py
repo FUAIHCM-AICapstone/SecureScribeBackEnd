@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -75,7 +75,7 @@ def get_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> Optional[M
 #         # Update existing note
 #         existing_note.content = ai_result["content"]
 #         existing_note.last_editor_id = user_id
-#         existing_note.last_edited_at = datetime.utcnow()
+#         existing_note.last_edited_at = datetime.now(timezone.utc)
 #         note = existing_note
 #         db.commit()
 #         db.refresh(note)
@@ -94,7 +94,7 @@ def get_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> Optional[M
 #             meeting_id=meeting_id,
 #             content=ai_result["content"],
 #             last_editor_id=user_id,
-#             last_edited_at=datetime.utcnow(),
+#             last_edited_at=datetime.now(timezone.utc),
 #         )
 #         db.add(note)
 #         db.commit()
@@ -233,7 +233,7 @@ def update_meeting_note(
     original_content = note.content
     note.content = content
     note.last_editor_id = user_id
-    note.last_edited_at = datetime.utcnow()
+    note.last_edited_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(note)
     if original_content != note.content:
@@ -326,7 +326,7 @@ def save_meeting_analysis_results(
         # Update existing note
         existing_note.content = meeting_note_content
         existing_note.last_editor_id = user_id
-        existing_note.last_edited_at = datetime.utcnow()
+        existing_note.last_edited_at = datetime.now(timezone.utc)
         note = existing_note
         db.commit()
         db.refresh(note)
@@ -346,7 +346,7 @@ def save_meeting_analysis_results(
             meeting_id=meeting_id,
             content=meeting_note_content,
             last_editor_id=user_id,
-            last_edited_at=datetime.utcnow(),
+            last_edited_at=datetime.now(timezone.utc),
         )
         db.add(note)
         db.commit()

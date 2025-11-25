@@ -3,7 +3,7 @@ import sys
 import warnings
 from pathlib import Path
 from typing import Generator
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 # Ensure application package is importable during tests
 # This MUST be done before any app imports
@@ -12,7 +12,11 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 # Mock problematic imports before importing app
-sys.modules['chonkie'] = MagicMock()
+sys.modules["chonkie"] = MagicMock()
+
+# Mock Redis before importing app to prevent connection errors
+sys.modules["redis"] = MagicMock()
+sys.modules["redis.asyncio"] = MagicMock()
 
 import pytest
 from fastapi.testclient import TestClient
@@ -45,14 +49,14 @@ def setup_database():
 
 def _cleanup_test_data(session: Session):
     """Clean up all test data from database"""
-    from app.models.user import User, UserDevice, UserIdentity
-    from app.models.project import Project, UserProject
-    from app.models.meeting import Meeting, ProjectMeeting, AudioFile, Transcript, MeetingNote, MeetingBot, MeetingBotLog
-    from app.models.task import Task, TaskProject
     from app.models.file import File
-    from app.models.notification import Notification
     from app.models.integration import Integration
-    
+    from app.models.meeting import AudioFile, Meeting, MeetingBot, MeetingBotLog, MeetingNote, ProjectMeeting, Transcript
+    from app.models.notification import Notification
+    from app.models.project import Project, UserProject
+    from app.models.task import Task, TaskProject
+    from app.models.user import User, UserDevice, UserIdentity
+
     try:
         # Delete in reverse dependency order
         session.query(MeetingBotLog).delete()
@@ -82,10 +86,10 @@ def db_session() -> Generator[Session, None, None]:
     """Provide a database session for each test with automatic cleanup"""
     # Create a new session for each test
     session = SessionLocal()
-    
+
     # Clean up before test
     _cleanup_test_data(session)
-    
+
     try:
         yield session
     finally:
@@ -148,6 +152,7 @@ def unauthenticated_client():
 def mock_minio_client():
     """Mock MinIO client"""
     from tests.mocks import create_mock_minio_client
+
     return create_mock_minio_client()
 
 
@@ -155,6 +160,7 @@ def mock_minio_client():
 def mock_qdrant_client():
     """Mock Qdrant client"""
     from tests.mocks import create_mock_qdrant_client
+
     return create_mock_qdrant_client()
 
 
@@ -162,6 +168,7 @@ def mock_qdrant_client():
 def mock_redis_client():
     """Mock Redis client"""
     from tests.mocks import create_mock_redis_client
+
     return create_mock_redis_client()
 
 
