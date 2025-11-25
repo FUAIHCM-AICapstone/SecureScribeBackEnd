@@ -22,12 +22,22 @@ def get_minio_client() -> Minio:
     global minio_client
     if minio_client is None:
         try:
-            minio_client = Minio(
-                settings.MINIO_ENDPOINT,
-                access_key=settings.MINIO_ACCESS_KEY,
-                secret_key=settings.MINIO_SECRET_KEY,
-                secure=settings.MINIO_SECURE,
-            )
+            # Try the newer MinIO client constructor format
+            try:
+                minio_client = Minio(
+                    endpoint=settings.MINIO_ENDPOINT,
+                    access_key=settings.MINIO_ACCESS_KEY,
+                    secret_key=settings.MINIO_SECRET_KEY,
+                    secure=settings.MINIO_SECURE,
+                )
+            except TypeError:
+                # Fallback to older constructor format if the above fails
+                minio_client = Minio(
+                    settings.MINIO_ENDPOINT,
+                    access_key=settings.MINIO_ACCESS_KEY,
+                    secret_key=settings.MINIO_SECRET_KEY,
+                    secure=settings.MINIO_SECURE,
+                )
 
             # Cấu hình bucket policy cho public access ngay khi khởi tạo
             ensure_bucket_public_access(minio_client, settings.MINIO_BUCKET_NAME)

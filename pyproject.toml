@@ -30,3 +30,16 @@ keep-runtime-typing = true
 [tool.mypy]
 strict = true
 exclude = ["venv", ".venv", "alembic"]
+
+[tool.pytest.ini_options]
+# Ignore all warnings during tests
+filterwarnings = [
+    "ignore",
+]
+# Test discovery
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+# Output options
+addopts = "-v --tb=short"
+testpaths = ["tests"]

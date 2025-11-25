@@ -154,6 +154,14 @@ def update_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
 
 
 def create_user(db: Session, actor_user_id: uuid.UUID | None = None, **user_data) -> User:
+    # Check if email already exists
+    email = user_data.get("email")
+    if email and check_email_exists(db, email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"User with email '{email}' already exists",
+        )
+
     user = User(**user_data)
     try:
         db.add(user)
@@ -296,6 +304,8 @@ def bulk_create_users(db: Session, users_data: List[dict]) -> List[dict]:
             results.append({"success": True, "id": user.id, "error": None})
             created_users.append(user)
         except Exception as e:
+            # Don't rollback here - just mark as failed and continue
+            # This allows other users to still be created
             results.append({"success": False, "id": None, "error": str(e)})
 
     try:

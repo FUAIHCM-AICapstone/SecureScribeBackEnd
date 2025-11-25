@@ -101,6 +101,32 @@ services:
       - redis
       - minio
 
+  test:
+    build:
+      context: .
+      dockerfile: build/Dockerfile.test
+    <<: *shared-service
+    volumes:
+      - ./coverage_reports:/app/coverage_reports
+      - ./tests:/app/tests:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+      qdrant:
+        condition: service_started
+    environment:
+      - DATABASE_URL=postgresql://admin:admin@db:5432/securescribe
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - QDRANT_URL=http://qdrant:6333
+    profiles:
+      - test
+    restart: none
+
 networks:
   securescribe-network:
     driver: bridge

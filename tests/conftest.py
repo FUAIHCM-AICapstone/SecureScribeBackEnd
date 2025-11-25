@@ -1,6 +1,18 @@
 import logging
 import sys
+import warnings
 from pathlib import Path
+from typing import Generator
+from unittest.mock import MagicMock
+
+# Ensure application package is importable during tests
+# This MUST be done before any app imports
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+# Mock problematic imports before importing app
+sys.modules['chonkie'] = MagicMock()
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,54 +23,102 @@ from app.main import app
 from app.services.user import create_user
 from app.utils.auth import create_access_token
 
-# Ensure application package is importable during tests
-ROOT_DIR = Path(__file__).resolve().parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
-
-
 # Configure logging to ignore warnings
 logging.getLogger().setLevel(logging.ERROR)
 logging.getLogger("sqlalchemy").setLevel(logging.ERROR)
 logging.getLogger("fastapi").setLevel(logging.ERROR)
 logging.getLogger("uvicorn").setLevel(logging.ERROR)
 
+# Ignore all warnings in tests
+warnings.filterwarnings("ignore")
+pytest.mark.filterwarnings("ignore")
 
-@pytest.fixture(scope="session")
-def db():
-    """Create test database session"""
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_database():
+    """Setup test database - runs once per session"""
     # Create all tables
     create_tables()
+    yield
+    # Cleanup is handled by database itself
 
-    # Create a session
-    db = SessionLocal()
+
+def _cleanup_test_data(session: Session):
+    """Clean up all test data from database"""
+    from app.models.user import User, UserDevice, UserIdentity
+    from app.models.project import Project, UserProject
+    from app.models.meeting import Meeting, ProjectMeeting, AudioFile, Transcript, MeetingNote, MeetingBot, MeetingBotLog
+    from app.models.task import Task, TaskProject
+    from app.models.file import File
+    from app.models.notification import Notification
+    from app.models.integration import Integration
+    
     try:
-        yield db
+        # Delete in reverse dependency order
+        session.query(MeetingBotLog).delete()
+        session.query(MeetingBot).delete()
+        session.query(MeetingNote).delete()
+        session.query(Transcript).delete()
+        session.query(AudioFile).delete()
+        session.query(ProjectMeeting).delete()
+        session.query(Meeting).delete()
+        session.query(UserProject).delete()
+        session.query(TaskProject).delete()
+        session.query(Task).delete()
+        session.query(File).delete()
+        session.query(Notification).delete()
+        session.query(Integration).delete()
+        session.query(UserDevice).delete()
+        session.query(UserIdentity).delete()
+        session.query(Project).delete()
+        session.query(User).filter(User.email != "pytest_auth_user@example.com").delete()
+        session.commit()
+    except Exception:
+        session.rollback()
+
+
+@pytest.fixture
+def db_session() -> Generator[Session, None, None]:
+    """Provide a database session for each test with automatic cleanup"""
+    # Create a new session for each test
+    session = SessionLocal()
+    
+    # Clean up before test
+    _cleanup_test_data(session)
+    
+    try:
+        yield session
     finally:
-        db.close()
+        # Clean up after test
+        _cleanup_test_data(session)
+        session.close()
 
 
 @pytest.fixture(scope="session")
-def test_user(db: Session):
+def test_user():
     """Create a test user for authentication"""
     # Check if test user already exists
     from app.models.user import User
 
-    test_email = "test@example.com"
-    user = db.query(User).filter(User.email == test_email).first()
+    db = SessionLocal()
+    try:
+        test_email = "pytest_auth_user@example.com"
+        user = db.query(User).filter(User.email == test_email).first()
 
-    if not user:
-        # Create test user
-        user_data = {
-            "email": test_email,
-            "name": "Test User",
-            "avatar_url": "https://example.com/avatar.jpg",
-            "bio": "Test user for automated testing",
-            "position": "Software Engineer",
-        }
-        user = create_user(db, **user_data)
+        if not user:
+            # Create test user
+            user_data = {
+                "email": test_email,
+                "name": "Test User",
+                "avatar_url": "https://example.com/avatar.jpg",
+                "bio": "Test user for automated testing",
+                "position": "Software Engineer",
+            }
+            user = create_user(db, **user_data)
 
-    return user
+        return user
+    finally:
+        db.close()
 
 
 @pytest.fixture(scope="session")
@@ -75,6 +135,34 @@ def client(auth_token):
     client = TestClient(app)
     client.headers.update({"Authorization": f"Bearer {auth_token}"})
     return client
+
+
+@pytest.fixture
+def unauthenticated_client():
+    """Test client without authentication"""
+    return TestClient(app)
+
+
+# Mock factories for external services
+@pytest.fixture
+def mock_minio_client():
+    """Mock MinIO client"""
+    from tests.mocks import create_mock_minio_client
+    return create_mock_minio_client()
+
+
+@pytest.fixture
+def mock_qdrant_client():
+    """Mock Qdrant client"""
+    from tests.mocks import create_mock_qdrant_client
+    return create_mock_qdrant_client()
+
+
+@pytest.fixture
+def mock_redis_client():
+    """Mock Redis client"""
+    from tests.mocks import create_mock_redis_client
+    return create_mock_redis_client()
 
 
 def prune_database(db: Session):

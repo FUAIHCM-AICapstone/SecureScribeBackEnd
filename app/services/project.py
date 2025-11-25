@@ -49,8 +49,15 @@ def create_project(db: Session, project_data: ProjectCreate, created_by: uuid.UU
         )
     )
 
-    # Add creator as project owner
-    add_user_to_project(db, project.id, created_by, "owner")
+    # Add creator as project owner directly
+    creator_user_project = UserProject(
+        user_id=created_by,
+        project_id=project.id,
+        role="owner",
+    )
+    db.add(creator_user_project)
+    db.commit()
+    db.refresh(creator_user_project)
 
     return project
 
@@ -449,6 +456,18 @@ def bulk_add_users_to_project(db: Session, project_id: uuid.UUID, users_data: Li
     """
     Bulk add users to a project
     """
+    # Validate that project exists
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return [
+            {
+                "success": False,
+                "user_id": str(user_data.user_id),
+                "message": "Project not found",
+            }
+            for user_data in users_data
+        ]
+
     results = []
 
     for user_data in users_data:
@@ -486,6 +505,18 @@ def bulk_remove_users_from_project(db: Session, project_id: uuid.UUID, user_ids:
     """
     Bulk remove users from a project
     """
+    # Validate that project exists
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return [
+            {
+                "success": False,
+                "user_id": str(user_id),
+                "message": "Project not found",
+            }
+            for user_id in user_ids
+        ]
+
     results = []
 
     for user_id in user_ids:

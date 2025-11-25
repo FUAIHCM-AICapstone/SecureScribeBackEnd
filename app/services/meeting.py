@@ -105,10 +105,6 @@ def _accessible_projects_subquery(db: Session, user_id: uuid.UUID):
     )
 
 
-def _meetings_no_projects_subquery(db: Session):
-    return db.query(Meeting.id).filter(Meeting.is_personal == False).outerjoin(ProjectMeeting).group_by(Meeting.id).having(func.count(ProjectMeeting.project_id) == 0).subquery()
-
-
 def _apply_filters(db: Session, query, filters: Optional[MeetingFilter], user_id: uuid.UUID):
     if not filters:
         print("\033[93m⏭️ No additional filters to apply\033[0m")
@@ -162,13 +158,11 @@ def get_meetings(
 
     personal_meetings = _personal_meetings_subquery(db, user_id)
     accessible_projects = _accessible_projects_subquery(db, user_id)
-    meetings_no_projects = _meetings_no_projects_subquery(db)
 
     query = base_query.filter(
         or_(
             Meeting.id.in_(personal_meetings),
             Meeting.id.in_(accessible_projects),
-            Meeting.id.in_(meetings_no_projects),
         )
     )
 
@@ -177,7 +171,8 @@ def get_meetings(
     print("\033[96m🔢 Executing count query...\033[0m")
     total = query.count()
 
-    meetings = query.offset((page - 1) * limit).limit(limit).all()
+    # Order by created_at descending to get most recent meetings first
+    meetings = query.order_by(Meeting.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
     return meetings, total
 
 
@@ -304,6 +299,12 @@ def add_meeting_to_project(db: Session, meeting_id: uuid.UUID, project_id: uuid.
     if not meeting:
         return False
 
+    # Validate that project exists
+    from app.models.project import Project
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        return False
+
     # Check if already linked
     existing = (
         db.query(ProjectMeeting)
@@ -332,6 +333,12 @@ def remove_meeting_from_project(db: Session, meeting_id: uuid.UUID, project_id: 
     """Remove meeting from project"""
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
+        return False
+
+    # Validate that project exists
+    from app.models.project import Project
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
         return False
 
     project_meeting = (

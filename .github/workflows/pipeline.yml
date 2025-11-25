@@ -127,12 +127,157 @@ jobs:
           tags: |
             ${{ steps.image.outputs.backend }}
 
+  # Stage 3: Run Tests
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: build-backend
+    services:
+      db:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: securescribe
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin
+        ports:
+          - 9000:9000
+          - 9001:9001
+        options: >-
+          --entrypoint sh
+          -c "mkdir -p /data && minio server /data --address ':9000' --console-address ':9001'"
+
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client redis-tools curl
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest pytest-cov pytest-asyncio
+
+      - name: Wait for services to be ready
+        run: |
+          # Wait for PostgreSQL
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U admin; then
+              echo "PostgreSQL is ready"
+              break
+            fi
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 2
+          done
+
+          # Wait for Redis
+          for i in {1..30}; do
+            if redis-cli -h localhost -p 6379 ping | grep -q PONG; then
+              echo "Redis is ready"
+              break
+            fi
+            echo "Waiting for Redis... ($i/30)"
+            sleep 2
+          done
+
+          # Wait for MinIO
+          for i in {1..30}; do
+            if curl -f http://localhost:9000/minio/health/ready; then
+              echo "MinIO is ready"
+              break
+            fi
+            echo "Waiting for MinIO... ($i/30)"
+            sleep 2
+          done
+
+          # Wait for Qdrant
+          for i in {1..30}; do
+            if curl -f http://localhost:6333/health; then
+              echo "Qdrant is ready"
+              break
+            fi
+            echo "Waiting for Qdrant... ($i/30)"
+            sleep 2
+          done
+
+      - name: Create coverage directory
+        run: mkdir -p coverage_reports
+
+      - name: 🧪 Run tests with coverage
+        run: |
+          pytest tests/ -v \
+            --cov=app \
+            --cov-report=html:coverage_reports/html \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage_reports/coverage.xml \
+            --junitxml=coverage_reports/junit.xml
+        env:
+          POSTGRES_SERVER: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: securescribe
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          REDIS_DB: 0
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin
+          MINIO_SECURE: false
+          MINIO_BUCKET_NAME: securescribe-files
+          MINIO_PUBLIC_BUCKET_NAME: securescribe-public
+          QDRANT_HOST: localhost
+          QDRANT_PORT: 6333
+          QDRANT_COLLECTION_NAME: documents
+          SECRET_KEY: test-secret-key-for-ci
+          BACKEND_CORS_ORIGINS: http://localhost:3000
+
+      - name: 📊 Upload coverage reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: coverage-reports
+          path: coverage_reports/
+          retention-days: 30
+
+      - name: 📊 Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: coverage_reports/junit.xml
+          retention-days: 30
+
   # Stage 5: Deploy (only on push to main/master)
   # Final: Summary
   pipeline-summary:
     name: Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [build-runtime, build-backend]
+    needs: [build-runtime, build-backend, test]
     if: always()
     steps:
       - name: 📊 Pipeline Summary
@@ -142,4 +287,5 @@ jobs:
           echo "=========================================="
           echo "Build Runtime: ${{ needs.build-runtime.result }}"
           echo "Build Backend: ${{ needs.build-backend.result }}"
+          echo "Run Tests: ${{ needs.test.result }}"
           echo "=========================================="
