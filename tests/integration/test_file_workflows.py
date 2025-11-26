@@ -1,17 +1,16 @@
 """Integration tests for file workflows"""
 
-import uuid
-
-import pytest
+from faker import Faker
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
 from app.main import app
 from app.models.file import File
-from app.models.project import Project
 from app.utils.auth import create_access_token
 from tests.factories import FileFactory, MeetingFactory, ProjectFactory, UserFactory
+
+fake = Faker()
 
 
 class TestFileUploadAndStorage:
@@ -26,7 +25,7 @@ class TestFileUploadAndStorage:
         file = FileFactory.create(
             db_session,
             uploaded_by=uploader,
-            filename="test_document.pdf",
+            filename=fake.file_name(extension="pdf"),
             mime_type="application/pdf",
             file_type="document",
         )
@@ -55,7 +54,7 @@ class TestFileUploadAndStorage:
             db_session,
             uploaded_by=uploader,
             project=project,
-            filename="project_file.pdf",
+            filename=fake.file_name(extension="pdf"),
             mime_type="application/pdf",
             file_type="document",
         )
@@ -81,7 +80,7 @@ class TestFileUploadAndStorage:
             db_session,
             uploaded_by=uploader,
             meeting=meeting,
-            filename="meeting_file.pdf",
+            filename=fake.file_name(extension="pdf"),
             mime_type="application/pdf",
             file_type="document",
         )
@@ -105,7 +104,7 @@ class TestFileUploadAndStorage:
         file = FileFactory.create(
             db_session,
             uploaded_by=uploader,
-            filename="metadata_test.pdf",
+            filename=fake.file_name(extension="pdf"),
             mime_type="application/pdf",
             file_type="document",
             size_bytes=2048,
@@ -159,6 +158,7 @@ class TestFileAccessControlAndDeletion:
 
         # Add member to project
         from app.services.project import add_user_to_project
+
         add_user_to_project(db_session, project.id, member.id, "member")
 
         file = FileFactory.create(db_session, uploaded_by=uploader, project=project)
@@ -241,6 +241,7 @@ class TestFileAccessControlAndDeletion:
 
         # Add admin to project
         from app.services.project import add_user_to_project
+
         add_user_to_project(db_session, project.id, admin.id, "admin")
 
         file = FileFactory.create(db_session, uploaded_by=uploader, project=project)

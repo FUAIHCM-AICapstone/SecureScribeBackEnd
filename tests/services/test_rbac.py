@@ -1,10 +1,8 @@
 """Unit tests for role-based access control (RBAC)"""
 
-import uuid
-
+from faker import Faker
 from sqlalchemy.orm import Session
 
-from app.models.project import UserProject
 from app.services.project import (
     add_user_to_project,
     get_user_role_in_project,
@@ -12,6 +10,8 @@ from app.services.project import (
     update_user_role_in_project,
 )
 from tests.factories import ProjectFactory, UserFactory, UserProjectFactory
+
+fake = Faker()
 
 
 class TestOwnerRolePermissions:

@@ -2,16 +2,17 @@
 
 import uuid
 
-import pytest
+from faker import Faker
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
 from app.main import app
 from app.models.task import Task, TaskProject
-from app.models.user import User
 from app.utils.auth import create_access_token
 from tests.factories import ProjectFactory, TaskFactory, UserFactory
+
+fake = Faker()
 
 
 class TestTaskCreationAndAssignment:
@@ -24,8 +25,8 @@ class TestTaskCreationAndAssignment:
         db_session.commit()
 
         task_data = {
-            "title": "Test Task",
-            "description": "A test task for integration testing",
+            "title": fake.sentence(nb_words=2),
+            "description": fake.paragraph(),
             "status": "todo",
             "priority": "Cao",
             "project_ids": [],
@@ -65,8 +66,8 @@ class TestTaskCreationAndAssignment:
         db_session.commit()
 
         task_data = {
-            "title": "Assigned Task",
-            "description": "Task with assignee",
+            "title": fake.sentence(nb_words=2),
+            "description": fake.paragraph(),
             "status": "todo",
             "priority": "Cao",
             "assignee_id": str(assignee.id),
@@ -103,8 +104,8 @@ class TestTaskCreationAndAssignment:
         db_session.commit()
 
         task_data = {
-            "title": "Project Task",
-            "description": "Task linked to project",
+            "title": fake.sentence(nb_words=2),
+            "description": fake.paragraph(),
             "status": "todo",
             "priority": "Cao",
             "project_ids": [str(project.id)],
@@ -331,11 +332,7 @@ class TestTaskDeletionAndCleanup:
             assert db_task is None
 
             # Verify no task-project associations remain
-            task_projects = (
-                fresh_session.query(TaskProject)
-                .filter(TaskProject.task_id == task_id)
-                .all()
-            )
+            task_projects = fresh_session.query(TaskProject).filter(TaskProject.task_id == task_id).all()
             assert len(task_projects) == 0
         finally:
             fresh_session.close()
@@ -448,11 +445,7 @@ class TestTaskWorkflowDataPersistence:
         # Act: Retrieve in new session
         fresh_session = SessionLocal()
         try:
-            task_projects = (
-                fresh_session.query(TaskProject)
-                .filter(TaskProject.task_id == task_id)
-                .all()
-            )
+            task_projects = fresh_session.query(TaskProject).filter(TaskProject.task_id == task_id).all()
 
             # Assert
             assert len(task_projects) == 2

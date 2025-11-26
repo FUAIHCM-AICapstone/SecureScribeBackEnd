@@ -3,26 +3,25 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import pytest
+from faker import Faker
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
 from app.main import app
-from app.models.meeting import AudioFile, Meeting, MeetingBot, MeetingNote, ProjectMeeting, Transcript
-from app.models.project import Project, UserProject
-from app.models.user import User
+from app.models.meeting import Meeting, MeetingBot, ProjectMeeting, Transcript
 from app.utils.auth import create_access_token
 from tests.factories import (
     AudioFileFactory,
     MeetingBotFactory,
     MeetingFactory,
-    MeetingNoteFactory,
     ProjectFactory,
     ProjectMeetingFactory,
     TranscriptFactory,
     UserFactory,
 )
+
+fake = Faker()
 
 
 class TestMeetingCreationAndBotManagement:
@@ -35,9 +34,9 @@ class TestMeetingCreationAndBotManagement:
         db_session.commit()
 
         meeting_data = {
-            "title": "Test Meeting",
-            "description": "A test meeting for integration testing",
-            "url": "https://meet.example.com/test",
+            "title": fake.sentence(nb_words=2),
+            "description": fake.paragraph(),
+            "url": fake.url(),
             "is_personal": True,
         }
 
@@ -78,7 +77,7 @@ class TestMeetingCreationAndBotManagement:
         bot_data = {
             "meeting_id": str(meeting.id),
             "scheduled_start_time": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
-            "meeting_url": "https://meet.example.com/test",
+            "meeting_url": fake.url(),
         }
 
         access_token = create_access_token({"sub": str(creator.id)})
@@ -567,11 +566,7 @@ class TestMeetingWorkflowDataPersistence:
         fresh_session = SessionLocal()
         try:
             db_meeting = fresh_session.query(Meeting).filter(Meeting.id == meeting_id).first()
-            db_project_meeting = (
-                fresh_session.query(ProjectMeeting)
-                .filter(ProjectMeeting.meeting_id == meeting_id, ProjectMeeting.project_id == project_id)
-                .first()
-            )
+            db_project_meeting = fresh_session.query(ProjectMeeting).filter(ProjectMeeting.meeting_id == meeting_id, ProjectMeeting.project_id == project_id).first()
 
             # Assert
             assert db_meeting is not None

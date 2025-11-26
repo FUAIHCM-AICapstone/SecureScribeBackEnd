@@ -1,6 +1,5 @@
 """Tests for authentication utility functions"""
 
-import re
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -10,7 +9,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.user import User
 from app.utils.auth import (
     create_access_token,
     create_refresh_token,
@@ -102,6 +100,7 @@ class TestCreateAccessToken:
         token1 = create_access_token(token_data)
         # Add delay to ensure different expiration times (exp is in seconds)
         import time
+
         time.sleep(1)
         token2 = create_access_token(token_data)
 
@@ -491,7 +490,7 @@ class TestTokenEdgeCases:
         # Act - the regex strips all "Bearer" prefixes, leaving just the token
         # This should actually work because the regex removes all Bearer occurrences
         current_user = get_current_user(malformed_token, db_session)
-        
+
         # Assert - the user should be retrieved successfully
         assert current_user is not None
         assert current_user.id == user.id

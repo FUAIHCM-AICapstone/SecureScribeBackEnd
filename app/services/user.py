@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, selectinload
 
+from app.constants.messages import MessageDescriptions
 from app.core.config import settings
 from app.events.domain_events import BaseDomainEvent, build_diff
 from app.models.file import File
@@ -13,7 +14,6 @@ from app.models.project import Project, UserProject
 from app.models.task import Task, TaskProject
 from app.models.user import User
 from app.services.event_manager import EventManager
-from app.constants.messages import MessageConstants, MessageDescriptions
 
 
 def get_users(db: Session, **kwargs) -> Tuple[List[User], int]:
@@ -76,7 +76,7 @@ def check_email_exists(db: Session, email: str) -> bool:
     try:
         user = db.query(User).filter(User.email == email).first()
         return user is not None
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=MessageDescriptions.INTERNAL_SERVER_ERROR,
@@ -301,11 +301,7 @@ def bulk_create_users(db: Session, users_data: List[dict]) -> List[dict]:
             # Check if email already exists before creating
             email = user_data.get("email")
             if email and check_email_exists(db, email):
-                results.append({
-                    "success": False,
-                    "id": None,
-                    "error": MessageDescriptions.RESOURCE_ALREADY_EXISTS
-                })
+                results.append({"success": False, "id": None, "error": MessageDescriptions.RESOURCE_ALREADY_EXISTS})
                 continue
 
             user = User(**user_data)
@@ -360,7 +356,7 @@ def bulk_update_users(db: Session, updates: List[dict]) -> List[dict]:
 
     try:
         db.commit()
-    except Exception as e:
+    except Exception:
         db.rollback()
         # Mark all as failed if commit fails
         for result in results:
@@ -389,7 +385,7 @@ def bulk_delete_users(db: Session, user_ids: List[uuid.UUID]) -> List[dict]:
 
     try:
         db.commit()
-    except Exception as e:
+    except Exception:
         db.rollback()
         # Mark all as failed if commit fails
         for result in results:

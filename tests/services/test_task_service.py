@@ -1,9 +1,9 @@
 """Unit tests for task service functions"""
 
 import uuid
-from datetime import datetime, timedelta, timezone
 
 import pytest
+from faker import Faker
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -24,9 +24,11 @@ from tests.factories import (
     MeetingFactory,
     ProjectFactory,
     TaskFactory,
-    UserFactory,
     TaskProjectFactory,
+    UserFactory,
 )
+
+fake = Faker()
 
 
 class TestCreateTask:
@@ -36,18 +38,18 @@ class TestCreateTask:
         """Test creating a task with valid data"""
         creator = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, creator)
-        
+
         task_data = TaskCreate(
-            title="Test Task",
-            description="A test task",
+            title=fake.sentence(nb_words=3),
+            description=fake.paragraph(),
             project_ids=[project.id],
         )
 
         task = create_task(db_session, task_data, creator.id)
 
         assert task.id is not None
-        assert task.title == "Test Task"
-        assert task.description == "A test task"
+        assert task.title == task_data.title
+        assert task.description == task_data.description
         assert task.creator_id == creator.id
         assert task.status == "todo"
 
@@ -56,9 +58,9 @@ class TestCreateTask:
         creator = UserFactory.create(db_session)
         assignee = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, creator)
-        
+
         task_data = TaskCreate(
-            title="Assigned Task",
+            title=fake.sentence(nb_words=2),
             assignee_id=assignee.id,
             project_ids=[project.id],
         )
@@ -73,9 +75,9 @@ class TestCreateTask:
         creator = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, creator)
         meeting = MeetingFactory.create(db_session, creator)
-        
+
         task_data = TaskCreate(
-            title="Meeting Task",
+            title=fake.sentence(nb_words=2),
             meeting_id=meeting.id,
             project_ids=[project.id],
         )
@@ -90,15 +92,15 @@ class TestCreateTask:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, other_user)
-        
+
         task_data = TaskCreate(
-            title="Unauthorized Task",
+            title=fake.sentence(nb_words=2),
             project_ids=[project.id],
         )
 
         with pytest.raises(HTTPException) as exc_info:
             create_task(db_session, task_data, creator.id)
-        
+
         assert exc_info.value.status_code == 403
 
     def test_create_task_no_access_to_meeting(self, db_session: Session):
@@ -107,16 +109,16 @@ class TestCreateTask:
         other_user = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, creator)
         meeting = MeetingFactory.create(db_session, other_user)
-        
+
         task_data = TaskCreate(
-            title="Unauthorized Meeting Task",
+            title=fake.sentence(nb_words=3),
             meeting_id=meeting.id,
             project_ids=[project.id],
         )
 
         with pytest.raises(HTTPException) as exc_info:
             create_task(db_session, task_data, creator.id)
-        
+
         assert exc_info.value.status_code == 403
 
     def test_create_task_with_multiple_projects(self, db_session: Session):
@@ -124,9 +126,9 @@ class TestCreateTask:
         creator = UserFactory.create(db_session)
         project1 = ProjectFactory.create(db_session, creator)
         project2 = ProjectFactory.create(db_session, creator)
-        
+
         task_data = TaskCreate(
-            title="Multi-Project Task",
+            title=fake.sentence(nb_words=3),
             project_ids=[project1.id, project2.id],
         )
 
@@ -146,22 +148,22 @@ class TestUpdateTask:
         """Test updating a task with valid data"""
         creator = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator, title="Original Title")
-        
+
         task_data = TaskUpdate(
-            title="Updated Title",
-            description="Updated description",
+            title=fake.sentence(nb_words=2),
+            description=fake.paragraph(),
         )
 
         updated_task = update_task(db_session, task.id, task_data, creator.id)
 
-        assert updated_task.title == "Updated Title"
-        assert updated_task.description == "Updated description"
+        assert updated_task.title == task_data.title
+        assert updated_task.description == task_data.description
 
     def test_update_task_status(self, db_session: Session):
         """Test updating task status"""
         creator = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator, status="todo")
-        
+
         task_data = TaskUpdate(status="in_progress")
 
         updated_task = update_task(db_session, task.id, task_data, creator.id)
@@ -173,7 +175,7 @@ class TestUpdateTask:
         creator = UserFactory.create(db_session)
         assignee = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator)
-        
+
         task_data = TaskUpdate(assignee_id=assignee.id)
 
         updated_task = update_task(db_session, task.id, task_data, creator.id)
@@ -185,24 +187,24 @@ class TestUpdateTask:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator)
-        
-        task_data = TaskUpdate(title="Unauthorized Update")
+
+        task_data = TaskUpdate(title=fake.sentence(nb_words=2))
 
         with pytest.raises(HTTPException) as exc_info:
             update_task(db_session, task.id, task_data, other_user.id)
-        
+
         assert exc_info.value.status_code == 403
 
     def test_update_nonexistent_task(self, db_session: Session):
         """Test updating a nonexistent task raises error"""
         creator = UserFactory.create(db_session)
         fake_task_id = uuid.uuid4()
-        
-        task_data = TaskUpdate(title="Update")
+
+        task_data = TaskUpdate(title=fake.sentence(nb_words=2))
 
         with pytest.raises(HTTPException) as exc_info:
             update_task(db_session, fake_task_id, task_data, creator.id)
-        
+
         # Access check happens before existence check, so returns 403
         assert exc_info.value.status_code == 403
 
@@ -211,12 +213,12 @@ class TestUpdateTask:
         creator = UserFactory.create(db_session)
         original_desc = "Original description"
         task = TaskFactory.create(db_session, creator, description=original_desc)
-        
-        task_data = TaskUpdate(title="New Title")
+
+        task_data = TaskUpdate(title=fake.sentence(nb_words=2))
 
         updated_task = update_task(db_session, task.id, task_data, creator.id)
 
-        assert updated_task.title == "New Title"
+        assert updated_task.title == task_data.title
         assert updated_task.description == original_desc
 
 
@@ -228,7 +230,7 @@ class TestDeleteTask:
         creator = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator)
         task_id = task.id
-        
+
         result = delete_task(db_session, task_id, creator.id)
 
         assert result is True
@@ -241,7 +243,7 @@ class TestDeleteTask:
         project = ProjectFactory.create(db_session, creator)
         task = TaskFactory.create(db_session, creator)
         TaskProjectFactory.create(db_session, task, project)
-        
+
         delete_task(db_session, task.id, creator.id)
 
         task_projects = db_session.query(TaskProject).filter(TaskProject.task_id == task.id).all()
@@ -252,20 +254,20 @@ class TestDeleteTask:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator)
-        
+
         with pytest.raises(HTTPException) as exc_info:
             delete_task(db_session, task.id, other_user.id)
-        
+
         assert exc_info.value.status_code == 403
 
     def test_delete_nonexistent_task(self, db_session: Session):
         """Test deleting a nonexistent task raises error"""
         creator = UserFactory.create(db_session)
         fake_task_id = uuid.uuid4()
-        
+
         with pytest.raises(HTTPException) as exc_info:
             delete_task(db_session, fake_task_id, creator.id)
-        
+
         # Access check happens before existence check, so returns 403
         assert exc_info.value.status_code == 403
 
@@ -276,9 +278,9 @@ class TestGetTasks:
     def test_get_tasks_for_creator(self, db_session: Session):
         """Test retrieving tasks created by user"""
         creator = UserFactory.create(db_session)
-        task1 = TaskFactory.create(db_session, creator, title="Task 1")
-        task2 = TaskFactory.create(db_session, creator, title="Task 2")
-        
+        task1 = TaskFactory.create(db_session, creator, title=fake.sentence(nb_words=2))
+        task2 = TaskFactory.create(db_session, creator, title=fake.sentence(nb_words=2))
+
         tasks, total = get_tasks(db_session, creator.id)
 
         assert total >= 2
@@ -293,7 +295,7 @@ class TestGetTasks:
         project = ProjectFactory.create(db_session, creator)
         task = TaskFactory.create(db_session, creator, assignee=assignee)
         TaskProjectFactory.create(db_session, task, project)
-        
+
         tasks, total = get_tasks(db_session, assignee.id)
 
         assert total >= 1
@@ -303,9 +305,10 @@ class TestGetTasks:
     def test_get_tasks_with_title_filter(self, db_session: Session):
         """Test filtering tasks by title"""
         creator = UserFactory.create(db_session)
-        task1 = TaskFactory.create(db_session, creator, title="Important Task")
-        task2 = TaskFactory.create(db_session, creator, title="Other Task")
-        
+        important_title = fake.sentence(nb_words=2)
+        task1 = TaskFactory.create(db_session, creator, title=important_title)
+        task2 = TaskFactory.create(db_session, creator, title=fake.sentence(nb_words=2))
+
         tasks, total = get_tasks(db_session, creator.id, title="Important")
 
         assert len(tasks) >= 1
@@ -316,7 +319,7 @@ class TestGetTasks:
         creator = UserFactory.create(db_session)
         task1 = TaskFactory.create(db_session, creator, status="todo")
         task2 = TaskFactory.create(db_session, creator, status="in_progress")
-        
+
         tasks, total = get_tasks(db_session, creator.id, status="todo")
 
         assert len(tasks) >= 1
@@ -326,8 +329,8 @@ class TestGetTasks:
         """Test task pagination"""
         creator = UserFactory.create(db_session)
         for i in range(5):
-            TaskFactory.create(db_session, creator, title=f"Task {i}")
-        
+            TaskFactory.create(db_session, creator, title=fake.sentence(nb_words=2))
+
         tasks_page1, total1 = get_tasks(db_session, creator.id, page=1, limit=2)
         tasks_page2, total2 = get_tasks(db_session, creator.id, page=2, limit=2)
 
@@ -344,7 +347,7 @@ class TestGetTasks:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator)
-        
+
         tasks, total = get_tasks(db_session, other_user.id)
 
         task_ids = {t.id for t in tasks}
@@ -358,7 +361,7 @@ class TestGetTask:
         """Test retrieving a task"""
         creator = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator)
-        
+
         retrieved_task = get_task(db_session, task.id, creator.id)
 
         assert retrieved_task is not None
@@ -370,7 +373,7 @@ class TestGetTask:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator)
-        
+
         retrieved_task = get_task(db_session, task.id, other_user.id)
 
         assert retrieved_task is None
@@ -379,7 +382,7 @@ class TestGetTask:
         """Test retrieving a nonexistent task returns None"""
         creator = UserFactory.create(db_session)
         fake_task_id = uuid.uuid4()
-        
+
         retrieved_task = get_task(db_session, fake_task_id, creator.id)
 
         assert retrieved_task is None
@@ -392,7 +395,7 @@ class TestCheckTaskAccess:
         """Test creator has access to task"""
         creator = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator)
-        
+
         has_access = check_task_access(db_session, task.id, creator.id)
 
         assert has_access is True
@@ -402,7 +405,7 @@ class TestCheckTaskAccess:
         creator = UserFactory.create(db_session)
         assignee = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator, assignee=assignee)
-        
+
         has_access = check_task_access(db_session, task.id, assignee.id)
 
         assert has_access is True
@@ -414,11 +417,12 @@ class TestCheckTaskAccess:
         project = ProjectFactory.create(db_session, creator)
         task = TaskFactory.create(db_session, creator)
         TaskProjectFactory.create(db_session, task, project)
-        
+
         # Add member to project
         from app.services.project import add_user_to_project
+
         add_user_to_project(db_session, project.id, member.id, "member")
-        
+
         has_access = check_task_access(db_session, task.id, member.id)
 
         assert has_access is True
@@ -428,7 +432,7 @@ class TestCheckTaskAccess:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator)
-        
+
         has_access = check_task_access(db_session, task.id, other_user.id)
 
         assert has_access is False
@@ -437,7 +441,7 @@ class TestCheckTaskAccess:
         """Test checking access to nonexistent task returns False"""
         creator = UserFactory.create(db_session)
         fake_task_id = uuid.uuid4()
-        
+
         has_access = check_task_access(db_session, fake_task_id, creator.id)
 
         assert has_access is False
@@ -450,11 +454,11 @@ class TestBulkCreateTasks:
         """Test creating multiple tasks"""
         creator = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, creator)
-        
+
         tasks_data = [
-            TaskCreate(title="Task 1", project_ids=[project.id]),
-            TaskCreate(title="Task 2", project_ids=[project.id]),
-            TaskCreate(title="Task 3", project_ids=[project.id]),
+            TaskCreate(title=fake.sentence(nb_words=2), project_ids=[project.id]),
+            TaskCreate(title=fake.sentence(nb_words=2), project_ids=[project.id]),
+            TaskCreate(title=fake.sentence(nb_words=2), project_ids=[project.id]),
         ]
 
         results = bulk_create_tasks(db_session, tasks_data, creator.id)
@@ -469,7 +473,7 @@ class TestBulkCreateTasks:
         other_user = UserFactory.create(db_session)
         project1 = ProjectFactory.create(db_session, creator)
         project2 = ProjectFactory.create(db_session, other_user)
-        
+
         tasks_data = [
             TaskCreate(title="Task 1", project_ids=[project1.id]),
             TaskCreate(title="Task 2", project_ids=[project2.id]),  # No access
@@ -488,12 +492,12 @@ class TestBulkUpdateTasks:
     def test_bulk_update_tasks_success(self, db_session: Session):
         """Test updating multiple tasks"""
         creator = UserFactory.create(db_session)
-        task1 = TaskFactory.create(db_session, creator, title="Task 1")
-        task2 = TaskFactory.create(db_session, creator, title="Task 2")
-        
+        task1 = TaskFactory.create(db_session, creator, title=fake.sentence(nb_words=2))
+        task2 = TaskFactory.create(db_session, creator, title=fake.sentence(nb_words=2))
+
         updates_data = [
-            {"id": task1.id, "updates": TaskUpdate(title="Updated Task 1")},
-            {"id": task2.id, "updates": TaskUpdate(title="Updated Task 2")},
+            {"id": task1.id, "updates": TaskUpdate(title=fake.sentence(nb_words=2))},
+            {"id": task2.id, "updates": TaskUpdate(title=fake.sentence(nb_words=2))},
         ]
 
         results = bulk_update_tasks(db_session, updates_data, creator.id)
@@ -507,10 +511,10 @@ class TestBulkUpdateTasks:
         other_user = UserFactory.create(db_session)
         task1 = TaskFactory.create(db_session, creator)
         task2 = TaskFactory.create(db_session, other_user)
-        
+
         updates_data = [
-            {"id": task1.id, "updates": TaskUpdate(title="Updated 1")},
-            {"id": task2.id, "updates": TaskUpdate(title="Updated 2")},  # No access
+            {"id": task1.id, "updates": TaskUpdate(title=fake.sentence(nb_words=2))},
+            {"id": task2.id, "updates": TaskUpdate(title=fake.sentence(nb_words=2))},  # No access
         ]
 
         results = bulk_update_tasks(db_session, updates_data, creator.id)
@@ -528,7 +532,7 @@ class TestBulkDeleteTasks:
         creator = UserFactory.create(db_session)
         task1 = TaskFactory.create(db_session, creator)
         task2 = TaskFactory.create(db_session, creator)
-        
+
         results = bulk_delete_tasks(db_session, [task1.id, task2.id], creator.id)
 
         assert len(results) == 2
@@ -540,7 +544,7 @@ class TestBulkDeleteTasks:
         other_user = UserFactory.create(db_session)
         task1 = TaskFactory.create(db_session, creator)
         task2 = TaskFactory.create(db_session, other_user)
-        
+
         results = bulk_delete_tasks(db_session, [task1.id, task2.id], creator.id)
 
         assert len(results) == 2

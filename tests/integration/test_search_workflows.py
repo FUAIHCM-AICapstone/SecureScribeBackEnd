@@ -1,19 +1,14 @@
 """Integration tests for search workflows"""
 
-import uuid
-from unittest.mock import MagicMock, patch
-
-import pytest
+from faker import Faker
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.db import SessionLocal
 from app.main import app
-from app.models.file import File
-from app.models.meeting import Meeting
-from app.models.project import Project
 from app.utils.auth import create_access_token
 from tests.factories import FileFactory, MeetingFactory, ProjectFactory, UserFactory
+
+fake = Faker()
 
 
 class TestDocumentIndexingAndSearch:
@@ -56,7 +51,7 @@ class TestDocumentIndexingAndSearch:
         assert data["success"] is True
         results = data["data"]
         assert len(results) >= 2
-        
+
         # Verify results contain quarterly files
         filenames = [r["name"] for r in results]
         assert "quarterly_report.pdf" in filenames
@@ -99,7 +94,7 @@ class TestDocumentIndexingAndSearch:
         assert data["success"] is True
         results = data["data"]
         assert len(results) >= 2
-        
+
         # Verify results contain marketing projects
         names = [r["name"] for r in results]
         assert "Marketing Campaign" in names
@@ -145,7 +140,7 @@ class TestDocumentIndexingAndSearch:
         assert data["success"] is True
         results = data["data"]
         assert len(results) >= 2
-        
+
         # Verify results contain Q4 meetings
         titles = [r["name"] for r in results]
         assert "Q4 Planning Session" in titles
@@ -184,7 +179,7 @@ class TestDocumentIndexingAndSearch:
         assert response.status_code == 200
         data = response.json()
         results = data["data"]
-        
+
         # Should not contain the secret project or file
         names = [r["name"] for r in results]
         assert "Secret Project" not in names
@@ -215,7 +210,7 @@ class TestDocumentIndexingAndSearch:
         assert response.status_code == 200
         data = response.json()
         results = data["data"]
-        
+
         # Should contain the user's file
         filenames = [r["name"] for r in results]
         assert "my_personal_file.pdf" in filenames
@@ -234,6 +229,7 @@ class TestDocumentIndexingAndSearch:
             name="Team Project",
         )
         from app.services.project import add_user_to_project
+
         add_user_to_project(db_session, project.id, member.id, "member")
 
         # Create file in project
@@ -256,7 +252,7 @@ class TestDocumentIndexingAndSearch:
         assert response.status_code == 200
         data = response.json()
         results = data["data"]
-        
+
         # Should contain the project file
         filenames = [r["name"] for r in results]
         assert "project_document.pdf" in filenames
@@ -550,6 +546,7 @@ class TestSearchIndexUpdatesAndDeletion:
 
         # Act 2: Delete the project (which should cascade delete files)
         from app.services.project import delete_project
+
         delete_project(db_session, project.id)
         db_session.commit()
 
@@ -716,15 +713,13 @@ class TestSearchIndexUpdatesAndDeletion:
         client.headers.update({"Authorization": f"Bearer {access_token}"})
 
         # Act: Search with project filter
-        response = client.get(
-            f"/api/v1/search/dynamic?search=document&project_id={project1.id}&limit=20"
-        )
+        response = client.get(f"/api/v1/search/dynamic?search=document&project_id={project1.id}&limit=20")
 
         # Assert
         assert response.status_code == 200
         data = response.json()
         results = data["data"]
-        
+
         # Should only return files from project1
         for result in results:
             if result["type"] == "file":
@@ -769,15 +764,13 @@ class TestSearchIndexUpdatesAndDeletion:
         client.headers.update({"Authorization": f"Bearer {access_token}"})
 
         # Act: Search with meeting filter
-        response = client.get(
-            f"/api/v1/search/dynamic?search=notes&meeting_id={meeting1.id}&limit=20"
-        )
+        response = client.get(f"/api/v1/search/dynamic?search=notes&meeting_id={meeting1.id}&limit=20")
 
         # Assert
         assert response.status_code == 200
         data = response.json()
         results = data["data"]
-        
+
         # Should only return files from meeting1
         for result in results:
             if result["type"] == "file":

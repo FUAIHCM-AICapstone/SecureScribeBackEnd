@@ -1,14 +1,12 @@
 """API endpoint tests for user management"""
 
 import uuid
-from typing import List
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models.user import User
 from app.db import SessionLocal
+from app.models.user import User
 from tests.factories import UserFactory
 
 
@@ -391,6 +389,7 @@ class TestBulkCreateUsersEndpoint:
         # Arrange: Create one user first using the service directly
         unique_email = f"existing_{uuid.uuid4().hex[:8]}@example.com"
         from app.services.user import create_user as service_create_user
+
         service_create_user(db_session, email=unique_email, name="Existing User")
 
         new_email = f"new_{uuid.uuid4().hex[:8]}@example.com"
@@ -455,7 +454,7 @@ class TestBulkUpdateUsersEndpoint:
         # Arrange: Create users
         user1 = UserFactory.create(db_session, name="User 1")
         user2 = UserFactory.create(db_session, name="User 2")
-        
+
         # Commit to ensure users are in database
         db_session.commit()
 
@@ -514,7 +513,7 @@ class TestBulkUpdateUsersEndpoint:
         # Arrange: Create users
         user1 = UserFactory.create(db_session, position="Old Position 1")
         user2 = UserFactory.create(db_session, position="Old Position 2")
-        
+
         # Commit to ensure users are in database
         db_session.commit()
 

@@ -1,195 +1,195 @@
-# """Unit tests for notification service functions"""
+"""Unit tests for notification service functions"""
 
-# import uuid
-# from datetime import datetime, timezone
-# from typing import List
+import uuid
+from datetime import datetime, timezone
+from typing import List
 
-# import pytest
-# from faker import Faker
-# from fastapi import HTTPException
-# from sqlalchemy.orm import Session
+import pytest
+from faker import Faker
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
-# from app.models.notification import Notification
-# from app.services.notification import (
-#     create_global_notification,
-#     create_notification,
-#     create_notifications_bulk,
-#     delete_notification,
-#     get_notification,
-#     get_notifications,
-#     update_notification,
-# )
-# from tests.factories import UserFactory
+from app.models.notification import Notification
+from app.services.notification import (
+    create_global_notification,
+    create_notification,
+    create_notifications_bulk,
+    delete_notification,
+    get_notification,
+    get_notifications,
+    update_notification,
+)
+from tests.factories import UserFactory
 
-# fake = Faker()
-
-
-# class TestCreateNotification:
-#     """Tests for create_notification function"""
-
-#     def test_create_notification_success(self, db_session: Session):
-#         """Test creating a notification with valid data"""
-#         user = UserFactory.create(db_session)
-#         notification_type = "task_assigned"
-#         payload = {"task_id": str(uuid.uuid4()), "task_title": "Test Task"}
-
-#         notification = create_notification(
-#             db_session,
-#             user_id=user.id,
-#             type=notification_type,
-#             payload=payload,
-#             channel="in_app",
-#         )
-
-#         assert notification.id is not None
-#         assert notification.user_id == user.id
-#         assert notification.type == notification_type
-#         assert notification.payload == payload
-#         assert notification.channel == "in_app"
-#         assert notification.is_read is False
-#         assert notification.created_at is not None
-
-#     def test_create_notification_minimal_data(self, db_session: Session):
-#         """Test creating a notification with only required user_id"""
-#         user = UserFactory.create(db_session)
-
-#         notification = create_notification(db_session, user_id=user.id)
-
-#         assert notification.id is not None
-#         assert notification.user_id == user.id
-#         assert notification.type is None
-#         assert notification.payload is None
-#         assert notification.is_read is False
-
-#     def test_create_notification_with_all_fields(self, db_session: Session):
-#         """Test creating a notification with all optional fields"""
-#         user = UserFactory.create(db_session)
-#         payload = {"title": "Test", "body": "Test body"}
-
-#         notification = create_notification(
-#             db_session,
-#             user_id=user.id,
-#             type="meeting_reminder",
-#             payload=payload,
-#             channel="fcm",
-#             icon="https://example.com/icon.png",
-#             badge="https://example.com/badge.png",
-#             sound="notification.mp3",
-#             ttl=3600,
-#         )
-
-#         assert notification.type == "meeting_reminder"
-#         assert notification.payload == payload
-#         assert notification.channel == "fcm"
-#         assert notification.icon == "https://example.com/icon.png"
-#         assert notification.badge == "https://example.com/badge.png"
-#         assert notification.sound == "notification.mp3"
-#         assert notification.ttl == 3600
-
-#     def test_create_notification_different_types(self, db_session: Session):
-#         """Test creating notifications with different types"""
-#         user = UserFactory.create(db_session)
-#         notification_types = ["task_assigned", "meeting_reminder", "project_update", "comment_reply"]
-
-#         for notif_type in notification_types:
-#             notification = create_notification(
-#                 db_session,
-#                 user_id=user.id,
-#                 type=notif_type,
-#             )
-#             assert notification.type == notif_type
+fake = Faker()
 
 
-# class TestCreateNotificationsBulk:
-#     """Tests for create_notifications_bulk function"""
+class TestCreateNotification:
+    """Tests for create_notification function"""
 
-#     def test_create_notifications_bulk_success(self, db_session: Session):
-#         """Test bulk creating notifications for multiple users"""
-#         users = UserFactory.create_batch(db_session, count=3)
-#         user_ids = [user.id for user in users]
-#         notification_type = "announcement"
-#         payload = {"message": "Important announcement"}
+    def test_create_notification_success(self, db_session: Session):
+        """Test creating a notification with valid data"""
+        user = UserFactory.create(db_session)
+        notification_type = "task_assigned"
+        payload = {"task_id": str(uuid.uuid4()), "task_title": fake.sentence()}
 
-#         notifications = create_notifications_bulk(
-#             db_session,
-#             user_ids,
-#             type=notification_type,
-#             payload=payload,
-#             channel="in_app",
-#         )
+        notification = create_notification(
+            db_session,
+            user_id=user.id,
+            type=notification_type,
+            payload=payload,
+            channel="in_app",
+        )
 
-#         assert len(notifications) == 3
-#         assert all(n.type == notification_type for n in notifications)
-#         assert all(n.payload == payload for n in notifications)
-#         assert all(n.channel == "in_app" for n in notifications)
-#         assert all(n.is_read is False for n in notifications)
+        assert notification.id is not None
+        assert notification.user_id == user.id
+        assert notification.type == notification_type
+        assert notification.payload == payload
+        assert notification.channel == "in_app"
+        assert notification.is_read is False
+        assert notification.created_at is not None
 
-#     def test_create_notifications_bulk_single_user(self, db_session: Session):
-#         """Test bulk creating notification for single user"""
-#         user = UserFactory.create(db_session)
+    def test_create_notification_minimal_data(self, db_session: Session):
+        """Test creating a notification with only required user_id"""
+        user = UserFactory.create(db_session)
 
-#         notifications = create_notifications_bulk(
-#             db_session,
-#             [user.id],
-#             type="test",
-#         )
+        notification = create_notification(db_session, user_id=user.id)
 
-#         assert len(notifications) == 1
-#         assert notifications[0].user_id == user.id
+        assert notification.id is not None
+        assert notification.user_id == user.id
+        assert notification.type is None
+        assert notification.payload is None
+        assert notification.is_read is False
 
-#     def test_create_notifications_bulk_empty_list(self, db_session: Session):
-#         """Test bulk creating with empty user list"""
-#         notifications = create_notifications_bulk(
-#             db_session,
-#             [],
-#             type="test",
-#         )
+    def test_create_notification_with_all_fields(self, db_session: Session):
+        """Test creating a notification with all optional fields"""
+        user = UserFactory.create(db_session)
+        payload = {"title": fake.sentence(), "body": fake.paragraph()}
 
-#         assert len(notifications) == 0
+        notification = create_notification(
+            db_session,
+            user_id=user.id,
+            type="meeting_reminder",
+            payload=payload,
+            channel="fcm",
+            icon="https://example.com/icon.png",
+            badge="https://example.com/badge.png",
+            sound="notification.mp3",
+            ttl=3600,
+        )
 
-#     def test_create_notifications_bulk_with_payload(self, db_session: Session):
-#         """Test bulk creating notifications with complex payload"""
-#         users = UserFactory.create_batch(db_session, count=2)
-#         user_ids = [user.id for user in users]
-#         payload = {
-#             "title": "Meeting Reminder",
-#             "body": "Your meeting starts in 15 minutes",
-#             "meeting_id": str(uuid.uuid4()),
-#             "meeting_url": "https://example.com/meeting",
-#         }
+        assert notification.type == "meeting_reminder"
+        assert notification.payload == payload
+        assert notification.channel == "fcm"
+        assert notification.icon == "https://example.com/icon.png"
+        assert notification.badge == "https://example.com/badge.png"
+        assert notification.sound == "notification.mp3"
+        assert notification.ttl == 3600
 
-#         notifications = create_notifications_bulk(
-#             db_session,
-#             user_ids,
-#             type="meeting_reminder",
-#             payload=payload,
-#         )
+    def test_create_notification_different_types(self, db_session: Session):
+        """Test creating notifications with different types"""
+        user = UserFactory.create(db_session)
+        notification_types = ["task_assigned", "meeting_reminder", "project_update", "comment_reply"]
 
-#         assert len(notifications) == 2
-#         assert all(n.payload == payload for n in notifications)
+        for notif_type in notification_types:
+            notification = create_notification(
+                db_session,
+                user_id=user.id,
+                type=notif_type,
+            )
+            assert notification.type == notif_type
 
-#     def test_create_notifications_bulk_all_fields(self, db_session: Session):
-#         """Test bulk creating with all optional fields"""
-#         users = UserFactory.create_batch(db_session, count=2)
-#         user_ids = [user.id for user in users]
 
-#         notifications = create_notifications_bulk(
-#             db_session,
-#             user_ids,
-#             type="test",
-#             payload={"test": "data"},
-#             channel="fcm",
-#             icon="icon.png",
-#             badge="badge.png",
-#             sound="sound.mp3",
-#             ttl=7200,
-#         )
+class TestCreateNotificationsBulk:
+    """Tests for create_notifications_bulk function"""
 
-#         assert len(notifications) == 2
-#         assert all(n.icon == "icon.png" for n in notifications)
-#         assert all(n.badge == "badge.png" for n in notifications)
-#         assert all(n.sound == "sound.mp3" for n in notifications)
-#         assert all(n.ttl == 7200 for n in notifications)
+    def test_create_notifications_bulk_success(self, db_session: Session):
+        """Test bulk creating notifications for multiple users"""
+        users = UserFactory.create_batch(db_session, count=3)
+        user_ids = [user.id for user in users]
+        notification_type = "announcement"
+        payload = {"message": fake.sentence()}
+
+        notifications = create_notifications_bulk(
+            db_session,
+            user_ids,
+            type=notification_type,
+            payload=payload,
+            channel="in_app",
+        )
+
+        assert len(notifications) == 3
+        assert all(n.type == notification_type for n in notifications)
+        assert all(n.payload == payload for n in notifications)
+        assert all(n.channel == "in_app" for n in notifications)
+        assert all(n.is_read is False for n in notifications)
+
+    def test_create_notifications_bulk_single_user(self, db_session: Session):
+        """Test bulk creating notification for single user"""
+        user = UserFactory.create(db_session)
+
+        notifications = create_notifications_bulk(
+            db_session,
+            [user.id],
+            type="test",
+        )
+
+        assert len(notifications) == 1
+        assert notifications[0].user_id == user.id
+
+    def test_create_notifications_bulk_empty_list(self, db_session: Session):
+        """Test bulk creating with empty user list"""
+        notifications = create_notifications_bulk(
+            db_session,
+            [],
+            type="test",
+        )
+
+        assert len(notifications) == 0
+
+    def test_create_notifications_bulk_with_payload(self, db_session: Session):
+        """Test bulk creating notifications with complex payload"""
+        users = UserFactory.create_batch(db_session, count=2)
+        user_ids = [user.id for user in users]
+        payload = {
+            "title": fake.sentence(),
+            "body": fake.paragraph(),
+            "meeting_id": str(uuid.uuid4()),
+            "meeting_url": fake.url(),
+        }
+
+        notifications = create_notifications_bulk(
+            db_session,
+            user_ids,
+            type="meeting_reminder",
+            payload=payload,
+        )
+
+        assert len(notifications) == 2
+        assert all(n.payload == payload for n in notifications)
+
+    def test_create_notifications_bulk_all_fields(self, db_session: Session):
+        """Test bulk creating with all optional fields"""
+        users = UserFactory.create_batch(db_session, count=2)
+        user_ids = [user.id for user in users]
+
+        notifications = create_notifications_bulk(
+            db_session,
+            user_ids,
+            type="test",
+            payload={"test": "data"},
+            channel="fcm",
+            icon="icon.png",
+            badge="badge.png",
+            sound="sound.mp3",
+            ttl=7200,
+        )
+
+        assert len(notifications) == 2
+        assert all(n.icon == "icon.png" for n in notifications)
+        assert all(n.badge == "badge.png" for n in notifications)
+        assert all(n.sound == "sound.mp3" for n in notifications)
+        assert all(n.ttl == 7200 for n in notifications)
 
 
 # class TestCreateGlobalNotification:

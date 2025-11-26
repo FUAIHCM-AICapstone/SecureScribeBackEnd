@@ -3,7 +3,7 @@
 import uuid
 from datetime import timedelta
 
-import pytest
+from faker import Faker
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,8 @@ from app.main import app
 from app.models.user import User
 from app.utils.auth import create_access_token, create_refresh_token
 from tests.factories import UserFactory
+
+fake = Faker()
 
 
 class TestUserRegistrationAndProfileSetup:
@@ -22,10 +24,10 @@ class TestUserRegistrationAndProfileSetup:
         # Arrange
         user_data = {
             "email": f"newuser_{uuid.uuid4().hex[:8]}@example.com",
-            "name": "New User",
-            "avatar_url": "https://example.com/avatar.jpg",
-            "bio": "Test bio",
-            "position": "Developer",
+            "name": fake.name(),
+            "avatar_url": fake.url(),
+            "bio": fake.paragraph(),
+            "position": fake.job(),
         }
         client = TestClient(app)
 
@@ -54,10 +56,10 @@ class TestUserRegistrationAndProfileSetup:
         # Arrange
         user_data = {
             "email": f"fullprofile_{uuid.uuid4().hex[:8]}@example.com",
-            "name": "Full Profile User",
-            "avatar_url": "https://example.com/avatar.jpg",
-            "bio": "Comprehensive bio",
-            "position": "Senior Engineer",
+            "name": fake.name(),
+            "avatar_url": fake.url(),
+            "bio": fake.paragraph(),
+            "position": fake.job(),
         }
         client = TestClient(app)
 
@@ -82,10 +84,10 @@ class TestUserRegistrationAndProfileSetup:
         # Try to create second user with same email
         user_data = {
             "email": user1.email,
-            "name": "Different User",
-            "avatar_url": "https://example.com/avatar.jpg",
-            "bio": "Different bio",
-            "position": "Manager",
+            "name": fake.name(),
+            "avatar_url": fake.url(),
+            "bio": fake.paragraph(),
+            "position": fake.job(),
         }
         client = TestClient(app)
 
@@ -100,10 +102,10 @@ class TestUserRegistrationAndProfileSetup:
         # Arrange
         user_data = {
             "email": f"persist_{uuid.uuid4().hex[:8]}@example.com",
-            "name": "Persist Test",
-            "avatar_url": "https://example.com/persist.jpg",
-            "bio": "Persistence test bio",
-            "position": "QA Engineer",
+            "name": fake.name(),
+            "avatar_url": fake.url(),
+            "bio": fake.paragraph(),
+            "position": fake.job(),
         }
         client = TestClient(app)
 
@@ -130,10 +132,10 @@ class TestUserRegistrationAndProfileSetup:
         # Arrange
         user_data = {
             "email": f"userid_{uuid.uuid4().hex[:8]}@example.com",
-            "name": "User ID Test",
-            "avatar_url": "https://example.com/avatar.jpg",
-            "bio": "Test",
-            "position": "Developer",
+            "name": fake.name(),
+            "avatar_url": fake.url(),
+            "bio": fake.paragraph(),
+            "position": fake.job(),
         }
         client = TestClient(app)
 
@@ -255,10 +257,7 @@ class TestUserAuthenticationAndTokenRefresh:
         user = UserFactory.create(db_session)
         db_session.commit()
 
-        expired_token = create_access_token(
-            {"sub": str(user.id)},
-            expires_delta=timedelta(seconds=-1)
-        )
+        expired_token = create_access_token({"sub": str(user.id)}, expires_delta=timedelta(seconds=-1))
 
         # Act
         client = TestClient(app)
@@ -323,12 +322,7 @@ class TestUserProfileUpdatesAndDeletion:
     def test_user_profile_partial_update(self, db_session: Session):
         """Test updating only some profile fields"""
         # Arrange: Create user
-        user = UserFactory.create(
-            db_session,
-            name="Original",
-            position="Engineer",
-            bio="Original bio"
-        )
+        user = UserFactory.create(db_session, name="Original", position="Engineer", bio="Original bio")
         db_session.commit()
 
         access_token = create_access_token({"sub": str(user.id)})
@@ -458,12 +452,7 @@ class TestUserWorkflowDataPersistence:
     def test_user_data_persists_across_sessions(self, db_session: Session):
         """Test that user data persists across database sessions"""
         # Arrange: Create user in one session
-        user = UserFactory.create(
-            db_session,
-            email=f"persist_{uuid.uuid4().hex[:8]}@example.com",
-            name="Persistence Test",
-            position="Engineer"
-        )
+        user = UserFactory.create(db_session, email=f"persist_{uuid.uuid4().hex[:8]}@example.com", name="Persistence Test", position="Engineer")
         user_id = user.id
         db_session.commit()
         db_session.close()

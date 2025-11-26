@@ -1,22 +1,20 @@
 """API endpoint tests for task management"""
 
 import uuid
-from datetime import datetime, timedelta, timezone
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models.task import Task, TaskProject
 from app.db import SessionLocal
-from app.utils.auth import create_access_token
 from app.main import app
+from app.models.task import Task, TaskProject
+from app.utils.auth import create_access_token
 from tests.factories import (
-    TaskFactory,
-    UserFactory,
-    ProjectFactory,
     MeetingFactory,
+    ProjectFactory,
+    TaskFactory,
     TaskProjectFactory,
+    UserFactory,
 )
 
 
@@ -37,7 +35,7 @@ class TestGetTasksEndpoint:
         # Arrange: Create test user and tasks
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         for _ in range(5):
             TaskFactory.create(db_session, creator)
         db_session.commit()
@@ -59,7 +57,7 @@ class TestGetTasksEndpoint:
         # Arrange: Create 15 test tasks
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         for i in range(15):
             TaskFactory.create(db_session, creator, title=f"Task {i}")
         db_session.commit()
@@ -81,7 +79,7 @@ class TestGetTasksEndpoint:
         # Arrange: Create tasks with specific titles
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         TaskFactory.create(db_session, creator, title="Important Task")
         TaskFactory.create(db_session, creator, title="Other Task")
         db_session.commit()
@@ -102,7 +100,7 @@ class TestGetTasksEndpoint:
         # Arrange: Create tasks with different statuses
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         TaskFactory.create(db_session, creator, status="todo")
         TaskFactory.create(db_session, creator, status="in_progress")
         db_session.commit()
@@ -124,7 +122,7 @@ class TestGetTasksEndpoint:
         creator1 = UserFactory.create(db_session)
         creator2 = UserFactory.create(db_session)
         db_session.commit()
-        
+
         task1 = TaskFactory.create(db_session, creator1)
         task2 = TaskFactory.create(db_session, creator2)
         db_session.commit()
@@ -150,10 +148,10 @@ class TestCreateTaskEndpoint:
         # Arrange
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project = ProjectFactory.create(db_session, creator)
         db_session.commit()
-        
+
         task_data = {
             "title": "New Task",
             "description": "A new test task",
@@ -188,10 +186,10 @@ class TestCreateTaskEndpoint:
         creator = UserFactory.create(db_session)
         assignee = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project = ProjectFactory.create(db_session, creator)
         db_session.commit()
-        
+
         task_data = {
             "title": "Assigned Task",
             "assignee_id": str(assignee.id),
@@ -221,11 +219,11 @@ class TestCreateTaskEndpoint:
         # Arrange
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project = ProjectFactory.create(db_session, creator)
         meeting = MeetingFactory.create(db_session, creator)
         db_session.commit()
-        
+
         task_data = {
             "title": "Meeting Task",
             "meeting_id": str(meeting.id),
@@ -255,11 +253,11 @@ class TestCreateTaskEndpoint:
         # Arrange
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project1 = ProjectFactory.create(db_session, creator)
         project2 = ProjectFactory.create(db_session, creator)
         db_session.commit()
-        
+
         task_data = {
             "title": "Multi-Project Task",
             "project_ids": [str(project1.id), str(project2.id)],
@@ -290,10 +288,10 @@ class TestCreateTaskEndpoint:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project = ProjectFactory.create(db_session, other_user)
         db_session.commit()
-        
+
         task_data = {
             "title": "Unauthorized Task",
             "project_ids": [str(project.id)],
@@ -313,11 +311,11 @@ class TestCreateTaskEndpoint:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project = ProjectFactory.create(db_session, creator)
         meeting = MeetingFactory.create(db_session, other_user)
         db_session.commit()
-        
+
         task_data = {
             "title": "Unauthorized Meeting Task",
             "meeting_id": str(meeting.id),
@@ -337,10 +335,10 @@ class TestCreateTaskEndpoint:
         # Arrange
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project = ProjectFactory.create(db_session, creator)
         db_session.commit()
-        
+
         task_data = {
             "title": "Persist Task",
             "description": "Should persist",
@@ -377,10 +375,10 @@ class TestUpdateTaskEndpoint:
         # Arrange: Create task
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         task = TaskFactory.create(db_session, creator, title="Original Title")
         db_session.commit()
-        
+
         task_id = task.id
 
         client = create_authenticated_client(creator.id)
@@ -410,10 +408,10 @@ class TestUpdateTaskEndpoint:
         # Arrange: Create task
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         task = TaskFactory.create(db_session, creator, status="todo")
         db_session.commit()
-        
+
         task_id = task.id
 
         client = create_authenticated_client(creator.id)
@@ -441,10 +439,10 @@ class TestUpdateTaskEndpoint:
         creator = UserFactory.create(db_session)
         assignee = UserFactory.create(db_session)
         db_session.commit()
-        
+
         task = TaskFactory.create(db_session, creator)
         db_session.commit()
-        
+
         task_id = task.id
 
         client = create_authenticated_client(creator.id)
@@ -471,11 +469,11 @@ class TestUpdateTaskEndpoint:
         # Arrange: Create task
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         original_desc = "Original description"
         task = TaskFactory.create(db_session, creator, description=original_desc)
         db_session.commit()
-        
+
         task_id = task.id
 
         client = create_authenticated_client(creator.id)
@@ -503,7 +501,7 @@ class TestUpdateTaskEndpoint:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         db_session.commit()
-        
+
         task = TaskFactory.create(db_session, creator)
         db_session.commit()
 
@@ -520,10 +518,10 @@ class TestUpdateTaskEndpoint:
         # Arrange: Create task
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         task = TaskFactory.create(db_session, creator, status="todo")
         db_session.commit()
-        
+
         task_id = task.id
 
         client = create_authenticated_client(creator.id)
@@ -552,10 +550,10 @@ class TestDeleteTaskEndpoint:
         # Arrange: Create task
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         task = TaskFactory.create(db_session, creator)
         db_session.commit()
-        
+
         task_id = task.id
 
         client = create_authenticated_client(creator.id)
@@ -581,12 +579,12 @@ class TestDeleteTaskEndpoint:
         # Arrange: Create task with project link
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project = ProjectFactory.create(db_session, creator)
         task = TaskFactory.create(db_session, creator)
         TaskProjectFactory.create(db_session, task, project)
         db_session.commit()
-        
+
         task_id = task.id
 
         client = create_authenticated_client(creator.id)
@@ -611,7 +609,7 @@ class TestDeleteTaskEndpoint:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         db_session.commit()
-        
+
         task = TaskFactory.create(db_session, creator)
         db_session.commit()
 
@@ -628,10 +626,10 @@ class TestDeleteTaskEndpoint:
         # Arrange: Create task
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         task = TaskFactory.create(db_session, creator)
         db_session.commit()
-        
+
         task_id = task.id
 
         # Verify task exists
@@ -667,10 +665,10 @@ class TestBulkCreateTasksEndpoint:
         # Arrange
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project = ProjectFactory.create(db_session, creator)
         db_session.commit()
-        
+
         bulk_data = {
             "tasks": [
                 {"title": "Bulk Task 1", "project_ids": [str(project.id)]},
@@ -706,11 +704,11 @@ class TestBulkCreateTasksEndpoint:
         creator = UserFactory.create(db_session)
         other_user = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project1 = ProjectFactory.create(db_session, creator)
         project2 = ProjectFactory.create(db_session, other_user)
         db_session.commit()
-        
+
         bulk_data = {
             "tasks": [
                 {"title": "Valid Task", "project_ids": [str(project1.id)]},
@@ -743,15 +741,15 @@ class TestBulkCreateTasksEndpoint:
         # Arrange
         creator = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project = ProjectFactory.create(db_session, creator)
         db_session.commit()
-        
+
         # Use unique titles to avoid conflicts with other tests
         unique_suffix = uuid.uuid4().hex[:8]
         title1 = f"Persist Task 1 {unique_suffix}"
         title2 = f"Persist Task 2 {unique_suffix}"
-        
+
         bulk_data = {
             "tasks": [
                 {"title": title1, "project_ids": [str(project.id)]},
@@ -772,9 +770,7 @@ class TestBulkCreateTasksEndpoint:
         # Verify in database with fresh session
         fresh_session = SessionLocal()
         try:
-            count = fresh_session.query(Task).filter(
-                Task.title.in_([title1, title2])
-            ).count()
+            count = fresh_session.query(Task).filter(Task.title.in_([title1, title2])).count()
             assert count == 2
         finally:
             fresh_session.close()
@@ -785,14 +781,14 @@ class TestBulkCreateTasksEndpoint:
         creator = UserFactory.create(db_session)
         assignee = UserFactory.create(db_session)
         db_session.commit()
-        
+
         project = ProjectFactory.create(db_session, creator)
         db_session.commit()
-        
+
         # Use unique title to avoid conflicts with other tests
         unique_suffix = uuid.uuid4().hex[:8]
         task_title = f"Task with Assignee {unique_suffix}"
-        
+
         bulk_data = {
             "tasks": [
                 {

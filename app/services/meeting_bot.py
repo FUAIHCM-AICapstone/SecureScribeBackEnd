@@ -117,7 +117,7 @@ def delete_meeting_bot(db: Session, bot_id: uuid.UUID, user_id: uuid.UUID) -> bo
 
     # Delete logs first (cascade delete)
     db.query(MeetingBotLog).filter(MeetingBotLog.meeting_bot_id == bot_id).delete()
-    
+
     # Then delete the bot
     db.delete(bot)
     db.commit()

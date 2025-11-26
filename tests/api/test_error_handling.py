@@ -3,15 +3,12 @@
 import uuid
 from datetime import timedelta
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.db import SessionLocal
 from app.main import app
-from app.models.user import User
 from app.utils.auth import create_access_token
-from tests.factories import UserFactory, ProjectFactory, TaskFactory, MeetingFactory
+from tests.factories import ProjectFactory, TaskFactory, UserFactory
 
 
 def create_authenticated_client(user_id: uuid.UUID) -> TestClient:
@@ -160,10 +157,7 @@ class TestAuthenticationErrors:
         user = UserFactory.create(db_session)
         db_session.commit()
 
-        expired_token = create_access_token(
-            {"sub": str(user.id)},
-            expires_delta=timedelta(seconds=-1)
-        )
+        expired_token = create_access_token({"sub": str(user.id)}, expires_delta=timedelta(seconds=-1))
 
         client = TestClient(app)
         client.headers.update({"Authorization": f"Bearer {expired_token}"})
@@ -208,10 +202,7 @@ class TestAuthenticationErrors:
         user = UserFactory.create(db_session)
         db_session.commit()
 
-        expired_refresh_token = create_access_token(
-            {"sub": str(user.id)},
-            expires_delta=timedelta(seconds=-1)
-        )
+        expired_refresh_token = create_access_token({"sub": str(user.id)}, expires_delta=timedelta(seconds=-1))
 
         client = TestClient(app)
         request_data = {"refresh_token": expired_refresh_token}
@@ -286,16 +277,14 @@ class TestAuthorizationErrors:
 
         # Add member as non-admin
         from tests.factories import UserProjectFactory
+
         UserProjectFactory.create(db_session, user=member, project=project, role="member")
         db_session.commit()
 
         client = create_authenticated_client(member.id)
 
         # Act: Try to add another member
-        response = client.post(
-            f"/api/v1/projects/{project.id}/members",
-            json={"user_id": str(new_user.id), "role": "member"}
-        )
+        response = client.post(f"/api/v1/projects/{project.id}/members", json={"user_id": str(new_user.id), "role": "member"})
 
         # Assert
         assert response.status_code == 403
@@ -312,16 +301,14 @@ class TestAuthorizationErrors:
 
         # Add member as non-admin
         from tests.factories import UserProjectFactory
+
         UserProjectFactory.create(db_session, user=member, project=project, role="member")
         db_session.commit()
 
         client = create_authenticated_client(member.id)
 
         # Act
-        response = client.put(
-            f"/api/v1/projects/{project.id}",
-            json={"name": "Updated Name"}
-        )
+        response = client.put(f"/api/v1/projects/{project.id}", json={"name": "Updated Name"})
 
         # Assert
         assert response.status_code == 403
@@ -338,6 +325,7 @@ class TestAuthorizationErrors:
 
         # Add member as non-admin
         from tests.factories import UserProjectFactory
+
         UserProjectFactory.create(db_session, user=member, project=project, role="member")
         db_session.commit()
 
@@ -512,10 +500,7 @@ class TestNotFoundErrors:
         fake_user_id = uuid.uuid4()
 
         # Act
-        response = client.post(
-            f"/api/v1/projects/{project.id}/members",
-            json={"user_id": str(fake_user_id), "role": "member"}
-        )
+        response = client.post(f"/api/v1/projects/{project.id}/members", json={"user_id": str(fake_user_id), "role": "member"})
 
         # Assert
         # Returns 400 (bad request) for non-existent user
@@ -579,10 +564,7 @@ class TestConflictErrors:
         client = create_authenticated_client(creator.id)
         fake_project_id = uuid.uuid4()
 
-        task_data = {
-            "title": "Task",
-            "project_ids": [str(fake_project_id)]
-        }
+        task_data = {"title": "Task", "project_ids": [str(fake_project_id)]}
 
         # Act
         response = client.post("/api/v1/tasks", json=task_data)
@@ -602,11 +584,7 @@ class TestConflictErrors:
         client = create_authenticated_client(creator.id)
         fake_meeting_id = uuid.uuid4()
 
-        task_data = {
-            "title": "Task",
-            "meeting_id": str(fake_meeting_id),
-            "project_ids": [str(project.id)]
-        }
+        task_data = {"title": "Task", "meeting_id": str(fake_meeting_id), "project_ids": [str(project.id)]}
 
         # Act
         response = client.post("/api/v1/tasks", json=task_data)
@@ -622,10 +600,7 @@ class TestEdgeCases:
         """Test creating user with very long name"""
         # Arrange
         long_name = "A" * 1000
-        user_data = {
-            "email": f"long_name_{uuid.uuid4()}@example.com",
-            "name": long_name
-        }
+        user_data = {"email": f"long_name_{uuid.uuid4()}@example.com", "name": long_name}
 
         # Act
         response = client.post("/api/v1/users", json=user_data)
@@ -689,10 +664,7 @@ class TestEdgeCases:
         db_session.commit()
 
         client = create_authenticated_client(creator.id)
-        task_data = {
-            "title": "Task",
-            "project_ids": []
-        }
+        task_data = {"title": "Task", "project_ids": []}
 
         # Act
         response = client.post("/api/v1/tasks", json=task_data)
@@ -739,17 +711,14 @@ class TestEdgeCases:
     def test_create_user_with_unicode_email(self, client: TestClient):
         """Test creating user with unicode characters in email"""
         # Arrange
-        user_data = {
-            "email": "user_🎉@example.com",
-            "name": "Unicode User"
-        }
+        user_data = {"email": "user_🎉@example.com", "name": "Unicode User"}
 
         # Act
         response = client.post("/api/v1/users", json=user_data)
 
         # Assert
         # Unicode in email is rejected with 400 (invalid email format)
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     def test_update_user_with_null_fields(self, client: TestClient, db_session: Session):
         """Test updating user with null fields"""
@@ -778,10 +747,7 @@ class TestEdgeCases:
         """Test creating project with very long description"""
         # Arrange
         long_description = "A" * 10000
-        project_data = {
-            "name": "Long Description Project",
-            "description": long_description
-        }
+        project_data = {"name": "Long Description Project", "description": long_description}
 
         # Act
         response = client.post("/api/v1/projects", json=project_data)

@@ -10,55 +10,53 @@ This module tests concurrent operations to ensure:
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta, timezone
-from typing import List
 from unittest.mock import patch
 
 import pytest
+from faker import Faker
 from sqlalchemy.orm import Session
 
 from app.models.file import File
 from app.models.project import UserProject
 from app.models.task import Task
 from app.models.user import User
-from app.services.file import create_file
+from app.schemas.file import FileCreate
+from app.schemas.task import TaskUpdate
 from app.services.project import add_user_to_project, update_user_role_in_project
 from app.services.task import update_task
 from app.services.user import create_user
-from app.schemas.file import FileCreate
-from app.schemas.task import TaskUpdate
 from tests.factories import (
     FileFactory,
-    MeetingFactory,
     ProjectFactory,
     TaskFactory,
     UserFactory,
-    UserProjectFactory,
 )
+
+fake = Faker()
 
 
 @pytest.fixture(autouse=True)
 def mock_event_manager():
     """Mock EventManager to prevent metaclass conflicts in concurrent tests"""
-    with patch('app.services.event_manager.EventManager.emit_domain_event'):
+    with patch("app.services.event_manager.EventManager.emit_domain_event"):
         yield
 
 
 class TestConcurrentUserCreation:
     """Tests for concurrent user creation (race condition prevention)
-    
+
     **Feature: backend-test-coverage, Property 10: Concurrent operation safety**
     **Validates: Requirements 12.5**
     """
 
     def test_concurrent_user_creation_no_duplicates(self, db_session: Session):
         """Test that concurrent user creation prevents duplicate emails
-        
+
         When multiple threads attempt to create users with the same email simultaneously,
         only one should succeed and others should fail with duplicate email error.
         """
         from app.db import SessionLocal
-        
+
         email = f"concurrent_user_{uuid.uuid4()}@testdomain.com"
         results = []
         errors = []
@@ -97,12 +95,12 @@ class TestConcurrentUserCreation:
 
     def test_concurrent_user_creation_different_emails(self, db_session: Session):
         """Test that concurrent user creation with different emails succeeds
-        
+
         When multiple threads create users with different emails simultaneously,
         all should succeed and create distinct user records.
         """
         from app.db import SessionLocal
-        
+
         num_threads = 5
         results = []
         errors = []
@@ -141,19 +139,19 @@ class TestConcurrentUserCreation:
 
 class TestConcurrentProjectMemberOperations:
     """Tests for concurrent project member operations (consistency)
-    
+
     **Feature: backend-test-coverage, Property 10: Concurrent operation safety**
     **Validates: Requirements 12.5**
     """
 
     def test_concurrent_add_members_to_project(self, db_session: Session):
         """Test that concurrent member additions maintain consistency
-        
+
         When multiple threads add different users to a project simultaneously,
         all additions should succeed and project membership should be consistent.
         """
         from app.db import SessionLocal
-        
+
         project_owner = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, created_by=project_owner)
         num_members = 5
@@ -189,29 +187,25 @@ class TestConcurrentProjectMemberOperations:
         assert len(errors) == 0, f"Expected 0 errors, got {len(errors)}: {errors}"
 
         # Verify all members are in project
-        project_members = (
-            db_session.query(UserProject)
-            .filter(UserProject.project_id == project.id)
-            .all()
-        )
+        project_members = db_session.query(UserProject).filter(UserProject.project_id == project.id).all()
         # Should have owner + all members
         assert len(project_members) == num_members + 1
 
     def test_concurrent_role_updates_consistency(self, db_session: Session):
         """Test that concurrent role updates maintain consistency
-        
+
         When multiple threads update user roles in a project simultaneously,
         final state should be consistent with last update.
         """
         from app.db import SessionLocal
-        
+
         project_owner = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, created_by=project_owner)
         user = UserFactory.create(db_session)
-        
+
         # Add user to project
         add_user_to_project(db_session, project.id, user.id, "member")
-        
+
         roles = ["member", "admin", "viewer", "member", "admin"]
         results = []
         errors = []
@@ -256,12 +250,12 @@ class TestConcurrentProjectMemberOperations:
 
     def test_concurrent_add_same_member_duplicate_prevention(self, db_session: Session):
         """Test that concurrent additions of same member are handled correctly
-        
+
         When multiple threads try to add the same user to a project simultaneously,
         only one should succeed and others should handle gracefully.
         """
         from app.db import SessionLocal
-        
+
         project_owner = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, created_by=project_owner)
         user = UserFactory.create(db_session)
@@ -293,7 +287,7 @@ class TestConcurrentProjectMemberOperations:
 
         # At least one should succeed (or all if service allows idempotent adds)
         assert len(results) + len(errors) == 5
-        
+
         # Verify only one membership record exists
         memberships = (
             db_session.query(UserProject)
@@ -308,23 +302,23 @@ class TestConcurrentProjectMemberOperations:
 
 class TestConcurrentTaskUpdates:
     """Tests for concurrent task updates (state consistency)
-    
+
     **Feature: backend-test-coverage, Property 10: Concurrent operation safety**
     **Validates: Requirements 12.5**
     """
 
     def test_concurrent_task_status_updates(self, db_session: Session):
         """Test that concurrent task status updates maintain consistency
-        
+
         When multiple threads update task status simultaneously,
         final state should be consistent and no data should be lost.
         """
         from app.db import SessionLocal
-        
+
         creator = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, created_by=creator)
         task = TaskFactory.create(db_session, creator=creator, status="todo")
-        
+
         statuses = ["in_progress", "in_review", "done", "in_progress", "done"]
         results = []
         errors = []
@@ -365,15 +359,15 @@ class TestConcurrentTaskUpdates:
 
     def test_concurrent_task_description_updates(self, db_session: Session):
         """Test that concurrent task description updates maintain consistency
-        
+
         When multiple threads update task description simultaneously,
         final state should reflect one of the updates.
         """
         from app.db import SessionLocal
-        
+
         creator = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator=creator, description="Original")
-        
+
         descriptions = [f"Description {i}" for i in range(5)]
         results = []
         errors = []
@@ -414,12 +408,12 @@ class TestConcurrentTaskUpdates:
 
     def test_concurrent_task_assignment_updates(self, db_session: Session):
         """Test that concurrent task assignment updates maintain consistency
-        
+
         When multiple threads assign task to different users simultaneously,
         final state should show one assignee.
         """
         from app.db import SessionLocal
-        
+
         creator = UserFactory.create(db_session)
         task = TaskFactory.create(db_session, creator=creator, assignee=None)
         assignees = [UserFactory.create(db_session) for _ in range(3)]
@@ -463,19 +457,19 @@ class TestConcurrentTaskUpdates:
 
 class TestConcurrentFileOperations:
     """Tests for concurrent file operations (storage consistency)
-    
+
     **Feature: backend-test-coverage, Property 10: Concurrent operation safety**
     **Validates: Requirements 12.5**
     """
 
     def test_concurrent_file_creation_consistency(self, db_session: Session):
         """Test that concurrent file creation maintains consistency
-        
+
         When multiple threads create files simultaneously,
         all should succeed and files should be stored consistently.
         """
         from app.db import SessionLocal
-        
+
         user = UserFactory.create(db_session)
         project = ProjectFactory.create(db_session, created_by=user)
         num_files = 5
@@ -495,7 +489,7 @@ class TestConcurrentFileOperations:
                     project_id=project.id,
                 )
                 file_bytes = b"test file content" * (file_num + 1)
-                
+
                 # Create file directly in database (mocking storage)
                 file = File(
                     filename=file_data.filename,
@@ -533,22 +527,22 @@ class TestConcurrentFileOperations:
         # Verify all files exist in database
         files = db_session.query(File).filter(File.project_id == project.id).all()
         assert len(files) == num_files
-        
+
         # Verify all files have unique IDs
         file_ids = [f.id for f in files]
         assert len(set(file_ids)) == num_files
 
     def test_concurrent_file_metadata_updates(self, db_session: Session):
         """Test that concurrent file metadata updates maintain consistency
-        
+
         When multiple threads update file metadata simultaneously,
         final state should be consistent.
         """
         from app.db import SessionLocal
-        
+
         user = UserFactory.create(db_session)
         file = FileFactory.create(db_session, uploaded_by=user)
-        
+
         new_names = [f"updated_name_{i}.pdf" for i in range(5)]
         results = []
         errors = []
@@ -592,12 +586,12 @@ class TestConcurrentFileOperations:
 
     def test_concurrent_file_creation_different_projects(self, db_session: Session):
         """Test that concurrent file creation in different projects succeeds
-        
+
         When multiple threads create files in different projects simultaneously,
         all should succeed and maintain project associations.
         """
         from app.db import SessionLocal
-        
+
         user = UserFactory.create(db_session)
         num_projects = 5
         projects = [ProjectFactory.create(db_session, created_by=user) for _ in range(num_projects)]
@@ -617,7 +611,7 @@ class TestConcurrentFileOperations:
                     file_type="document",
                     project_id=project.id,
                 )
-                
+
                 # Create file directly in database
                 file = File(
                     filename=file_data.filename,

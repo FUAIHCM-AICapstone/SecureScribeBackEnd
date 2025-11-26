@@ -38,7 +38,7 @@ class UserFactory:
             base_email = email
             while db.query(User).filter(User.email == email).first() is not None:
                 # Extract username and domain
-                username, domain = email.split('@', 1)
+                username, domain = email.split("@", 1)
                 email = f"{username}{counter}@{domain}"
                 counter += 1
                 if counter > 100:  # Prevent infinite loop

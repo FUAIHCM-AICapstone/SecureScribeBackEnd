@@ -2,16 +2,17 @@
 
 import uuid
 
-import pytest
+from faker import Faker
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
 from app.main import app
 from app.models.project import Project, UserProject
-from app.models.user import User
 from app.utils.auth import create_access_token
 from tests.factories import ProjectFactory, UserFactory
+
+fake = Faker()
 
 
 class TestProjectCreationAndMemberManagement:
@@ -24,8 +25,8 @@ class TestProjectCreationAndMemberManagement:
         db_session.commit()
 
         project_data = {
-            "name": "Test Project",
-            "description": "A test project for integration testing",
+            "name": fake.company(),
+            "description": fake.paragraph(),
         }
 
         access_token = create_access_token({"sub": str(creator.id)})
@@ -60,8 +61,8 @@ class TestProjectCreationAndMemberManagement:
         db_session.commit()
 
         project_data = {
-            "name": "Owner Test Project",
-            "description": "Test project ownership",
+            "name": fake.company(),
+            "description": fake.paragraph(),
         }
 
         access_token = create_access_token({"sub": str(creator.id)})
@@ -183,12 +184,7 @@ class TestProjectCreationAndMemberManagement:
         project = ProjectFactory.create(db_session, created_by=creator)
         db_session.commit()
 
-        bulk_data = {
-            "users": [
-                {"user_id": str(member.id), "role": "member"}
-                for member in members
-            ]
-        }
+        bulk_data = {"users": [{"user_id": str(member.id), "role": "member"} for member in members]}
 
         access_token = create_access_token({"sub": str(creator.id)})
         client = TestClient(app)
@@ -220,7 +216,6 @@ class TestProjectCreationAndMemberManagement:
                 assert user_project.role == "member"
         finally:
             fresh_session.close()
-
 
 
 class TestProjectUpdatesAndDeletion:
@@ -356,15 +351,10 @@ class TestProjectUpdatesAndDeletion:
             assert db_project is None
 
             # Verify no user-project associations remain
-            user_projects = (
-                fresh_session.query(UserProject)
-                .filter(UserProject.project_id == project_id)
-                .all()
-            )
+            user_projects = fresh_session.query(UserProject).filter(UserProject.project_id == project_id).all()
             assert len(user_projects) == 0
         finally:
             fresh_session.close()
-
 
 
 class TestRoleBasedAccessControl:
@@ -645,7 +635,6 @@ class TestRoleBasedAccessControl:
             fresh_session.close()
 
 
-
 class TestProjectWorkflowDataPersistence:
     """Integration tests for project workflow data persistence"""
 
@@ -701,11 +690,7 @@ class TestProjectWorkflowDataPersistence:
         # Act: Retrieve in new session
         fresh_session = SessionLocal()
         try:
-            user_projects = (
-                fresh_session.query(UserProject)
-                .filter(UserProject.project_id == project_id)
-                .all()
-            )
+            user_projects = fresh_session.query(UserProject).filter(UserProject.project_id == project_id).all()
 
             # Assert
             assert len(user_projects) == 3  # creator (owner) + 2 members
@@ -763,11 +748,7 @@ class TestProjectWorkflowDataPersistence:
             assert db_project.description == "Updated description"
 
             # Verify members
-            user_projects = (
-                fresh_session.query(UserProject)
-                .filter(UserProject.project_id == project_id)
-                .all()
-            )
+            user_projects = fresh_session.query(UserProject).filter(UserProject.project_id == project_id).all()
             assert len(user_projects) == 2
             roles = {up.user_id: up.role for up in user_projects}
             assert roles[creator.id] == "owner"

@@ -1,10 +1,9 @@
 """Unit tests for search service functions"""
 
-import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-from sqlalchemy.orm import Session
+from faker import Faker
 
 from app.services.qdrant_service import (
     delete_file_vectors,
@@ -19,7 +18,8 @@ from app.services.qdrant_service import (
     update_file_vectors_metadata,
     upsert_vectors,
 )
-from tests.factories import FileFactory, MeetingFactory, ProjectFactory, UserFactory
+
+fake = Faker()
 
 
 class TestUpsertVectors:

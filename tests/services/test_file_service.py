@@ -1,9 +1,8 @@
 """Unit tests for file service functions"""
 
 import uuid
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 from faker import Faker
 from sqlalchemy.orm import Session
 

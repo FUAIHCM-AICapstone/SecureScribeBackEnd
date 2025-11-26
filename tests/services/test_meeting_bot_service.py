@@ -2,9 +2,10 @@
 
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+from faker import Faker
 from sqlalchemy.orm import Session
 
 from app.models.meeting import MeetingBot, MeetingBotLog
@@ -21,6 +22,8 @@ from app.services.meeting_bot import (
     update_meeting_bot,
 )
 from tests.factories import MeetingBotFactory, MeetingFactory, UserFactory
+
+fake = Faker()
 
 
 class TestCreateMeetingBot:

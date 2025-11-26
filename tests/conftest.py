@@ -3,7 +3,16 @@ import sys
 import warnings
 from pathlib import Path
 from typing import Generator
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
+from app.db import SessionLocal, create_tables
+from app.main import app
+from app.services.user import create_user
+from app.utils.auth import create_access_token
 
 # Ensure application package is importable during tests
 # This MUST be done before any app imports
@@ -17,15 +26,6 @@ sys.modules["chonkie"] = MagicMock()
 # Mock Redis before importing app to prevent connection errors
 sys.modules["redis"] = MagicMock()
 sys.modules["redis.asyncio"] = MagicMock()
-
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
-
-from app.db import SessionLocal, create_tables
-from app.main import app
-from app.services.user import create_user
-from app.utils.auth import create_access_token
 
 # Configure logging to ignore warnings
 logging.getLogger().setLevel(logging.ERROR)

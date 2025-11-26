@@ -19,7 +19,6 @@ def search_dynamic(
     meeting_id: uuid.UUID = None,
 ) -> Tuple[List[dict], int]:
     """Search across meetings, projects, and files with access control and relevance ordering."""
-    from typing import Optional
 
     # Get user-accessible project IDs
     user_projects_query = db.query(Project.id).join(Project.users).filter(Project.users.any(user_id=user_id))

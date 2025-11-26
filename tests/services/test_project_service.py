@@ -3,6 +3,7 @@
 import uuid
 from datetime import datetime, timezone
 
+from faker import Faker
 from sqlalchemy.orm import Session
 
 from app.models.project import Project, UserProject
@@ -22,6 +23,8 @@ from app.services.project import (
 )
 from tests.factories import ProjectFactory, UserFactory, UserProjectFactory
 
+fake = Faker()
+
 
 class TestCreateProject:
     """Tests for create_project function"""
@@ -30,33 +33,33 @@ class TestCreateProject:
         """Test creating a project with valid data"""
         creator = UserFactory.create(db_session)
         project_data = ProjectCreate(
-            name="Test Project",
-            description="A test project",
+            name=fake.company(),
+            description=fake.paragraph(),
         )
 
         project = create_project(db_session, project_data, creator.id)
 
         assert project.id is not None
-        assert project.name == "Test Project"
-        assert project.description == "A test project"
+        assert project.name == project_data.name
+        assert project.description == project_data.description
         assert project.created_by == creator.id
         assert project.is_archived is False
 
     def test_create_project_minimal_data(self, db_session: Session):
         """Test creating a project with minimal data"""
         creator = UserFactory.create(db_session)
-        project_data = ProjectCreate(name="Minimal Project")
+        project_data = ProjectCreate(name=fake.company())
 
         project = create_project(db_session, project_data, creator.id)
 
-        assert project.name == "Minimal Project"
+        assert project.name == project_data.name
         assert project.description is None
         assert project.created_by == creator.id
 
     def test_create_project_adds_creator_as_owner(self, db_session: Session):
         """Test that project creator is automatically added as owner"""
         creator = UserFactory.create(db_session)
-        project_data = ProjectCreate(name="Owner Test Project")
+        project_data = ProjectCreate(name=fake.company())
 
         project = create_project(db_session, project_data, creator.id)
 
@@ -76,7 +79,7 @@ class TestCreateProject:
         """Test that project has correct timestamps"""
 
         creator = UserFactory.create(db_session)
-        project_data = ProjectCreate(name="Timestamp Test")
+        project_data = ProjectCreate(name=fake.company())
         before_creation = datetime.now(timezone.utc)
 
         project = create_project(db_session, project_data, creator.id)

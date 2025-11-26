@@ -3,12 +3,11 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import pytest
+from faker import Faker
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models.meeting import Meeting, ProjectMeeting
-from app.schemas.meeting import MeetingCreate, MeetingUpdate
 from tests.factories import (
     MeetingBotFactory,
     MeetingFactory,
@@ -18,16 +17,22 @@ from tests.factories import (
     UserProjectFactory,
 )
 
+fake = Faker()
+
 
 class TestCreateMeetingEndpoint:
     """Tests for POST /meetings endpoint"""
 
     def test_create_meeting_success(self, client: TestClient, db_session: Session):
         """Test creating a meeting via API"""
+        meeting_title = fake.sentence(nb_words=3)
+        meeting_description = fake.text(max_nb_chars=100)
+        meeting_url = fake.url()
+        
         meeting_data = {
-            "title": "Team Standup",
-            "description": "Daily standup meeting",
-            "url": "https://zoom.us/j/123456",
+            "title": meeting_title,
+            "description": meeting_description,
+            "url": meeting_url,
             "is_personal": False,
         }
 
@@ -36,12 +41,12 @@ class TestCreateMeetingEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert data["data"]["title"] == "Team Standup"
-        assert data["data"]["url"] == "https://zoom.us/j/123456"
+        assert data["data"]["title"] == meeting_title
+        assert data["data"]["url"] == meeting_url
         assert data["data"]["is_personal"] is False
 
         # Verify data persisted to database
-        meeting = db_session.query(Meeting).filter(Meeting.title == "Team Standup").first()
+        meeting = db_session.query(Meeting).filter(Meeting.title == meeting_title).first()
         assert meeting is not None
 
     def test_create_personal_meeting(self, client: TestClient, db_session: Session):

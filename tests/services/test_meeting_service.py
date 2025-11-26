@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
+from faker import Faker
 from sqlalchemy.orm import Session
 
 from app.models.meeting import Meeting, ProjectMeeting
@@ -19,6 +20,8 @@ from app.services.meeting import (
 )
 from tests.factories import MeetingFactory, ProjectFactory, ProjectMeetingFactory, UserFactory, UserProjectFactory
 
+fake = Faker()
+
 
 class TestCreateMeeting:
     """Tests for create_meeting function"""
@@ -27,18 +30,18 @@ class TestCreateMeeting:
         """Test creating a meeting with valid data"""
         creator = UserFactory.create(db_session)
         meeting_data = MeetingCreate(
-            title="Team Standup",
-            description="Daily team standup meeting",
-            url="https://zoom.us/j/123456",
+            title=fake.sentence(nb_words=2),
+            description=fake.paragraph(),
+            url=fake.url(),
             is_personal=False,
         )
 
         meeting = create_meeting(db_session, meeting_data, creator.id)
 
         assert meeting.id is not None
-        assert meeting.title == "Team Standup"
-        assert meeting.description == "Daily team standup meeting"
-        assert meeting.url == "https://zoom.us/j/123456"
+        assert meeting.title == meeting_data.title
+        assert meeting.description == meeting_data.description
+        assert meeting.url == meeting_data.url
         assert meeting.created_by == creator.id
         assert meeting.is_personal is False
         assert meeting.status == "active"
@@ -48,7 +51,7 @@ class TestCreateMeeting:
         """Test creating a personal meeting"""
         creator = UserFactory.create(db_session)
         meeting_data = MeetingCreate(
-            title="Personal Notes",
+            title=fake.sentence(nb_words=2),
             is_personal=True,
         )
 
@@ -64,7 +67,7 @@ class TestCreateMeeting:
         project2 = ProjectFactory.create(db_session, creator)
 
         meeting_data = MeetingCreate(
-            title="Project Meeting",
+            title=fake.sentence(nb_words=2),
             is_personal=False,
             project_ids=[project1.id, project2.id],
         )
@@ -82,7 +85,7 @@ class TestCreateMeeting:
         """Test that meeting has correct timestamps"""
 
         creator = UserFactory.create(db_session)
-        meeting_data = MeetingCreate(title="Timestamp Test")
+        meeting_data = MeetingCreate(title=fake.sentence(nb_words=2))
         before_creation = datetime.now(timezone.utc)  # Use timezone-aware datetime
 
         meeting = create_meeting(db_session, meeting_data, creator.id)
@@ -93,11 +96,11 @@ class TestCreateMeeting:
     def test_create_meeting_minimal_data(self, db_session: Session):
         """Test creating a meeting with minimal data"""
         creator = UserFactory.create(db_session)
-        meeting_data = MeetingCreate(title="Minimal Meeting")
+        meeting_data = MeetingCreate(title=fake.sentence(nb_words=2))
 
         meeting = create_meeting(db_session, meeting_data, creator.id)
 
-        assert meeting.title == "Minimal Meeting"
+        assert meeting.title == meeting_data.title
         assert meeting.description is None
         assert meeting.url is None
 

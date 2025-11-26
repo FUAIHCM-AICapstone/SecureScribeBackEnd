@@ -2,12 +2,11 @@
 
 import uuid
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models.project import Project, UserProject
 from app.db import SessionLocal
+from app.models.project import Project, UserProject
 from tests.factories import ProjectFactory, UserFactory, UserProjectFactory
 
 
@@ -170,11 +169,7 @@ class TestCreateProjectEndpoint:
         # Verify creator is added as owner
         fresh_session = SessionLocal()
         try:
-            user_project = (
-                fresh_session.query(UserProject)
-                .filter(UserProject.project_id == project_id)
-                .first()
-            )
+            user_project = fresh_session.query(UserProject).filter(UserProject.project_id == project_id).first()
             assert user_project is not None
             assert user_project.role == "owner"
         finally:
@@ -785,11 +780,7 @@ class TestBulkAddMembersEndpoint:
         # Verify in database
         fresh_session = SessionLocal()
         try:
-            user_projects = (
-                fresh_session.query(UserProject)
-                .filter(UserProject.project_id == project.id)
-                .all()
-            )
+            user_projects = fresh_session.query(UserProject).filter(UserProject.project_id == project.id).all()
             user_ids = [up.user_id for up in user_projects]
             assert user1.id in user_ids
             assert user2.id in user_ids
@@ -903,11 +894,7 @@ class TestBulkRemoveMembersEndpoint:
         assert data["total_success"] == 2
 
         # Verify removed from database
-        user_projects = (
-            db_session.query(UserProject)
-            .filter(UserProject.project_id == project.id)
-            .all()
-        )
+        user_projects = db_session.query(UserProject).filter(UserProject.project_id == project.id).all()
         user_ids_in_project = [up.user_id for up in user_projects]
         assert user1.id not in user_ids_in_project
         assert user2.id not in user_ids_in_project

@@ -1,10 +1,10 @@
 """Unit tests for transcript service functions"""
 
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+from faker import Faker
 from sqlalchemy.orm import Session
 
 from app.models.meeting import Transcript
@@ -26,6 +26,8 @@ from tests.factories import (
     UserFactory,
     UserProjectFactory,
 )
+
+fake = Faker()
 
 
 class TestCreateTranscript:
@@ -92,9 +94,7 @@ class TestCreateTranscript:
         """Test that creating transcript for same meeting updates existing"""
         creator = UserFactory.create(db_session)
         meeting = MeetingFactory.create(db_session, creator)
-        existing_transcript = TranscriptFactory.create(
-            db_session, meeting, content="Original content"
-        )
+        existing_transcript = TranscriptFactory.create(db_session, meeting, content="Original content")
         original_id = existing_transcript.id
 
         new_data = TranscriptCreate(
@@ -303,9 +303,7 @@ class TestGetTranscripts:
         TranscriptFactory.create(db_session, meeting1, content="Python programming")
         TranscriptFactory.create(db_session, meeting2, content="JavaScript tutorial")
 
-        transcripts, total = get_transcripts(
-            db_session, creator.id, content_search="Python"
-        )
+        transcripts, total = get_transcripts(db_session, creator.id, content_search="Python")
 
         assert len(transcripts) >= 1
         assert any("Python" in t.content for t in transcripts if t.content)
@@ -318,9 +316,7 @@ class TestGetTranscripts:
         transcript1 = TranscriptFactory.create(db_session, meeting1)
         TranscriptFactory.create(db_session, meeting2)
 
-        transcripts, total = get_transcripts(
-            db_session, creator.id, meeting_id=meeting1.id
-        )
+        transcripts, total = get_transcripts(db_session, creator.id, meeting_id=meeting1.id)
 
         assert len(transcripts) >= 1
         assert all(t.meeting_id == meeting1.id for t in transcripts)
@@ -390,9 +386,7 @@ class TestUpdateTranscript:
         """Test updating only some fields"""
         creator = UserFactory.create(db_session)
         meeting = MeetingFactory.create(db_session, creator)
-        transcript = TranscriptFactory.create(
-            db_session, meeting, content="Original", extracted_text_for_search="Original search"
-        )
+        transcript = TranscriptFactory.create(db_session, meeting, content="Original", extracted_text_for_search="Original search")
         updates = TranscriptUpdate(content="Updated")
 
         updated = update_transcript(db_session, transcript.id, updates, creator.id)
@@ -551,15 +545,11 @@ class TestTranscribeAudioFile:
 
     @patch("app.services.transcript.download_file_from_minio")
     @patch("app.services.transcript.transcriber")
-    def test_transcribe_audio_file_success(
-        self, mock_transcriber, mock_download, db_session: Session
-    ):
+    def test_transcribe_audio_file_success(self, mock_transcriber, mock_download, db_session: Session):
         """Test transcribing audio file successfully"""
         creator = UserFactory.create(db_session)
         meeting = MeetingFactory.create(db_session, creator)
-        audio_file = AudioFileFactory.create(
-            db_session, meeting, creator, file_url="https://minio.example.com/audio.webm"
-        )
+        audio_file = AudioFileFactory.create(db_session, meeting, creator, file_url="https://minio.example.com/audio.webm")
 
         # Mock the transcriber and download
         mock_download.return_value = b"fake audio data"
@@ -590,6 +580,7 @@ class TestTranscribeAudioFile:
         meeting = MeetingFactory.create(db_session, creator)
         # Create audio file with None file_url
         from app.models.meeting import AudioFile
+
         audio_file = AudioFile(
             meeting_id=meeting.id,
             uploaded_by=creator.id,
@@ -608,15 +599,11 @@ class TestTranscribeAudioFile:
 
     @patch("app.services.transcript.download_file_from_minio")
     @patch("app.services.transcript.transcriber")
-    def test_transcribe_audio_file_download_failed(
-        self, mock_transcriber, mock_download, db_session: Session
-    ):
+    def test_transcribe_audio_file_download_failed(self, mock_transcriber, mock_download, db_session: Session):
         """Test transcribing when download fails"""
         creator = UserFactory.create(db_session)
         meeting = MeetingFactory.create(db_session, creator)
-        audio_file = AudioFileFactory.create(
-            db_session, meeting, creator, file_url="https://minio.example.com/audio.webm"
-        )
+        audio_file = AudioFileFactory.create(db_session, meeting, creator, file_url="https://minio.example.com/audio.webm")
         mock_download.return_value = None
 
         from app.services.transcript import transcribe_audio_file
