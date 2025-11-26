@@ -28,7 +28,7 @@ class TestCreateMeetingEndpoint:
         meeting_title = fake.sentence(nb_words=3)
         meeting_description = fake.text(max_nb_chars=100)
         meeting_url = fake.url()
-        
+
         meeting_data = {
             "title": meeting_title,
             "description": meeting_description,

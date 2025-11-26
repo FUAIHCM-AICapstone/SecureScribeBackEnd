@@ -51,46 +51,6 @@ CHÚ Ý: KHÔNG TẠO THÔNG TIN MỚI, CHỈ TÓM TẮT CÁC NỘI DUNG ĐÃ Đ
 
 
 # Task extraction prompt template
-TASK_EXTRACTION_PROMPT_TEMPLATE = """Bạn là một trợ lý thông minh chuyên trích xuất thông tin quan trọng từ cuộc họp. Nhiệm vụ của bạn là phân tích cẩn thận đoạn văn bản từ cuộc họp và CHỈ trích xuất các NHIỆM VỤ được giao cho từng người tham gia.
-
-QUAN TRỌNG - HƯỚNG DẪN PHÂN TÍCH:
-1. Hãy lọc bỏ những câu không có ý nghĩa, những cụm từ rời rạc, hoặc lỗi nhận dạng giọng nói.
-2. Bỏ qua những câu nói ngẫu nhiên, những từ ngữ không rõ nghĩa hoặc những tiếng cảm thán (như "ừ", "ờ", "ok", "đúng rồi").
-3. Chỉ tập trung vào nội dung có thể hiểu được và mang ý nghĩa đóng góp cho cuộc họp.
-4. Cố gắng suy luận và hiểu ngữ cảnh cuộc họp ngay cả khi transcript không hoàn hảo.
-5. Hãy CỐ GẮNG nhận diện tất cả nhiệm vụ được giao cho từng người ngay cả khi không được nêu rõ ràng trong transcript.
-
-NGUYÊN TẮC CHUNG:
-1. Hãy linh hoạt trong việc trích xuất thông tin - không nhất thiết phải có định dạng rõ ràng.
-2. Suy luận những nhiệm vụ ngầm từ cuộc trò chuyện.
-3. Xác định các nhiệm vụ từ những câu như "X sẽ làm...", "X cần...", "X phụ trách...", "giao cho X...".
-4. CỐ GẮNG điền vào các trường thông tin khi có thể suy luận được, nhưng đừng tạo ra thông tin không tồn tại.
-
-HƯỚNG DẪN TRÍCH XUẤT NHIỆM VỤ CHI TIẾT:
-
-TASKS (Nhiệm vụ cụ thể giao cho từng người):
-- Trích xuất tất cả các nhiệm vụ được giao cho các thành viên trong cuộc họp
-- Ghi nhận chi tiết về nhiệm vụ, người được giao, thời hạn, và độ ưu tiên nếu được đề cập
-- Ví dụ về nhiệm vụ: "Người A sẽ chuẩn bị báo cáo phân tích và gửi cho nhóm trước cuối tuần"
-- Cho mỗi nhiệm vụ, xác định:
-  * description: Mô tả chi tiết của nhiệm vụ cần thực hiện
-  * assignee: Người được giao nhiệm vụ (tên hoặc chức vụ nếu được đề cập)
-  * deadline: Thời hạn hoàn thành nhiệm vụ bắt buộc phải có
-  * priority: Mức độ ưu tiên của nhiệm vụ (cao, trung bình, thấp) nếu được đề cập
-  * status: Trạng thái hiện tại của nhiệm vụ (chưa bắt đầu, đang thực hiện, đã hoàn thành)
-  * related_topic: Các chủ đề liên quan đến nhiệm vụ (dạng danh sách chuỗi)
-  * notes: Ghi chú bổ sung về nhiệm vụ (nếu có)
-
-QUAN TRỌNG: ĐỪNG trích xuất các quyết định hoặc câu hỏi, CHỈ TẬP TRUNG vào NHIỆM VỤ.
-
-HÃY TRÍCH XUẤT MỘT CÁCH CHI TIẾT VÀ ĐẦY ĐỦ NHẤT CÓ THỂ:
-- Tìm kiếm tất cả các nhiệm vụ được giao cho từng người, với thông tin chi tiết về mô tả nhiệm vụ, thời hạn, độ ưu tiên, v.v.
-- Cung cấp càng nhiều chi tiết càng tốt cho mỗi nhiệm vụ được trích xuất.
-- ĐẢM BẢO mọi trường thông tin đều có giá trị, không để null hoặc trống.
-"""
-
-
-# Task extraction prompt template
 TASK_EXTRACTION_PROMPT_TEMPLATE = """Bạn là một trợ lý thông minh chuyên trích xuất thông tin quan trọng từ cuộc họp. Nhiệm vụ của bạn là phân tích cẩn thận đoạn văn bản từ cuộc họp và trích xuất các NHIỆM VỤ được giao cho từng người tham gia.
 
 QUAN TRỌNG - HƯỚNG DẪN PHÂN TÍCH:
