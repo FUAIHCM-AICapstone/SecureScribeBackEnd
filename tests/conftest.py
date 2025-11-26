@@ -49,6 +49,7 @@ def setup_database():
 
 def _cleanup_test_data(session: Session):
     """Clean up all test data from database"""
+    from app.models.chat import ChatMessage, Conversation
     from app.models.file import File
     from app.models.integration import Integration
     from app.models.meeting import AudioFile, Meeting, MeetingBot, MeetingBotLog, MeetingNote, ProjectMeeting, Transcript
@@ -59,6 +60,8 @@ def _cleanup_test_data(session: Session):
 
     try:
         # Delete in reverse dependency order
+        session.query(ChatMessage).delete()
+        session.query(Conversation).delete()
         session.query(MeetingBotLog).delete()
         session.query(MeetingBot).delete()
         session.query(MeetingNote).delete()

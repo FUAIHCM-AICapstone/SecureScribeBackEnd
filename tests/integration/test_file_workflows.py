@@ -25,7 +25,7 @@ class TestFileUploadAndStorage:
         file = FileFactory.create(
             db_session,
             uploaded_by=uploader,
-            filename=fake.file_name(extension="pdf"),
+            filename="test_document.pdf",
             mime_type="application/pdf",
             file_type="document",
         )
@@ -104,7 +104,7 @@ class TestFileUploadAndStorage:
         file = FileFactory.create(
             db_session,
             uploaded_by=uploader,
-            filename=fake.file_name(extension="pdf"),
+            filename="metadata_test.pdf",
             mime_type="application/pdf",
             file_type="document",
             size_bytes=2048,

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 from uuid import UUID
 
+import logging
 from sqlalchemy import case, desc, func, or_
 from sqlmodel import Session, col, select
 
@@ -24,6 +25,8 @@ from app.schemas.statistics import (
     TaskStats,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class StatisticsService:
     def __init__(self, db: Session, user_id: UUID):
@@ -45,13 +48,13 @@ class StatisticsService:
         if not start_date:
             # If 'all' time, just return what we have, or maybe limit to last 30 days for chart readability?
             # For 'all', let's just return the data we found sorted.
-            return [ChartDataPoint(date=d.day, count=c, value=v) for d, c, v in data]
+            return [ChartDataPoint(date=d.date() if hasattr(d, "date") else d, count=c, value=v) for d, c, v in data]
 
-        # Create a map of existing data
-        data_map = {d.day: (c, v) for d, c, v in data}
+        # Create a map of existing data - convert datetime to date for keys
+        data_map = {(d.date() if hasattr(d, "date") else d): (c, v) for d, c, v in data}
 
         result = []
-        current_date = start_date.date()
+        current_date = start_date.date() if hasattr(start_date, "date") else start_date
         end_date = datetime.now(timezone.utc).date()
 
         while current_date <= end_date:
@@ -77,7 +80,7 @@ class StatisticsService:
             query = query.where(UserProject.user_id == self.user_id)
         else:
             # Personal or Hybrid (default for tasks is personal)
-            query = query.where(Task.assignee_id == self.user_id)
+            query = query.where(or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id))
 
         if start_date:
             query = query.where(Task.created_at >= start_date)
@@ -93,7 +96,7 @@ class StatisticsService:
             status_query = status_query.join(TaskProject).join(UserProject, TaskProject.project_id == UserProject.project_id)
             status_query = status_query.where(UserProject.user_id == self.user_id)
         else:
-            status_query = status_query.where(Task.assignee_id == self.user_id)
+            status_query = status_query.where(or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id))
 
         if start_date:
             status_query = status_query.where(Task.created_at >= start_date)
@@ -113,7 +116,7 @@ class StatisticsService:
             overdue_query = overdue_query.join(TaskProject).join(UserProject, TaskProject.project_id == UserProject.project_id)
             overdue_query = overdue_query.where(UserProject.user_id == self.user_id)
         else:
-            overdue_query = overdue_query.where(Task.assignee_id == self.user_id)
+            overdue_query = overdue_query.where(or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id))
 
         overdue = self.db.exec(overdue_query).one() or 0
 
@@ -133,7 +136,7 @@ class StatisticsService:
             chart_query = chart_query.join(TaskProject).join(UserProject, TaskProject.project_id == UserProject.project_id)
             chart_query = chart_query.where(UserProject.user_id == self.user_id)
         else:
-            chart_query = chart_query.where(Task.assignee_id == self.user_id)
+            chart_query = chart_query.where(or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id))
 
         if start_date:
             chart_query = chart_query.where(Task.created_at >= start_date)
@@ -154,9 +157,6 @@ class StatisticsService:
         return TaskStats(total_assigned=total, todo_count=todo, in_progress_count=in_progress, done_count=done, overdue_count=overdue, completion_rate=round(rate, 1), chart_data=chart_data)
 
     def get_meeting_stats(self, start_date: Optional[datetime], scope: DashboardScope) -> MeetingStats:
-        # Hybrid/Project: Meetings in user's projects
-        # Personal: Meetings created by user
-
         base_query = select(Meeting)
 
         if scope == DashboardScope.PERSONAL:
@@ -169,14 +169,23 @@ class StatisticsService:
         if start_date:
             base_query = base_query.where(Meeting.created_at >= start_date)
 
-        # Total count
-        count_query = select(func.count(col(Meeting.id))).select_from(base_query.subquery())
-        total_count = self.db.exec(count_query).one() or 0
+        # Total count - simplified approach
+        meetings = self.db.exec(base_query).all()
+        total_count = len(meetings)
 
         # Bot usage (meetings with bot status 'ended' or 'joined')
-        bot_query = base_query.join(MeetingBot).where(or_(MeetingBot.status == "ended", MeetingBot.status == "joined"))
-        # We need to count distinct meetings because of joins
-        bot_count_query = select(func.count(func.distinct(Meeting.id))).select_from(bot_query.subquery())
+        bot_count_query = select(func.count(func.distinct(Meeting.id))).select_from(Meeting).join(MeetingBot).where(or_(MeetingBot.status == "ended", MeetingBot.status == "joined"))
+
+        if scope == DashboardScope.PERSONAL:
+            bot_count_query = bot_count_query.where(Meeting.created_by == self.user_id)
+        else:
+            # Hybrid or Project
+            bot_count_query = bot_count_query.join(ProjectMeeting).join(UserProject, ProjectMeeting.project_id == UserProject.project_id)
+            bot_count_query = bot_count_query.where(UserProject.user_id == self.user_id).distinct()
+
+        if start_date:
+            bot_count_query = bot_count_query.where(Meeting.created_at >= start_date)
+
         bot_usage = self.db.exec(bot_count_query).one() or 0
 
         # Duration calculation
@@ -231,7 +240,8 @@ class StatisticsService:
         formatted_chart_data = [(d, c, 0) for d, c, _ in chart_results]
         chart_data = self._fill_chart_data(formatted_chart_data, start_date, DashboardPeriod.ALL_TIME)
 
-        return MeetingStats(total_count=total_count, total_duration_minutes=total_minutes, average_duration_minutes=avg_minutes, bot_usage_count=bot_usage, chart_data=chart_data)
+        result = MeetingStats(total_count=total_count, total_duration_minutes=total_minutes, average_duration_minutes=avg_minutes, bot_usage_count=bot_usage, chart_data=chart_data)
+        return result
 
     def get_project_stats(self) -> ProjectStats:
         # Always project scope effectively
@@ -305,7 +315,7 @@ class StatisticsService:
 
         # 3. Priority Tasks (Overdue or High Priority, limit 5)
         # Sort by: Overdue first (due_date asc), then Priority, then Created
-        tasks_query = select(Task).where(Task.assignee_id == self.user_id, Task.status != "done").order_by(Task.due_date.asc().nulls_last(), desc(Task.priority)).limit(5)
+        tasks_query = select(Task).where(or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id), Task.status != "done").order_by(Task.due_date.asc().nulls_last(), desc(Task.priority)).limit(5)
 
         tasks = self.db.exec(tasks_query).all()
 

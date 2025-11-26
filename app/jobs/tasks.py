@@ -862,15 +862,19 @@ def publish_notification_to_redis_task(user_ids: list, notification_type: str, p
 
             return success_count
 
-        # Run async publishing within worker's event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # Run async publishing - check if event loop is already running
         try:
-            success_count = loop.run_until_complete(publish_all())
-            print(f"Published notifications to {success_count}/{len(user_ids)} users via Redis")
-            return {"status": "success", "published": success_count, "total": len(user_ids)}
-        finally:
-            loop.close()
+            # Try to get the running loop (for test environments)
+            loop = asyncio.get_running_loop()
+            # If we get here, there's already a loop running, so we need to run the coroutine differently
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, publish_all())
+                success_count = future.result()
+        except RuntimeError:
+            # No event loop running, create a new one
+            success_count = asyncio.run(publish_all())
 
     except Exception as e:
         print(f"Error in publish_notification_to_redis_task: {e}")

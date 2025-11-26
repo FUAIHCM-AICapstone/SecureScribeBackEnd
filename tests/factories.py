@@ -6,8 +6,10 @@ from typing import Optional
 from faker import Faker
 from sqlalchemy.orm import Session
 
+from app.models.chat import ChatMessage, Conversation
 from app.models.file import File
 from app.models.meeting import AudioFile, Meeting, MeetingBot, MeetingNote, ProjectMeeting, Transcript
+from app.models.notification import Notification
 from app.models.project import Project, UserProject
 from app.models.task import Task, TaskProject
 from app.models.user import User, UserDevice, UserIdentity
@@ -130,7 +132,15 @@ class ProjectFactory:
             name=name or fake.word(),
             description=description or fake.text(max_nb_chars=200),
         )
-        return create_project(db, project_data, created_by.id)
+        project = create_project(db, project_data, created_by.id)
+
+        # Set is_archived if needed
+        if is_archived:
+            project.is_archived = True
+            db.commit()
+            db.refresh(project)
+
+        return project
 
     @staticmethod
     def create_batch(db: Session, created_by: User, count: int = 5) -> list[Project]:
@@ -327,6 +337,7 @@ class TaskFactory:
         status: str = "todo",
         priority: str = "Trung bình",
         meeting: Optional[Meeting] = None,
+        due_date: Optional[datetime] = None,
     ) -> Task:
         """Create a test task"""
         task = Task(
@@ -337,7 +348,7 @@ class TaskFactory:
             status=status,
             priority=priority,
             meeting_id=meeting.id if meeting else None,
-            due_date=datetime.now(timezone.utc) + timedelta(days=7),
+            due_date=due_date,
         )
         db.add(task)
         db.commit()
@@ -457,3 +468,71 @@ class NotificationFactory:
             notification = NotificationFactory.create(db, user)
             notifications.append(notification)
         return notifications
+
+
+class ConversationFactory:
+    """Factory for creating test Conversation objects"""
+
+    @staticmethod
+    def create(
+        db: Session,
+        user: User,
+        title: Optional[str] = None,
+        agno_session_id: Optional[str] = None,
+        is_active: bool = True,
+    ) -> Conversation:
+        """Create a test conversation"""
+        conversation = Conversation(
+            user_id=user.id,
+            agno_session_id=agno_session_id or fake.uuid4(),
+            title=title or fake.sentence(),
+            is_active=is_active,
+        )
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+        return conversation
+
+    @staticmethod
+    def create_batch(db: Session, user: User, count: int = 5) -> list[Conversation]:
+        """Create multiple test conversations"""
+        conversations = []
+        for _ in range(count):
+            conversation = ConversationFactory.create(db, user)
+            conversations.append(conversation)
+        return conversations
+
+
+class ChatMessageFactory:
+    """Factory for creating test ChatMessage objects"""
+
+    @staticmethod
+    def create(
+        db: Session,
+        conversation: Conversation,
+        message_type: str = "user",
+        content: Optional[str] = None,
+        mentions: Optional[list] = None,
+        message_metadata: Optional[dict] = None,
+    ) -> ChatMessage:
+        """Create a test chat message"""
+        message = ChatMessage(
+            conversation_id=conversation.id,
+            message_type=message_type,
+            content=content or fake.text(max_nb_chars=200),
+            mentions=mentions,
+            message_metadata=message_metadata,
+        )
+        db.add(message)
+        db.commit()
+        db.refresh(message)
+        return message
+
+    @staticmethod
+    def create_batch(db: Session, conversation: Conversation, count: int = 5) -> list[ChatMessage]:
+        """Create multiple test chat messages"""
+        messages = []
+        for _ in range(count):
+            message = ChatMessageFactory.create(db, conversation)
+            messages.append(message)
+        return messages

@@ -316,7 +316,7 @@ class TestConcurrentTaskUpdates:
         from app.db import SessionLocal
 
         creator = UserFactory.create(db_session)
-        project = ProjectFactory.create(db_session, created_by=creator)
+        ProjectFactory.create(db_session, created_by=creator)
         task = TaskFactory.create(db_session, creator=creator, status="todo")
 
         statuses = ["in_progress", "in_review", "done", "in_progress", "done"]
