@@ -91,13 +91,13 @@ def db_session() -> Generator[Session, None, None]:
     session = SessionLocal()
 
     # Clean up before test
-    _cleanup_test_data(session)
+    # _cleanup_test_data(session)
 
     try:
         yield session
     finally:
         # Clean up after test
-        _cleanup_test_data(session)
+        # _cleanup_test_data(session)
         session.close()
 
 

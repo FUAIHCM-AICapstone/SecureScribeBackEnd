@@ -1,13 +1,13 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 from uuid import UUID
 
-import logging
-from sqlalchemy import case, desc, func, or_
-from sqlmodel import Session, col, select
+from sqlalchemy import and_, case, desc, func, or_
+from sqlmodel import Session, select
 
 from app.models.file import File
-from app.models.meeting import AudioFile, Meeting, MeetingBot, MeetingStatus, ProjectMeeting
+from app.models.meeting import AudioFile, Meeting, MeetingBot, MeetingStatus, ProjectMeeting, Transcript
 from app.models.project import Project, UserProject
 from app.models.task import Task, TaskProject
 from app.schemas.statistics import (
@@ -22,7 +22,9 @@ from app.schemas.statistics import (
     QuickAccessProject,
     QuickAccessTask,
     StorageStats,
+    SummaryStats,
     TaskStats,
+    TaskStatusBreakdown,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,76 +69,67 @@ class StatisticsService:
 
         return result
 
+    def _build_task_scope_filter(self, scope: DashboardScope):
+        """Build base filter conditions for task queries based on scope"""
+        if scope == DashboardScope.PROJECT:
+            # Tasks in user's projects
+            user_project_ids = select(UserProject.project_id).where(UserProject.user_id == self.user_id).scalar_subquery()
+            task_ids_in_projects = select(TaskProject.task_id).where(TaskProject.project_id.in_(user_project_ids)).scalar_subquery()
+            return Task.id.in_(task_ids_in_projects)
+        else:
+            # Personal or Hybrid: tasks assigned to or created by user
+            return or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id)
+
     def get_task_stats(self, start_date: Optional[datetime], scope: DashboardScope) -> TaskStats:
-        # Determine filter based on scope
-        # Hybrid/Personal: Tasks assigned to user
-        # Project: Tasks in user's projects (regardless of assignee)
+        """Get task statistics with optimized single-pass aggregation query"""
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_end = today_start + timedelta(days=7)
 
-        query = select(Task)
+        scope_filter = self._build_task_scope_filter(scope)
 
-        if scope == DashboardScope.PROJECT:
-            # Join with projects user is in
-            query = query.join(TaskProject).join(UserProject, TaskProject.project_id == UserProject.project_id)
-            query = query.where(UserProject.user_id == self.user_id)
-        else:
-            # Personal or Hybrid (default for tasks is personal)
-            query = query.where(or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id))
+        # Single aggregation query for all counts
+        agg_query = select(
+            func.count(Task.id).label("total"),
+            func.sum(case((Task.status == "todo", 1), else_=0)).label("todo"),
+            func.sum(case((Task.status == "in_progress", 1), else_=0)).label("in_progress"),
+            func.sum(case((Task.status == "done", 1), else_=0)).label("done"),
+            func.sum(case((and_(Task.status != "done", Task.due_date < now, Task.due_date.isnot(None)), 1), else_=0)).label("overdue"),
+            func.sum(case((and_(Task.due_date >= today_start, Task.due_date < today_start + timedelta(days=1)), 1), else_=0)).label("due_today"),
+            func.sum(case((and_(Task.due_date >= today_start, Task.due_date < week_end), 1), else_=0)).label("due_this_week"),
+        ).where(scope_filter)
 
+        result = self.db.exec(agg_query).one()
+        total = result.total or 0
+        todo = result.todo or 0
+        in_progress = result.in_progress or 0
+        done = result.done or 0
+        overdue = result.overdue or 0
+        due_today = result.due_today or 0
+        due_this_week = result.due_this_week or 0
+
+        # Period-specific counts
+        created_in_period = 0
+        completed_in_period = 0
         if start_date:
-            query = query.where(Task.created_at >= start_date)
-
-        # Execute main query to get objects for status counting
-        # For performance on large datasets, we should use aggregation queries
-        # But for now, let's use aggregation functions
-
-        # Status counts
-        status_query = select(Task.status, func.count(Task.id)).select_from(Task)
-
-        if scope == DashboardScope.PROJECT:
-            status_query = status_query.join(TaskProject).join(UserProject, TaskProject.project_id == UserProject.project_id)
-            status_query = status_query.where(UserProject.user_id == self.user_id)
-        else:
-            status_query = status_query.where(or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id))
-
-        if start_date:
-            status_query = status_query.where(Task.created_at >= start_date)
-
-        status_query = status_query.group_by(Task.status)
-        status_results = self.db.exec(status_query).all()
-
-        status_map = dict(status_results)
-        todo = status_map.get("todo", 0)
-        in_progress = status_map.get("in_progress", 0)
-        done = status_map.get("done", 0)
-        total = todo + in_progress + done
-
-        # Overdue count (only active tasks)
-        overdue_query = select(func.count(Task.id)).where(Task.status != "done", Task.due_date < datetime.now(timezone.utc))
-        if scope == DashboardScope.PROJECT:
-            overdue_query = overdue_query.join(TaskProject).join(UserProject, TaskProject.project_id == UserProject.project_id)
-            overdue_query = overdue_query.where(UserProject.user_id == self.user_id)
-        else:
-            overdue_query = overdue_query.where(or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id))
-
-        overdue = self.db.exec(overdue_query).one() or 0
+            period_query = select(
+                func.count(Task.id).label("created"),
+                func.sum(case((Task.status == "done", 1), else_=0)).label("completed"),
+            ).where(scope_filter, Task.created_at >= start_date)
+            period_result = self.db.exec(period_query).one()
+            created_in_period = period_result.created or 0
+            completed_in_period = period_result.completed or 0
 
         # Completion rate
         rate = (done / total * 100) if total > 0 else 0.0
 
-        # Chart data: Tasks created per day
-        # We could also do tasks completed per day, but let's stick to created for activity
+        # Chart data: Tasks created per day with completed count as value
         date_col = func.date_trunc("day", Task.created_at).label("day")
         chart_query = select(
             date_col,
-            func.count(Task.id),
-            func.sum(case((Task.status == "done", 1), else_=0)),  # Value can be completed count
-        )
-
-        if scope == DashboardScope.PROJECT:
-            chart_query = chart_query.join(TaskProject).join(UserProject, TaskProject.project_id == UserProject.project_id)
-            chart_query = chart_query.where(UserProject.user_id == self.user_id)
-        else:
-            chart_query = chart_query.where(or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id))
+            func.count(Task.id).label("count"),
+            func.sum(case((Task.status == "done", 1), else_=0)).label("completed"),
+        ).where(scope_filter)
 
         if start_date:
             chart_query = chart_query.where(Task.created_at >= start_date)
@@ -144,92 +137,89 @@ class StatisticsService:
         chart_query = chart_query.group_by(date_col).order_by(date_col)
         chart_results = self.db.exec(chart_query).all()
 
-        # Format chart data
-        # result tuple: (datetime, count_created, count_done)
-        formatted_chart_data = []
-        for day, created, completed in chart_results:
-            formatted_chart_data.append((day, created, completed))
+        formatted_chart_data = [(day, count, completed or 0) for day, count, completed in chart_results]
+        chart_data = self._fill_chart_data(formatted_chart_data, start_date, DashboardPeriod.ALL_TIME if not start_date else DashboardPeriod.SEVEN_DAYS)
 
-        # Fill gaps if we have a start date
-        # Note: _fill_chart_data expects (date, count, value)
-        chart_data = self._fill_chart_data(formatted_chart_data, start_date, DashboardPeriod.ALL_TIME if not start_date else DashboardPeriod.SEVEN_DAYS)  # Period enum is just for logic
+        return TaskStats(
+            total=total,
+            status_breakdown=TaskStatusBreakdown(todo=todo, in_progress=in_progress, done=done),
+            overdue_count=overdue,
+            completion_rate=round(rate, 1),
+            due_today=due_today,
+            due_this_week=due_this_week,
+            created_this_period=created_in_period,
+            completed_this_period=completed_in_period,
+            chart_data=chart_data,
+        )
 
-        return TaskStats(total_assigned=total, todo_count=todo, in_progress_count=in_progress, done_count=done, overdue_count=overdue, completion_rate=round(rate, 1), chart_data=chart_data)
+    def _build_meeting_scope_filter(self, scope: DashboardScope):
+        """Build base filter for meeting queries based on scope"""
+        if scope == DashboardScope.PERSONAL:
+            return Meeting.created_by == self.user_id
+        else:
+            # Hybrid or Project: meetings in user's projects
+            user_project_ids = select(UserProject.project_id).where(UserProject.user_id == self.user_id).scalar_subquery()
+            meeting_ids_in_projects = select(ProjectMeeting.meeting_id).where(ProjectMeeting.project_id.in_(user_project_ids)).scalar_subquery()
+            return Meeting.id.in_(meeting_ids_in_projects)
 
     def get_meeting_stats(self, start_date: Optional[datetime], scope: DashboardScope) -> MeetingStats:
-        base_query = select(Meeting)
+        """Get meeting statistics with optimized queries"""
+        now = datetime.now(timezone.utc)
+        scope_filter = self._build_meeting_scope_filter(scope)
 
-        if scope == DashboardScope.PERSONAL:
-            base_query = base_query.where(Meeting.created_by == self.user_id)
-        else:
-            # Hybrid or Project
-            base_query = base_query.join(ProjectMeeting).join(UserProject, ProjectMeeting.project_id == UserProject.project_id)
-            base_query = base_query.where(UserProject.user_id == self.user_id).distinct()
-
+        # Build meeting IDs subquery for reuse
+        meeting_ids_subq = select(Meeting.id).where(scope_filter, Meeting.is_deleted == False)
         if start_date:
-            base_query = base_query.where(Meeting.created_at >= start_date)
+            meeting_ids_subq = meeting_ids_subq.where(Meeting.created_at >= start_date)
+        meeting_ids_scalar = meeting_ids_subq.scalar_subquery()
 
-        # Total count - simplified approach
-        meetings = self.db.exec(base_query).all()
-        total_count = len(meetings)
-
-        # Bot usage (meetings with bot status 'ended' or 'joined')
-        bot_count_query = select(func.count(func.distinct(Meeting.id))).select_from(Meeting).join(MeetingBot).where(or_(MeetingBot.status == "ended", MeetingBot.status == "joined"))
-
-        if scope == DashboardScope.PERSONAL:
-            bot_count_query = bot_count_query.where(Meeting.created_by == self.user_id)
-        else:
-            # Hybrid or Project
-            bot_count_query = bot_count_query.join(ProjectMeeting).join(UserProject, ProjectMeeting.project_id == UserProject.project_id)
-            bot_count_query = bot_count_query.where(UserProject.user_id == self.user_id).distinct()
-
+        # Single aggregation query for meeting counts
+        count_query = select(
+            func.count(func.distinct(Meeting.id)).label("total"),
+        ).where(scope_filter, Meeting.is_deleted == False)
         if start_date:
-            bot_count_query = bot_count_query.where(Meeting.created_at >= start_date)
+            count_query = count_query.where(Meeting.created_at >= start_date)
+        total_count = self.db.exec(count_query).one() or 0
 
-        bot_usage = self.db.exec(bot_count_query).one() or 0
+        # Bot usage count - meetings with successful bot sessions
+        bot_statuses = ["joined", "recording", "complete", "ended"]
+        bot_query = select(func.count(func.distinct(MeetingBot.meeting_id))).where(
+            MeetingBot.meeting_id.in_(meeting_ids_scalar),
+            MeetingBot.status.in_(bot_statuses),
+        )
+        bot_usage = self.db.exec(bot_query).one() or 0
 
-        # Duration calculation
-        # Sum duration from AudioFiles linked to these meetings
-        # We need to be careful with the join structure for aggregation
+        # Meetings with transcripts
+        transcript_query = select(func.count(func.distinct(Transcript.meeting_id))).where(
+            Transcript.meeting_id.in_(meeting_ids_scalar)
+        )
+        meetings_with_transcript = self.db.exec(transcript_query).one() or 0
 
-        # Let's get the meeting IDs first to simplify duration query if dataset is not huge
-        # Or use a subquery
-
-        meeting_ids_query = select(Meeting.id)
-        if scope == DashboardScope.PERSONAL:
-            meeting_ids_query = meeting_ids_query.where(Meeting.created_by == self.user_id)
-        else:
-            meeting_ids_query = meeting_ids_query.join(ProjectMeeting).join(UserProject, ProjectMeeting.project_id == UserProject.project_id)
-            meeting_ids_query = meeting_ids_query.where(UserProject.user_id == self.user_id)
-
-        if start_date:
-            meeting_ids_query = meeting_ids_query.where(Meeting.created_at >= start_date)
+        # Upcoming meetings count
+        upcoming_query = select(func.count(Meeting.id)).where(
+            scope_filter,
+            Meeting.is_deleted == False,
+            Meeting.start_time > now,
+            Meeting.status != MeetingStatus.cancelled,
+        )
+        upcoming_count = self.db.exec(upcoming_query).one() or 0
 
         # Duration from AudioFiles
-        duration_query = select(func.sum(AudioFile.duration_seconds)).where(AudioFile.meeting_id.in_(meeting_ids_query))
+        duration_query = select(func.sum(AudioFile.duration_seconds)).where(
+            AudioFile.meeting_id.in_(meeting_ids_scalar),
+            AudioFile.is_deleted == False,
+        )
         total_seconds = self.db.exec(duration_query).one() or 0
         total_minutes = int(total_seconds / 60)
         avg_minutes = round(total_minutes / total_count, 1) if total_count > 0 else 0.0
+        bot_usage_rate = round((bot_usage / total_count) * 100, 1) if total_count > 0 else 0.0
 
-        # Chart data: Meetings per day + Duration per day
+        # Chart data: Meetings per day
         date_col = func.date_trunc("day", Meeting.created_at).label("day")
-
-        # We need to join AudioFile to get duration per day, but grouping by meeting creation date
-        # This is complex in one query. Let's just count meetings per day for now,
-        # and maybe approximate duration or fetch separately.
-        # Let's do: Count meetings per day.
-
         chart_query = select(
             date_col,
-            func.count(func.distinct(Meeting.id)),
-            func.sum(0),  # Placeholder for duration in this query
-        )
-
-        if scope == DashboardScope.PERSONAL:
-            chart_query = chart_query.where(Meeting.created_by == self.user_id)
-        else:
-            chart_query = chart_query.join(ProjectMeeting).join(UserProject, ProjectMeeting.project_id == UserProject.project_id)
-            chart_query = chart_query.where(UserProject.user_id == self.user_id)
+            func.count(func.distinct(Meeting.id)).label("count"),
+        ).where(scope_filter, Meeting.is_deleted == False)
 
         if start_date:
             chart_query = chart_query.where(Meeting.created_at >= start_date)
@@ -237,115 +227,248 @@ class StatisticsService:
         chart_query = chart_query.group_by(date_col).order_by(date_col)
         chart_results = self.db.exec(chart_query).all()
 
-        formatted_chart_data = [(d, c, 0) for d, c, _ in chart_results]
+        formatted_chart_data = [(d, c, 0) for d, c in chart_results]
         chart_data = self._fill_chart_data(formatted_chart_data, start_date, DashboardPeriod.ALL_TIME)
 
-        result = MeetingStats(total_count=total_count, total_duration_minutes=total_minutes, average_duration_minutes=avg_minutes, bot_usage_count=bot_usage, chart_data=chart_data)
-        return result
+        return MeetingStats(
+            total_count=total_count,
+            total_duration_minutes=total_minutes,
+            average_duration_minutes=avg_minutes,
+            bot_usage_count=bot_usage,
+            bot_usage_rate=bot_usage_rate,
+            meetings_with_transcript=meetings_with_transcript,
+            upcoming_count=upcoming_count,
+            chart_data=chart_data,
+        )
 
     def get_project_stats(self) -> ProjectStats:
-        # Always project scope effectively
-        query = select(Project, UserProject.role).join(UserProject).where(UserProject.user_id == self.user_id)
-        results = self.db.exec(query).all()
+        """Get project statistics with single aggregation query"""
+        query = select(
+            func.count(Project.id).label("total"),
+            func.sum(case((Project.is_archived == False, 1), else_=0)).label("active"),
+            func.sum(case((Project.is_archived == True, 1), else_=0)).label("archived"),
+            func.sum(case((UserProject.role.in_(["admin", "owner"]), 1), else_=0)).label("owned"),
+            func.sum(case((UserProject.role == "member", 1), else_=0)).label("member"),
+        ).select_from(Project).join(UserProject).where(UserProject.user_id == self.user_id)
 
-        total_active = 0
-        total_archived = 0
-        role_admin = 0
-        role_member = 0
+        result = self.db.exec(query).one()
 
-        for project, role in results:
-            if project.is_archived:
-                total_archived += 1
-            else:
-                total_active += 1
-
-            if role == "admin" or role == "owner":  # Assuming 'owner' is also admin-like
-                role_admin += 1
-            else:
-                role_member += 1
-
-        return ProjectStats(total_active=total_active, total_archived=total_archived, role_admin_count=role_admin, role_member_count=role_member)
+        return ProjectStats(
+            total_count=result.total or 0,
+            active_count=result.active or 0,
+            archived_count=result.archived or 0,
+            owned_count=result.owned or 0,
+            member_count=result.member or 0,
+        )
 
     def get_storage_stats(self) -> StorageStats:
-        # Personal uploads
-        query = select(func.count(File.id), func.sum(File.size_bytes)).where(File.uploaded_by == self.user_id)
-        count, size_bytes = self.db.exec(query).one()
+        """Get storage statistics with file type breakdown"""
+        # Main aggregation
+        query = select(
+            func.count(File.id).label("count"),
+            func.coalesce(func.sum(File.size_bytes), 0).label("size_bytes"),
+        ).where(File.uploaded_by == self.user_id)
+        result = self.db.exec(query).one()
 
-        count = count or 0
-        size_bytes = size_bytes or 0
-        size_mb = round(size_bytes / (1024 * 1024), 2)
+        count = result.count or 0
+        size_bytes = result.size_bytes or 0
+        size_mb = round(size_bytes / (1024 * 1024), 2) if size_bytes else 0.0
 
-        return StorageStats(total_files=count, total_size_bytes=size_bytes, total_size_mb=size_mb)
+        # File type breakdown (top MIME types)
+        type_query = select(
+            File.mime_type,
+            func.count(File.id).label("count"),
+        ).where(
+            File.uploaded_by == self.user_id,
+            File.mime_type.isnot(None),
+        ).group_by(File.mime_type).order_by(desc(func.count(File.id))).limit(10)
+
+        type_results = self.db.exec(type_query).all()
+        files_by_type = {mime: cnt for mime, cnt in type_results if mime}
+
+        return StorageStats(
+            total_files=count,
+            total_size_bytes=size_bytes,
+            total_size_mb=size_mb,
+            files_by_type=files_by_type,
+        )
 
     def get_quick_access(self) -> QuickAccessData:
-        # 1. Upcoming Meetings (Next 5)
-        upcoming_query = select(Meeting).join(ProjectMeeting).join(UserProject, ProjectMeeting.project_id == UserProject.project_id)
-        upcoming_query = upcoming_query.where(UserProject.user_id == self.user_id, Meeting.start_time > datetime.now(timezone.utc), Meeting.status != MeetingStatus.cancelled).distinct().order_by(Meeting.start_time).limit(5)
+        """Get quick access data with optimized queries"""
+        now = datetime.now(timezone.utc)
 
+        # Get user's project IDs once
+        user_project_ids = select(UserProject.project_id).where(UserProject.user_id == self.user_id).scalar_subquery()
+        meeting_ids_in_projects = select(ProjectMeeting.meeting_id).where(ProjectMeeting.project_id.in_(user_project_ids)).scalar_subquery()
+
+        # 1. Upcoming Meetings (Next 5)
+        upcoming_query = select(Meeting).where(
+            Meeting.id.in_(meeting_ids_in_projects),
+            Meeting.start_time > now,
+            Meeting.status != MeetingStatus.cancelled,
+            Meeting.is_deleted == False,
+        ).order_by(Meeting.start_time).limit(5)
         upcoming_meetings = self.db.exec(upcoming_query).all()
 
-        # 2. Recent Meetings (Last 5 completed)
-        recent_query = select(Meeting).join(ProjectMeeting).join(UserProject, ProjectMeeting.project_id == UserProject.project_id)
-        recent_query = recent_query.where(UserProject.user_id == self.user_id, Meeting.start_time < datetime.now(timezone.utc)).distinct().order_by(desc(Meeting.start_time)).limit(5)
-
+        # 2. Recent Meetings (Last 5)
+        recent_query = select(Meeting).where(
+            Meeting.id.in_(meeting_ids_in_projects),
+            Meeting.start_time < now,
+            Meeting.is_deleted == False,
+        ).order_by(desc(Meeting.start_time)).limit(5)
         recent_meetings = self.db.exec(recent_query).all()
 
-        # Helper to format meetings
         def format_meetings(meetings: List[Meeting]) -> List[QuickAccessMeeting]:
             result = []
             for m in meetings:
-                # Get project name (first one)
-                project_name = None
-                if m.projects:
-                    project_name = m.projects[0].project.name
-
-                result.append(
-                    QuickAccessMeeting(
-                        id=m.id,
-                        title=m.title,
-                        start_time=m.start_time,
-                        end_time=None,  # Not in Meeting model directly, would need Bot or Audio calc
-                        url=m.url,
-                        project_name=project_name,
-                        status=m.status,
-                        has_transcript=bool(m.transcript),
-                    )
-                )
+                project_names = [pm.project.name for pm in m.projects if pm.project] if m.projects else []
+                has_recording = bool(m.bot and m.bot.status in ["complete", "ended", "recording"])
+                result.append(QuickAccessMeeting(
+                    id=m.id,
+                    title=m.title,
+                    start_time=m.start_time,
+                    url=m.url,
+                    project_names=project_names,
+                    status=m.status,
+                    has_transcript=bool(m.transcript),
+                    has_recording=has_recording,
+                ))
             return result
 
-        # 3. Priority Tasks (Overdue or High Priority, limit 5)
-        # Sort by: Overdue first (due_date asc), then Priority, then Created
-        tasks_query = select(Task).where(or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id), Task.status != "done").order_by(Task.due_date.asc().nulls_last(), desc(Task.priority)).limit(5)
-
+        # 3. Priority Tasks (Overdue first, then by due date)
+        tasks_query = select(Task).where(
+            or_(Task.assignee_id == self.user_id, Task.creator_id == self.user_id),
+            Task.status != "done",
+        ).order_by(
+            # Overdue tasks first
+            case((and_(Task.due_date < now, Task.due_date.isnot(None)), 0), else_=1),
+            Task.due_date.asc().nulls_last(),
+        ).limit(5)
         tasks = self.db.exec(tasks_query).all()
 
         formatted_tasks = []
         for t in tasks:
-            # Get project name
-            project_name = None
-            # Need to fetch projects for task
-            # This might trigger lazy load or we can join.
-            # Since we are in a session, lazy load is fine for small limit.
-            if t.projects:
-                project_name = t.projects[0].project.name
+            project_names = [tp.project.name for tp in t.projects if tp.project] if t.projects else []
+            is_overdue = bool(t.due_date and t.due_date < now and t.status != "done")
+            formatted_tasks.append(QuickAccessTask(
+                id=t.id,
+                title=t.title,
+                due_date=t.due_date,
+                priority=t.priority or "medium",
+                status=t.status,
+                project_names=project_names,
+                is_overdue=is_overdue,
+            ))
 
-            formatted_tasks.append(QuickAccessTask(id=t.id, title=t.title, due_date=t.due_date, priority=t.priority, status=t.status, project_name=project_name))
+        # 4. Active Projects with counts (using subqueries for efficiency)
+        # Get member counts per project
+        member_count_subq = select(
+            UserProject.project_id,
+            func.count(UserProject.user_id).label("member_count"),
+        ).group_by(UserProject.project_id).subquery()
 
-        # 4. Active Projects (Top 5 by join date desc)
-        projects_query = select(Project, UserProject).join(UserProject).where(UserProject.user_id == self.user_id, Project.is_archived == False).order_by(desc(UserProject.joined_at)).limit(5)
+        # Get task counts per project
+        task_count_subq = select(
+            TaskProject.project_id,
+            func.count(TaskProject.task_id).label("task_count"),
+        ).join(Task).where(Task.status != "done").group_by(TaskProject.project_id).subquery()
 
-        projects = self.db.exec(projects_query).all()
+        # Get meeting counts per project
+        meeting_count_subq = select(
+            ProjectMeeting.project_id,
+            func.count(ProjectMeeting.meeting_id).label("meeting_count"),
+        ).group_by(ProjectMeeting.project_id).subquery()
+
+        projects_query = select(
+            Project,
+            UserProject.role,
+            UserProject.joined_at,
+            func.coalesce(member_count_subq.c.member_count, 0).label("member_count"),
+            func.coalesce(task_count_subq.c.task_count, 0).label("task_count"),
+            func.coalesce(meeting_count_subq.c.meeting_count, 0).label("meeting_count"),
+        ).join(UserProject).outerjoin(
+            member_count_subq, Project.id == member_count_subq.c.project_id
+        ).outerjoin(
+            task_count_subq, Project.id == task_count_subq.c.project_id
+        ).outerjoin(
+            meeting_count_subq, Project.id == meeting_count_subq.c.project_id
+        ).where(
+            UserProject.user_id == self.user_id,
+            Project.is_archived == False,
+        ).order_by(desc(UserProject.joined_at)).limit(5)
+
+        projects_results = self.db.exec(projects_query).all()
 
         formatted_projects = []
-        for p, up in projects:
-            # Count members - separate query or subquery
-            member_count = self.db.exec(select(func.count(UserProject.user_id)).where(UserProject.project_id == p.id)).one()
+        for p, role, joined_at, member_count, task_count, meeting_count in projects_results:
+            formatted_projects.append(QuickAccessProject(
+                id=p.id,
+                name=p.name,
+                description=p.description,
+                role=role,
+                member_count=member_count,
+                task_count=task_count,
+                meeting_count=meeting_count,
+                joined_at=joined_at,
+            ))
 
-            formatted_projects.append(QuickAccessProject(id=p.id, name=p.name, role=up.role, member_count=member_count, joined_at=up.joined_at))
+        return QuickAccessData(
+            upcoming_meetings=format_meetings(upcoming_meetings),
+            recent_meetings=format_meetings(recent_meetings),
+            priority_tasks=formatted_tasks,
+            active_projects=formatted_projects,
+        )
 
-        return QuickAccessData(upcoming_meetings=format_meetings(upcoming_meetings), recent_meetings=format_meetings(recent_meetings), priority_tasks=formatted_tasks, active_projects=formatted_projects)
+    def get_summary_stats(self, scope: DashboardScope) -> SummaryStats:
+        """Get high-level summary statistics"""
+        now = datetime.now(timezone.utc)
+        tomorrow = now + timedelta(hours=24)
+
+        # Task counts
+        task_scope_filter = self._build_task_scope_filter(scope)
+        task_query = select(
+            func.count(Task.id).label("total"),
+            func.sum(case((and_(Task.status != "done", or_(
+                and_(Task.due_date < now, Task.due_date.isnot(None)),  # overdue
+                and_(Task.due_date >= now, Task.due_date < tomorrow),  # due soon
+            )), 1), else_=0)).label("pending"),
+        ).where(task_scope_filter)
+        task_result = self.db.exec(task_query).one()
+
+        # Meeting counts
+        meeting_scope_filter = self._build_meeting_scope_filter(scope)
+        meeting_query = select(
+            func.count(Meeting.id).label("total"),
+            func.sum(case((and_(Meeting.start_time > now, Meeting.start_time < tomorrow), 1), else_=0)).label("upcoming_24h"),
+        ).where(meeting_scope_filter, Meeting.is_deleted == False)
+        meeting_result = self.db.exec(meeting_query).one()
+
+        # Project count
+        project_query = select(func.count(Project.id)).join(UserProject).where(
+            UserProject.user_id == self.user_id,
+            Project.is_archived == False,
+        )
+        project_count = self.db.exec(project_query).one() or 0
+
+        return SummaryStats(
+            total_tasks=task_result.total or 0,
+            total_meetings=meeting_result.total or 0,
+            total_projects=project_count,
+            pending_tasks=task_result.pending or 0,
+            upcoming_meetings_24h=meeting_result.upcoming_24h or 0,
+        )
 
     def get_dashboard_stats(self, period: DashboardPeriod, scope: DashboardScope) -> DashboardResponse:
+        """Get complete dashboard statistics"""
         start_date = self.get_date_range(period)
 
-        return DashboardResponse(period=period, scope=scope, tasks=self.get_task_stats(start_date, scope), meetings=self.get_meeting_stats(start_date, scope), projects=self.get_project_stats(), storage=self.get_storage_stats(), quick_access=self.get_quick_access(), chart_data=self.get_task_stats(start_date, scope).chart_data)
+        return DashboardResponse(
+            period=period,
+            scope=scope,
+            summary=self.get_summary_stats(scope),
+            tasks=self.get_task_stats(start_date, scope),
+            meetings=self.get_meeting_stats(start_date, scope),
+            projects=self.get_project_stats(),
+            storage=self.get_storage_stats(),
+            quick_access=self.get_quick_access(),
+        )
