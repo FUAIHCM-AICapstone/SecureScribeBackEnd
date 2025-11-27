@@ -18,14 +18,12 @@ class NotificationListener(BaseListener):
             db = event.db
             project = db.query(Project).filter(Project.id == event.project_id).first()
             if not project:
-                print(f"[NotificationListener] Project {event.project_id} not found")
                 return
 
             added_user = get_user_by_id(db, event.user_id)
             added_by_user = get_user_by_id(db, event.added_by_user_id)
 
             if not added_user or not added_by_user:
-                print(f"[NotificationListener] User not found (added_user={added_user}, added_by_user={added_by_user})")
                 return
 
             members = get_project_members(db, event.project_id)
@@ -34,7 +32,6 @@ class NotificationListener(BaseListener):
             other_member_ids = [m.user_id for m in members if m.user_id != event.user_id]
 
             if other_member_ids:
-                print(f"[NotificationListener] Notifying {len(other_member_ids)} members about new user")
                 notification_data = {
                     "type": "user_joined_project",
                     "payload": {
@@ -57,7 +54,6 @@ class NotificationListener(BaseListener):
                 )
 
             # 2. Notify added user
-            print(f"[NotificationListener] Notifying added user {event.user_id}")
             added_notification_data = {
                 "type": "added_to_project",
                 "payload": {
@@ -78,24 +74,21 @@ class NotificationListener(BaseListener):
                 f"{added_by_user.name or added_by_user.email}",
                 added_notification_data["payload"],
             )
-            print("[NotificationListener] Completed handling UserAddedToProjectEvent")
 
-        except Exception as e:
-            print(f"[NotificationListener] Error: {e}")
+        except Exception:
+            pass
 
     def _handle_user_removed(self, event: UserRemovedFromProjectEvent):
         try:
             db = event.db
             project = db.query(Project).filter(Project.id == event.project_id).first()
             if not project:
-                print(f"[NotificationListener] Project {event.project_id} not found")
                 return
 
             removed_user = get_user_by_id(db, event.user_id)
             removed_by_user = get_user_by_id(db, event.removed_by_user_id)
 
             if not removed_user or not removed_by_user:
-                print(f"[NotificationListener] User not found (removed_user={removed_user}, removed_by_user={removed_by_user})")
                 return
 
             members = get_project_members(db, event.project_id)
@@ -104,7 +97,6 @@ class NotificationListener(BaseListener):
             remaining_member_ids = [m.user_id for m in members if m.user_id != event.user_id]
 
             if remaining_member_ids:
-                print(f"[NotificationListener] Notifying {len(remaining_member_ids)} members about removed user")
                 notification_data = {
                     "type": "user_removed_project",
                     "payload": {
@@ -129,7 +121,6 @@ class NotificationListener(BaseListener):
 
             # 2. Notify removed user (if removed by admin, not self-removal)
             if not event.is_self_removal:
-                print(f"[NotificationListener] Notifying removed user {event.user_id}")
                 removed_notification_data = {
                     "type": "removed_from_project",
                     "payload": {
@@ -151,7 +142,6 @@ class NotificationListener(BaseListener):
                     removed_notification_data["payload"],
                 )
 
-            print("Completed handling UserRemovedFromProjectEvent")
 
-        except Exception as e:
-            print(f"[NotificationListener] Error: {e}")
+        except Exception:
+            pass

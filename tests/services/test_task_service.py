@@ -305,7 +305,7 @@ class TestGetTasks:
     def test_get_tasks_with_title_filter(self, db_session: Session):
         """Test filtering tasks by title"""
         creator = UserFactory.create(db_session)
-        important_title = fake.sentence(nb_words=2)
+        important_title = "Important task title"
         task1 = TaskFactory.create(db_session, creator, title=important_title)
         task2 = TaskFactory.create(db_session, creator, title=fake.sentence(nb_words=2))
 

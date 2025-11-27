@@ -5,7 +5,6 @@ from app.api.endpoints.auth import router as auth_router
 from app.api.endpoints.chat import router as chat_router
 from app.api.endpoints.conversation import router as conversation_router
 from app.api.endpoints.file import router as file_router
-from app.api.endpoints.google_calendar import router as google_calendar_router
 from app.api.endpoints.meeting import router as meeting_router
 from app.api.endpoints.meeting_bot import router as meeting_bot_router
 from app.api.endpoints.meeting_note import router as meeting_note_router
@@ -33,6 +32,5 @@ api_router.include_router(webhook_router)
 api_router.include_router(search_router)
 api_router.include_router(notification_router)
 api_router.include_router(task_router)
-api_router.include_router(google_calendar_router)
 api_router.include_router(conversation_router)
 api_router.include_router(statistics_router)

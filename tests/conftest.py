@@ -97,7 +97,7 @@ def db_session() -> Generator[Session, None, None]:
         yield session
     finally:
         # Clean up after test
-        # _cleanup_test_data(session)
+        _cleanup_test_data(session)
         session.close()
 
 

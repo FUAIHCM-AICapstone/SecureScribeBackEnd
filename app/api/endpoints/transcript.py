@@ -17,7 +17,6 @@ from app.schemas.transcript import (
     BulkTranscriptUpdate,
     TranscriptApiResponse,
     TranscriptCreate,
-    TranscriptReindexRequest,
     TranscriptReindexResponse,
     TranscriptResponse,
     TranscriptsPaginatedResponse,
@@ -146,25 +145,18 @@ def bulk_delete_transcripts_endpoint(bulk_request: BulkTranscriptDelete, db: Ses
 def reindex_transcript_endpoint(
     meeting_id: uuid.UUID,
     transcript_id: uuid.UUID,
-    request: TranscriptReindexRequest = TranscriptReindexRequest(),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Reindex a transcript for search by regenerating vector embeddings."""
-    print(f"\033[94m[reindex_transcript_endpoint] Starting reindex request for transcript {transcript_id} in meeting {meeting_id}\033[0m")
-    print(f"\033[94m[reindex_transcript_endpoint] User: {current_user.id}, Force: {request.force}\033[0m")
 
     try:
         # Validate transcript access and relationship to meeting
-        print("\033[95m[reindex_transcript_endpoint] Validating transcript access\033[0m")
-        transcript = validate_transcript_access(db, transcript_id, meeting_id, current_user.id)
-        print(f"\033[92m[reindex_transcript_endpoint] Access validated - transcript content length: {len(transcript.content or '')}\033[0m")
+        validate_transcript_access(db, transcript_id, meeting_id, current_user.id)
 
         # Enqueue Celery task for reindexing
-        print("\033[94m[reindex_transcript_endpoint] Enqueueing Celery task for reindexing\033[0m")
         async_result = reindex_transcript_task.delay(str(transcript_id), str(current_user.id))
         task_id = async_result.id if async_result else None
-        print(f"\033[92m[reindex_transcript_endpoint] Celery task enqueued with task_id: {task_id}\033[0m")
 
         return ApiResponse(
             success=True,
@@ -176,9 +168,5 @@ def reindex_transcript_endpoint(
                 "status": "queued",
             },
         )
-    except HTTPException as http_exc:
-        print(f"\033[91m[reindex_transcript_endpoint] HTTP Exception: {http_exc.status_code} - {http_exc.detail}\033[0m")
-        raise
-    except Exception as e:
-        print(f"\033[91m[reindex_transcript_endpoint] Unexpected error: {type(e).__name__}: {str(e)}\033[0m")
+    except Exception:
         raise HTTPException(status_code=400, detail=MessageConstants.OPERATION_FAILED)

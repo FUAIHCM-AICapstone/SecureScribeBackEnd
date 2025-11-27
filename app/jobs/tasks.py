@@ -85,7 +85,6 @@ async def update_meeting_vectors_with_project_id(meeting_id: str, project_id: st
                 break
 
         if not all_points:
-            print(f"🟡 \033[93mNo vectors found for meeting {meeting_id}\033[0m")
             return True
 
         # Update payload with project_id
@@ -98,11 +97,9 @@ async def update_meeting_vectors_with_project_id(meeting_id: str, project_id: st
             wait=True,
         )
 
-        print(f"🟢 \033[92mUpdated {len(all_points)} vectors for meeting {meeting_id} with project_id {project_id}\033[0m")
         return True
 
-    except Exception as e:
-        print(f"🔴 \033[91mFailed to update vectors for meeting {meeting_id}: {e}\033[0m")
+    except Exception:
         return False
 
 
@@ -181,8 +178,7 @@ async def _perform_async_indexing(
             # Clean up temp file
             os.unlink(temp_file_path)
 
-    except Exception as e:
-        print(f"\033[91m❌ Async indexing error: {e}\033[0m")
+    except Exception:
         return False
 
 
@@ -191,13 +187,10 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
     """Background task to index a file for search"""
     task_id = self.request.id or f"index_file_{file_id}_{int(time.time())}"
 
-    print(f"\033[94m🚀 Starting file indexing task for file {file_id}\033[0m")
-
     try:
         # Step 1: Started
         update_task_progress(task_id, user_id, 0, "started", task_type="file_indexing")
         publish_task_progress_sync(user_id, 0, "started", "60s", "file_indexing", task_id)
-        print(f"\033[93m📋 Task {task_id}: Indexing started for file {file_id}\033[0m")
 
         # Create database session
         db = SessionLocal()
@@ -205,41 +198,33 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         # Step 2: Validating file
         update_task_progress(task_id, user_id, 10, "validating", task_type="file_indexing")
         publish_task_progress_sync(user_id, 10, "validating", "55s", "file_indexing", task_id)
-        print(f"\033[95m🔍 Validating file {file_id}\033[0m")
 
         # Get file info
         file = db.query(File).filter(File.id == uuid.UUID(file_id)).first()
         if not file:
             raise Exception(f"File {file_id} not found")
 
-        print(f"\033[92m✅ File validated: {file.filename} ({file.mime_type})\033[0m")
-
         # Step 3: Extracting text
         update_task_progress(task_id, user_id, 25, "extracting_text", task_type="file_indexing")
         publish_task_progress_sync(user_id, 25, "extracting_text", "45s", "file_indexing", task_id)
-        print(f"\033[96m📄 Extracting text from {file.filename}\033[0m")
 
         # Step 4: Chunking text
         update_task_progress(task_id, user_id, 40, "chunking_text", task_type="file_indexing")
         publish_task_progress_sync(user_id, 40, "chunking_text", "35s", "file_indexing", task_id)
-        print("\033[94m✂️ Preparing to chunk text\033[0m")
 
         # Step 5: Generating embeddings
         update_task_progress(task_id, user_id, 60, "generating_embeddings", task_type="file_indexing")
         publish_task_progress_sync(user_id, 60, "generating_embeddings", "25s", "file_indexing", task_id)
-        print("\033[95m🧠 Generating embeddings\033[0m")
 
         # Step 6: Storing vectors
         update_task_progress(task_id, user_id, 80, "storing_vectors", task_type="file_indexing")
         publish_task_progress_sync(user_id, 80, "storing_vectors", "15s", "file_indexing", task_id)
-        print("\033[93m💾 Storing vectors in Qdrant\033[0m")
 
         # Step 7: Update database
         update_task_progress(task_id, user_id, 95, "updating_database", task_type="file_indexing")
         publish_task_progress_sync(user_id, 95, "updating_database", "5s", "file_indexing", task_id)
 
         # Perform the actual indexing
-        print(f"\033[94m🚀 Starting actual indexing process for file {file_id}\033[0m")
 
         try:
             # Use asyncio.run to handle the async indexing
@@ -254,19 +239,16 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
                 )
             )
 
-        except Exception as e:
-            print(f"\033[91m❌ Error during indexing: {e}\033[0m")
+        except Exception:
             success = False
 
         if not success:
             raise Exception("Indexing failed")
 
         # Update database with indexing completion
-        print(f"\033[93m💾 Updating database for file {file_id}\033[0m")
         file.qdrant_vector_id = str(file_id)  # Mark as indexed
         file.updated_at = datetime.now(timezone.utc)
         db.commit()
-        print(f"\033[92m✅ Database updated: file {file_id} marked as indexed\033[0m")
 
         # Step 8: Completed
         update_task_progress(task_id, user_id, 100, "completed", task_type="file_indexing")
@@ -298,8 +280,6 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
 
         db.close()
 
-        print(f"\033[92m🎉 File indexing completed successfully for {file_id}\033[0m")
-
         return {
             "status": "success",
             "file_id": file_id,
@@ -307,9 +287,7 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
             "message": "File indexed successfully",
         }
 
-    except Exception as exc:
-        print(f"\033[91m💥 File indexing failed for {file_id}: {exc}\033[0m")
-
+    except Exception:
         # Publish failure state
         update_task_progress(task_id, user_id, 0, "failed", task_type="file_indexing")
         publish_task_progress_sync(user_id, 0, "failed", "0s", "file_indexing", task_id)
@@ -496,14 +474,11 @@ def schedule_meeting_bot_task(self, meeting_id: str, user_id: str, bearer_token:
         response = requests.post(bot_service_url, json=payload, headers=headers, timeout=30)
 
         if response.status_code == 202:
-            print(f"Bot {bot_id} successfully scheduled for meeting {meeting_id}")
             return {"success": True, "bot_id": bot_id, "meeting_id": meeting_id}
         else:
-            print(f"Failed to schedule bot for meeting {meeting_id}: {response.status_code}")
             return {"success": False, "error": f"HTTP {response.status_code}", "meeting_id": meeting_id}
 
     except Exception as e:
-        print(f"Error scheduling bot for meeting {meeting_id}: {str(e)}")
         return {"success": False, "error": str(e), "meeting_id": meeting_id}
 
 
@@ -522,22 +497,18 @@ def process_chat_message(
     This task handles AI processing and broadcasts the response via Redis for SSE clients.
     """
 
-    print(f"[process_chat_message] Start processing: conversation_id={conversation_id}, user_message_id={user_message_id}, user_id={user_id}")
     # Create database session for this task
     db = SessionLocal()
     # Ensure user_id is always a plain string for downstream integrations (Agno expects str)
     user_id_str = str(user_id) if user_id is not None else ""
 
     try:
-        print("[process_chat_message] Getting Agno Postgres DB instance...")
         # Get Agno DB for agent
         agno_db = get_agno_postgres_db()
 
-        print("[process_chat_message] Creating general chat agent...")
         # Create chat agent
         agent = create_general_chat_agent(agno_db, conversation_id, user_id_str)
 
-        print("[process_chat_message] Fetching conversation history...")
         # Fetch conversation history (using sync version for Celery task)
         history = fetch_conversation_history_sync(conversation_id)
 
@@ -553,8 +524,7 @@ def process_chat_message(
                     else:
                         mention_models.append(Mention.model_validate(raw_mention))
                 except Exception as mention_parse_error:
-                    print(f"[process_chat_message] Failed to parse mention payload: {mention_parse_error}")
-
+                    print(f"Failed to parse mention: {mention_parse_error}")
         combined_candidates: List[Dict[str, Any]] = []
         if mention_models:
             try:
@@ -568,11 +538,9 @@ def process_chat_message(
                     )
                 )
                 if mention_candidates:
-                    print(f"[process_chat_message] Retrieved {len(mention_candidates)} mention-based context documents.")
                     combined_candidates.extend(mention_candidates)
             except Exception as mention_error:
-                print(f"[process_chat_message] Mention query failed: {mention_error}")
-
+                print(f"Failed to query documents for mentions: {mention_error}")
         expansion_candidates: List[Dict[str, Any]] = []
         normalized_content = (content or "").strip()
         if normalized_content:
@@ -586,13 +554,11 @@ def process_chat_message(
                     )
                 )
                 if expansion_candidates:
-                    print(f"[process_chat_message] Retrieved {len(expansion_candidates)} expansion documents.")
                     combined_candidates.extend(expansion_candidates)
             except Exception as expansion_error:
-                print(f"[process_chat_message] Expansion search failed: {expansion_error}")
-            print(f"[process_chat_message] Received {len(combined_candidates)} retrieval documents for context.")
+                print(f"Failed to perform expansion search: {expansion_error}")
         else:
-            print("[process_chat_message] No retrieval documents provided; proceeding without external context.")
+            print("No content provided for expansion search.")
 
         # Deduplicate contexts by file_id + chunk_index (fallback to doc id)
         aggregated_contexts: Dict[str, Dict[str, Any]] = {}
@@ -635,8 +601,6 @@ def process_chat_message(
             reverse=True,
         )[:5]
 
-        print(f"[process_chat_message] Aggregated {len(combined_results)} context documents after dedupe")
-
         # Optimization layer using LLM rerank
         optimized_contexts: List[Dict[str, Any]] = combined_results[:]
         if combined_results:
@@ -657,7 +621,6 @@ def process_chat_message(
             desired_count = 3
 
             try:
-                optimizer_start = time.perf_counter()
                 optimizer_response = asyncio.run(
                     optimize_contexts_with_llm(
                         query=content,
@@ -666,16 +629,14 @@ def process_chat_message(
                         desired_count=desired_count,
                     )
                 )
-                optimizer_duration = time.perf_counter() - optimizer_start
-                print(f"[process_chat_message] Context optimizer latency: {optimizer_duration:.2f}s")
 
                 selection_payload = None
                 if optimizer_response:
                     if isinstance(optimizer_response, str):
                         try:
                             selection_payload = json.loads(optimizer_response)
-                        except json.JSONDecodeError as parse_error:
-                            print(f"[process_chat_message] Optimizer JSON parse failed: {parse_error}")
+                        except json.JSONDecodeError:
+                            selection_payload = None
                     elif isinstance(optimizer_response, dict | list):
                         selection_payload = optimizer_response
 
@@ -702,8 +663,7 @@ def process_chat_message(
                 if not optimized_contexts:
                     optimized_contexts = combined_results[:desired_count]
 
-            except Exception as optimizer_error:
-                print(f"[process_chat_message] Context optimization failed: {optimizer_error}")
+            except Exception:
                 optimized_contexts = combined_results[:desired_count]
         else:
             optimized_contexts = []
@@ -716,17 +676,14 @@ def process_chat_message(
                 snippet = (doc.get("payload", {}).get("text") or "Nội dung không có sẵn.").strip()
                 enhanced_content += f"\nTai lieu {idx} (score={doc.get('score', 0.0):.2f}):\n{snippet}\n"
         else:
-            print("[process_chat_message] No context selected; agent will answer from query only.")
+            print("No optimized contexts available.")
 
-        print("[process_chat_message] Running agent for AI response...")
         # Process message with AI agent
         response = agent.run(enhanced_content, history=history)
 
         ai_response_content = response.content
-        print(f"[process_chat_message] AI response generated. Length: {len(ai_response_content)} characters.")
 
         # Create AI message in database
-        print("[process_chat_message] Creating AI message in database...")
         ai_message = ChatMessage(
             conversation_id=conversation_id,
             message_type=ChatMessageType.agent,
@@ -736,7 +693,6 @@ def process_chat_message(
         db.add(ai_message)
         db.commit()
         db.refresh(ai_message)
-        print(f"[process_chat_message] AI message committed to DB with id: {ai_message.id}")
 
         # Broadcast message via Redis to SSE channel
         channel = f"conversation:{conversation_id}:messages"
@@ -751,7 +707,6 @@ def process_chat_message(
             },
         }
 
-        print(f"[process_chat_message] Broadcasting AI message to Redis channel: {channel}")
         # Use sync Redis client for broadcasting in Celery task
         sync_redis_client.publish(channel, json.dumps(message_data))
 
@@ -776,7 +731,6 @@ def process_chat_message(
             channel=notification_data.channel,
         )
 
-        print("[process_chat_message] Processing complete. Returning success response.")
         return {
             "status": "success",
             "conversation_id": conversation_id,
@@ -786,7 +740,6 @@ def process_chat_message(
         }
 
     except Exception as e:
-        print(f"[process_chat_message] Exception occurred: {e}")
         # Create error message in database
         error_message = ChatMessage(
             conversation_id=conversation_id,
@@ -796,7 +749,6 @@ def process_chat_message(
         )
         db.add(error_message)
         db.commit()
-        print(f"[process_chat_message] Error message committed to DB with id: {error_message.id}")
 
         # Try to broadcast error message
         channel = f"conversation:{conversation_id}:messages"
@@ -812,7 +764,6 @@ def process_chat_message(
             },
         }
 
-        print(f"[process_chat_message] Broadcasting error message to Redis channel: {channel}")
         # Use sync Redis client for error broadcasting
         sync_redis_client.publish(channel, json.dumps(error_data))
 
@@ -858,26 +809,20 @@ def publish_notification_to_redis_task(user_ids: list, notification_type: str, p
                     if success:
                         success_count += 1
                 except Exception as e:
-                    print(f"Failed to publish to user {user_id}: {e}")
+                    print(f"Failed to publish notification to user {user_id}: {e}")
 
             return success_count
 
-        # Run async publishing - check if event loop is already running
         try:
-            # Try to get the running loop (for test environments)
-            loop = asyncio.get_running_loop()
-            # If we get here, there's already a loop running, so we need to run the coroutine differently
+            asyncio.get_running_loop()
             import concurrent.futures
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, publish_all())
-                success_count = future.result()
+                executor.submit(asyncio.run, publish_all())
         except RuntimeError:
-            # No event loop running, create a new one
-            success_count = asyncio.run(publish_all())
+            asyncio.run(publish_all())
 
-    except Exception as e:
-        print(f"Error in publish_notification_to_redis_task: {e}")
+    except Exception:
         raise
 
 
@@ -906,10 +851,8 @@ def send_fcm_notification_background_task(
             sound=sound,
             ttl=ttl,
         )
-        print(f"FCM notifications sent successfully to {len(user_ids)} users")
         return {"status": "success", "users_count": len(user_ids)}
-    except Exception as e:
-        print(f"Error in send_fcm_notification_background_task: {e}")
+    except Exception:
         raise
 
 
@@ -945,28 +888,21 @@ def process_meeting_analysis_task(
     """
     task_id = self.request.id or f"meeting_analysis_{meeting_id}_{int(time.time())}"
 
-    print(f"\033[94m🚀 Starting meeting analysis task for meeting {meeting_id}\033[0m")
-
     try:
         # Step 1: Started (0%)
         update_task_progress(task_id, user_id, 0, "started", task_type="meeting_analysis")
         publish_task_progress_sync(user_id, 0, "started", "120s", "meeting_analysis", task_id)
-        print(f"\033[93m📋 Task {task_id}: Analysis started for meeting {meeting_id}\033[0m")
 
         # Step 2: Validating transcript (10%)
         update_task_progress(task_id, user_id, 10, "validating", task_type="meeting_analysis")
         publish_task_progress_sync(user_id, 10, "validating", "110s", "meeting_analysis", task_id)
-        print(f"\033[95m🔍 Validating transcript for meeting {meeting_id}\033[0m")
 
         if not transcript or len(transcript.strip()) < 100:
             raise Exception(f"Transcript too short or empty: {len(transcript.strip()) if transcript else 0} characters")
 
-        print(f"\033[92m✅ Transcript validated: {len(transcript)} characters\033[0m")
-
         # Step 3: Processing with concurrent extraction (30%)
         update_task_progress(task_id, user_id, 30, "processing", task_type="meeting_analysis")
         publish_task_progress_sync(user_id, 30, "processing", "90s", "meeting_analysis", task_id)
-        print("\033[96m🔄 Starting concurrent extraction (tasks + note)\033[0m")
 
         # Import and run MeetingAnalyzer
         from app.utils.meeting_agent import MeetingAnalyzer
@@ -976,12 +912,9 @@ def process_meeting_analysis_task(
         # Run async analysis in sync context
         analysis_result = asyncio.run(analyzer.complete(transcript=transcript, custom_prompt=custom_prompt))
 
-        print(f"\033[92m✅ Analysis completed - tasks: {len(analysis_result.get('task_items', []))}, note_length: {len(analysis_result.get('meeting_note', ''))}\033[0m")
-
         # Step 4: Saving to database (90%)
         update_task_progress(task_id, user_id, 90, "saving", task_type="meeting_analysis")
         publish_task_progress_sync(user_id, 90, "saving", "10s", "meeting_analysis", task_id)
-        print(f"\033[93m💾 Saving analysis results for meeting {meeting_id}\033[0m")
 
         # Create database session
         db = SessionLocal()
@@ -991,7 +924,7 @@ def process_meeting_analysis_task(
             from app.services.meeting_note import save_meeting_analysis_results
 
             # Save results using the service layer
-            saved_results = save_meeting_analysis_results(
+            save_meeting_analysis_results(
                 db=db,
                 meeting_id=uuid.UUID(meeting_id),
                 user_id=uuid.UUID(user_id),
@@ -999,13 +932,9 @@ def process_meeting_analysis_task(
                 task_items=analysis_result.get("task_items", []),
             )
 
-            print(f"\033[92m✅ Meeting {meeting_id} updated with analysis results\033[0m")
-            print(f"\033[92m✅ Saved {len(saved_results.get('task_items', []))} tasks to database\033[0m")
-
             # Step 4.5: Indexing meeting note to Qdrant (95%)
             update_task_progress(task_id, user_id, 95, "indexing_note", task_type="meeting_analysis")
             publish_task_progress_sync(user_id, 95, "indexing_note", "5s", "meeting_analysis", task_id)
-            print(f"\033[93m🔍 Indexing meeting note to Qdrant for meeting {meeting_id}\033[0m")
 
             meeting_note_content = analysis_result.get("meeting_note", "")
             if meeting_note_content and len(meeting_note_content.strip()) > 0:
@@ -1034,18 +963,12 @@ def process_meeting_analysis_task(
                             for i, ch in enumerate(chunks)
                         ]
                         asyncio.run(upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads))
-                        print(f"\033[92m✅ Meeting note indexed to Qdrant: {len(chunks)} chunks\033[0m")
-                    else:
-                        print("\033[93m⚠️ No chunks generated from meeting note\033[0m")
                 except Exception as index_error:
-                    print(f"\033[91m❌ Failed to index meeting note to Qdrant: {index_error}\033[0m")
-            else:
-                print("\033[93m⚠️ No meeting note content to index\033[0m")
+                    print(f"Failed to index meeting note to Qdrant: {index_error}")
 
             # Step 4.6: Update project_id for existing vectors (97%)
             update_task_progress(task_id, user_id, 97, "updating_vectors", task_type="meeting_analysis")
             publish_task_progress_sync(user_id, 97, "updating_vectors", "3s", "meeting_analysis", task_id)
-            print(f"\033[93m🔄 Updating project_id for existing vectors of meeting {meeting_id}\033[0m")
 
             try:
                 # Get meeting's project_id from database
@@ -1054,15 +977,10 @@ def process_meeting_analysis_task(
                 if meeting_obj and hasattr(meeting_obj, "projects") and meeting_obj.projects:
                     project_ids = [str(project_meeting.project_id) for project_meeting in meeting_obj.projects if project_meeting.project]
 
-                if project_ids:
-                    # Update vectors for this meeting with project_id
-                    asyncio.run(update_meeting_vectors_with_project_id(meeting_id, project_ids[0], _settings.QDRANT_COLLECTION_NAME))
-                    print(f"\033[92m✅ Updated vectors for meeting {meeting_id} with project_id {project_ids[0]}\033[0m")
-                else:
-                    print(f"\033[93m⚠️ Meeting {meeting_id} has no associated projects\033[0m")
+                asyncio.run(update_meeting_vectors_with_project_id(meeting_id, project_ids[0], _settings.QDRANT_COLLECTION_NAME))
 
-            except Exception as update_error:
-                print(f"\033[91m❌ Failed to update vectors with project_id: {update_error}\033[0m")
+            except Exception as update_vector_error:
+                print(f"Failed to update meeting vectors with project_id: {update_vector_error}")
 
         finally:
             db.close()
@@ -1098,8 +1016,6 @@ def process_meeting_analysis_task(
         finally:
             db.close()
 
-        print(f"\033[92m🎉 Meeting analysis completed successfully for {meeting_id}\033[0m")
-
         return {
             "status": "success",
             "meeting_id": meeting_id,
@@ -1109,8 +1025,6 @@ def process_meeting_analysis_task(
         }
 
     except Exception as exc:
-        print(f"\033[91m💥 Meeting analysis failed for {meeting_id}: {exc}\033[0m")
-
         # Publish failure state
         update_task_progress(task_id, user_id, 0, "failed", task_type="meeting_analysis")
         publish_task_progress_sync(user_id, 0, "failed", "0s", "meeting_analysis", task_id)
@@ -1167,18 +1081,14 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
     """
     task_id = self.request.id or f"reindex_transcript_{transcript_id}_{int(time.time())}"
 
-    print(f"\033[94m[reindex_transcript_task] Starting transcript reindex for {transcript_id}\033[0m")
-
     try:
         # Step 1: Started (0%)
         update_task_progress(task_id, user_id, 0, "started", task_type="transcript_reindex")
         publish_task_progress_sync(user_id, 0, "started", "60s", "transcript_reindex", task_id)
-        print(f"\033[93m[reindex_transcript_task] Task {task_id}: Reindex started\033[0m")
 
         # Step 2: Validating transcript (10%)
         update_task_progress(task_id, user_id, 10, "validating", task_type="transcript_reindex")
         publish_task_progress_sync(user_id, 10, "validating", "55s", "transcript_reindex", task_id)
-        print(f"\033[95m[reindex_transcript_task] Validating transcript {transcript_id}\033[0m")
 
         db = SessionLocal()
 
@@ -1196,12 +1106,9 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
             if not transcript.content or len(transcript.content.strip()) < 10:
                 raise Exception(f"Transcript content too short or empty: {len(transcript.content.strip()) if transcript.content else 0} characters")
 
-            print(f"\033[92m[reindex_transcript_task] Transcript validated: {len(transcript.content)} characters\033[0m")
-
             # Step 3: Deleting old vectors (25%)
             update_task_progress(task_id, user_id, 25, "deleting_old_vectors", task_type="transcript_reindex")
             publish_task_progress_sync(user_id, 25, "deleting_old_vectors", "45s", "transcript_reindex", task_id)
-            print(f"\033[93m[reindex_transcript_task] Deleting old vectors for transcript {transcript_id}\033[0m")
 
             # Delete old vectors using async function
             asyncio.run(delete_transcript_vectors(transcript_id, settings.QDRANT_COLLECTION_NAME))
@@ -1209,18 +1116,14 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
             # Step 4: Chunking text (40%)
             update_task_progress(task_id, user_id, 40, "chunking_text", task_type="transcript_reindex")
             publish_task_progress_sync(user_id, 40, "chunking_text", "35s", "transcript_reindex", task_id)
-            print("\033[96m[reindex_transcript_task] Chunking transcript text\033[0m")
 
             chunks = chunk_text(transcript.content)
             if not chunks:
                 raise Exception("No chunks generated from transcript content")
 
-            print(f"\033[92m[reindex_transcript_task] Created {len(chunks)} chunks\033[0m")
-
             # Step 5: Generating embeddings (60%)
             update_task_progress(task_id, user_id, 60, "generating_embeddings", task_type="transcript_reindex")
             publish_task_progress_sync(user_id, 60, "generating_embeddings", "25s", "transcript_reindex", task_id)
-            print(f"\033[95m[reindex_transcript_task] Generating embeddings for {len(chunks)} chunks\033[0m")
 
             from app.core.config import settings as _settings
             from app.services.qdrant_service import (
@@ -1233,12 +1136,9 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
             if not vectors:
                 raise Exception("Failed to generate embeddings")
 
-            print(f"\033[92m[reindex_transcript_task] Generated {len(vectors)} embeddings\033[0m")
-
             # Step 6: Storing vectors (80%)
             update_task_progress(task_id, user_id, 80, "storing_vectors", task_type="transcript_reindex")
             publish_task_progress_sync(user_id, 80, "storing_vectors", "15s", "transcript_reindex", task_id)
-            print("\033[93m[reindex_transcript_task] Storing vectors in Qdrant\033[0m")
 
             # Ensure collection exists
             asyncio.run(create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, len(vectors[0])))
@@ -1267,18 +1167,15 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
 
             # Upsert vectors
             asyncio.run(upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads))
-            print("\033[92m[reindex_transcript_task] Vectors stored successfully\033[0m")
 
             # Step 7: Updating database (95%)
             update_task_progress(task_id, user_id, 95, "updating_database", task_type="transcript_reindex")
             publish_task_progress_sync(user_id, 95, "updating_database", "5s", "transcript_reindex", task_id)
-            print("\033[93m[reindex_transcript_task] Updating database\033[0m")
 
             # Update transcript
             transcript.qdrant_vector_id = transcript_id
             transcript.updated_at = datetime.now(timezone.utc)
             db.commit()
-            print("\033[92m[reindex_transcript_task] Database updated\033[0m")
 
             # Step 8: Completed (100%)
             update_task_progress(task_id, user_id, 100, "completed", task_type="transcript_reindex")
@@ -1307,8 +1204,6 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
                 channel=notification_data.channel,
             )
 
-            print("\033[92m[reindex_transcript_task] Transcript reindex completed successfully\033[0m")
-
             return {
                 "status": "success",
                 "transcript_id": transcript_id,
@@ -1323,8 +1218,6 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
             db.close()
 
     except Exception as exc:
-        print(f"\033[91m[reindex_transcript_task] Transcript reindex failed: {exc}\033[0m")
-
         # Publish failure state
         update_task_progress(task_id, user_id, 0, "failed", task_type="transcript_reindex")
         publish_task_progress_sync(user_id, 0, "failed", "0s", "transcript_reindex", task_id)

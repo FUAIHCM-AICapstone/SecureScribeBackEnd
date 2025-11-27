@@ -78,16 +78,7 @@ def firebase_login(db: Session, id_token: str):
                 "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             },
         }
-        # Initiate Google Calendar OAuth flow after successful Firebase login
-        try:
-            from app.services.google_calendar_service import GoogleCalendarService
 
-            service = GoogleCalendarService()
-            oauth_result = service.initiate_oauth_flow(user.id)
-            result["oauth_url"] = oauth_result.auth_url
-        except Exception as e:
-            print(f"\033[91mError initiating Google Calendar OAuth: {e}\033[0m")
-            pass
         EventManager.emit_domain_event(
             BaseDomainEvent(
                 event_name="auth.login_succeeded",

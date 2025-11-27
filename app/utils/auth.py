@@ -77,7 +77,7 @@ def verify_token(token: str):
         return None
     except jwt.InvalidTokenError:
         return None
-    except Exception:
+    except Exception as e:
         return None
 
 
@@ -101,22 +101,21 @@ class JWTBearer(HTTPBearer):
         super().__init__(auto_error=auto_error, scheme_name="BearerAuth")
 
     async def __call__(self, request: Request) -> str:
-        credentials = await super().__call__(request)
-        if credentials:
-            if not credentials.scheme.lower() == "bearer":
-                raise HTTPException(status_code=401, detail="Invalid authentication scheme")
-            if not self.verify_jwt(credentials.credentials):
-                raise HTTPException(status_code=401, detail="Invalid token")
-            return credentials.credentials
-        else:
-            raise HTTPException(status_code=401, detail="Invalid authorization code")
+        authorization = request.headers.get("Authorization")
+        if not authorization:
+            raise HTTPException(status_code=403, detail="Authentication required")
 
-    def verify_jwt(self, token: str) -> bool:
+        # Parse the authorization header
         try:
-            payload = verify_token(token)
-            return payload is not None
-        except Exception:
-            return False
+            scheme, credentials = authorization.split(" ", 1)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Invalid authentication scheme")
+
+        if scheme.lower() != "bearer":
+            raise HTTPException(status_code=403, detail="Invalid authentication scheme")
+
+        # Return the token - verification will happen in get_current_user
+        return credentials
 
 
 jwt_bearer = JWTBearer()
@@ -127,7 +126,10 @@ def get_current_user(token: str = Depends(jwt_bearer), db: Session = Depends(get
     Extract user information from JWT token.
     """
     try:
-        token = re.sub(r"Bearer\s*", "", token, flags=re.IGNORECASE).strip()
+        # Strip Bearer prefix if present (for direct calls to this function)
+        import re
+        token = re.sub(r'^[Bb]earer\s+', '', token).strip()
+
         user_id = get_current_user_from_token(token)
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -140,5 +142,4 @@ def get_current_user(token: str = Depends(jwt_bearer), db: Session = Depends(get
     except HTTPException:
         raise
     except Exception as e:
-        print("Debug exception: ", e)
         raise HTTPException(status_code=401, detail="Token verification failed") from e

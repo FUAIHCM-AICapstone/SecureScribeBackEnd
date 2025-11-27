@@ -44,15 +44,10 @@ class NoteGenerator(Agent):
     ) -> str:
         """Generate meeting note from transcript with automatic retry on failure."""
         if not transcript or not transcript.strip():
-            print("[NoteGenerator] Transcript empty, returning default note")
             return "Không đủ thông tin để tạo ghi chú cuộc họp."
 
         if len(transcript) < 50:
-            print("[NoteGenerator] Transcript too short, returning default note")
             return "Không đủ thông tin để tạo ghi chú cuộc họp."
-
-        if custom_prompt:
-            print(f"[NoteGenerator] Using custom_prompt: {custom_prompt[:100]}...")
 
         # Convert tasks to dict for JSON serialization
         tasks_dict = [task.model_dump() if hasattr(task, "model_dump") else task for task in tasks]
@@ -64,8 +59,6 @@ class NoteGenerator(Agent):
             "custom_prompt": custom_prompt,
             "tasks": tasks_dict,
         }
-
-        print(f"[NoteGenerator] Starting note generation - transcript_length: {len(transcript)}, tasks_count: {len(tasks)}")
 
         try:
             prompt_instruction = ""
@@ -102,18 +95,16 @@ After applying the custom instruction above, also follow the context below:
             note = (result.meeting_note or "").replace("```", "").strip()
 
             if not note:
-                print("[NoteGenerator] Generated note is empty, using fallback")
                 note = "Không thể tạo ghi chú cuộc họp."
             else:
-                print(f"[NoteGenerator] Successfully generated note, length: {len(note)} characters")
+                print("[NoteGenerator] Generated meeting note successfully.")
 
             return note
 
         except ValidationError as exc:
-            print(f"[NoteGenerator] Validation error: {exc}")
+            print(f"[NoteGenerator] Validation error during generation: {exc}")
             raise  # Re-raise for retry
 
         except Exception as exc:
             print(f"[NoteGenerator] Unexpected error during generation: {exc}")
-            print(f"[NoteGenerator] Exception type: {type(exc).__name__}")
             raise  # Re-raise for retry

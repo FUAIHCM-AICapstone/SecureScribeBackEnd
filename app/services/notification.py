@@ -52,11 +52,9 @@ def create_notification(db: Session, user_id: uuid.UUID, **kwargs) -> Notificati
 def create_notifications_bulk(db: Session, user_ids: List[uuid.UUID], **kwargs) -> List[Notification]:
     notifications = []
     for user_id in user_ids:
-        print(f"[create_notifications_bulk] Creating notification for user: {user_id}")
         notification = Notification(user_id=user_id, **kwargs)
         db.add(notification)
         notifications.append(notification)
-    print(f"[create_notifications_bulk] Committing {len(notifications)} notifications to the database")
     db.commit()
     for notification in notifications:
         db.refresh(notification)
@@ -96,7 +94,6 @@ def send_fcm_notification(
     sound: Optional[str] = None,
     ttl: Optional[int] = None,
 ) -> None:
-    print(f"[FCM] Starting FCM notification send to {len(user_ids)} users. Title: '{title}'")
     from app.db import SessionLocal
 
     db = SessionLocal()
@@ -106,11 +103,8 @@ def send_fcm_notification(
             devices: List[UserDevice] = db.query(UserDevice).filter(UserDevice.user_id == user_id, UserDevice.is_active == True).all()
             user_tokens = [device.fcm_token for device in devices if device.fcm_token and device.fcm_token.strip()]
             tokens.extend(user_tokens)
-            print(f"[FCM] User {user_id}: Found {len(user_tokens)} active FCM tokens")
 
-        print(f"[FCM] Total FCM tokens collected: {len(tokens)}")
         if not tokens:
-            print("[FCM] No active FCM tokens found, skipping notification send")
             return
 
         # Ensure all data values are strings as required by FCM
@@ -118,7 +112,6 @@ def send_fcm_notification(
         if data:
             for key, value in data.items():
                 fcm_data[str(key)] = str(value)
-            print(f"[FCM] Prepared FCM data payload with {len(fcm_data)} fields")
 
         # Build webpush notification
         notification_kwargs = {"title": title, "body": body}
@@ -148,25 +141,12 @@ def send_fcm_notification(
             data=fcm_data,
             tokens=tokens,
         )
-        print(f"[FCM] Prepared multicast message for {len(tokens)} tokens")
 
         try:
-            print("[FCM] Sending FCM notification...")
-            response = messaging.send_each_for_multicast(message)
-            success_count = sum(1 for resp in response.responses if not resp.exception)
-            failure_count = sum(1 for resp in response.responses if resp.exception)
+            messaging.send_each_for_multicast(message)
 
-            print(f"[FCM] Notification send completed. Success: {success_count}, Failures: {failure_count}")
-
-            for i, resp in enumerate(response.responses):
-                if resp.exception:
-                    print(f"[FCM] Device {i} failed: {resp.exception}")
-
-            if success_count > 0:
-                print("[FCM] FCM notification sent successfully to at least one device")
         except Exception as e:
-            print(f"[FCM] Failed to send FCM notification: {str(e)}")
+            print(f"[FCM Notification] Error sending notification: {str(e)}")
             raise
     finally:
         db.close()
-        print("[FCM] FCM notification task completed")

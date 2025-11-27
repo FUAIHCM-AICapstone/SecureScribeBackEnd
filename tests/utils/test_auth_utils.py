@@ -478,22 +478,20 @@ class TestTokenEdgeCases:
         assert current_user.id == user.id
 
     def test_token_with_multiple_bearer_prefixes(self, db_session: Session):
-        """Test token with multiple Bearer prefixes is handled"""
+        """Test token with multiple Bearer prefixes raises 401"""
         # Arrange
         user = UserFactory.create(db_session)
         token_data = {"sub": str(user.id)}
         token = create_access_token(token_data)
-        # The regex r"Bearer\s*" strips ALL occurrences of "Bearer" followed by whitespace
-        # So "Bearer Bearer token" becomes "token" after regex substitution
+        # Multiple Bearer prefixes should be invalid
         malformed_token = f"Bearer Bearer {token}"
 
-        # Act - the regex strips all "Bearer" prefixes, leaving just the token
-        # This should actually work because the regex removes all Bearer occurrences
-        current_user = get_current_user(malformed_token, db_session)
+        # Act & Assert - should raise 401 because regex only removes one "Bearer" prefix
+        with pytest.raises(HTTPException) as exc_info:
+            get_current_user(malformed_token, db_session)
 
-        # Assert - the user should be retrieved successfully
-        assert current_user is not None
-        assert current_user.id == user.id
+        assert exc_info.value.status_code == 401
+        assert "Invalid token" in exc_info.value.detail
 
     def test_token_with_additional_claims(self):
         """Test token with additional claims is preserved"""

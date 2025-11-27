@@ -122,10 +122,6 @@ class MessageConstants:
     FILE_RETRIEVED_SUCCESS = "FILE_RETRIEVED_SUCCESS"
     FILE_DELETED_SUCCESS = "FILE_DELETED_SUCCESS"
 
-    # Google Calendar Messages
-    CALENDAR_SYNCED_SUCCESS = "CALENDAR_SYNCED_SUCCESS"
-    CALENDAR_SYNC_FAILED = "CALENDAR_SYNC_FAILED"
-    CALENDAR_NOT_FOUND = "CALENDAR_NOT_FOUND"
 
     # Notification Messages
     NOTIFICATION_CREATED_SUCCESS = "NOTIFICATION_CREATED_SUCCESS"
@@ -278,11 +274,6 @@ class MessageDescriptions:
     FILE_NOT_FOUND = "File not found"
     FILE_RETRIEVED_SUCCESS = "File retrieved successfully"
     FILE_DELETED_SUCCESS = "File deleted successfully"
-
-    # Google Calendar Messages
-    CALENDAR_SYNCED_SUCCESS = "Calendar synced successfully"
-    CALENDAR_SYNC_FAILED = "Calendar sync failed"
-    CALENDAR_NOT_FOUND = "Calendar not found"
 
     # Notification Messages
     NOTIFICATION_CREATED_SUCCESS = "Notification created successfully"

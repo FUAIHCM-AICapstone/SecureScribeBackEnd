@@ -71,9 +71,6 @@ class BulkTranscriptResponse(BaseModel):
     total_failed: int
 
 
-class TranscriptReindexRequest(BaseModel):
-    force: bool = False
-
 
 class TranscriptReindexResponse(ApiResponse[dict]):
     pass

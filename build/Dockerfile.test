@@ -25,5 +25,5 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONPATH=/app:$PYTHONPATH
 
-# Run tests with coverage
-CMD ["pytest", "tests/", "-v", "--cov=app", "--cov-report=html:/app/coverage_reports/html", "--cov-report=term-missing", "--cov-report=xml:/app/coverage_reports/coverage.xml"]
+# Run tests with coverage and generate reports
+CMD sh -c "pytest tests/ -v --cov=app --cov-report=html:/app/coverage_reports/html --cov-report=term-missing --cov-report=xml:/app/coverage_reports/coverage.xml --junitxml=/app/coverage_reports/junit.xml && python .github/scripts/generate_test_report.py"

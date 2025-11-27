@@ -32,16 +32,13 @@ class MeetingProcessor:
         """
         transcript_value = transcript or ""
 
-        print(f"[MeetingProcessor] Starting meeting processing - transcript_length: {len(transcript_value)}")
 
         # Step 1: Simple validation
         if not self._simple_validation(transcript_value):
-            print("[MeetingProcessor] Validation failed, returning empty result")
             return self._format_failure("Transcript validation failed: too short or empty")
 
         # Step 2: Concurrent extraction with error handling
         try:
-            print("[MeetingProcessor] Starting concurrent extraction (tasks + note)")
             results = await asyncio.gather(
                 self._extract_tasks_with_retry(transcript_value),
                 self._generate_note_with_retry(transcript_value, custom_prompt),
@@ -53,17 +50,13 @@ class MeetingProcessor:
 
             # Handle partial failures
             if isinstance(tasks_result, Exception):
-                print(f"[MeetingProcessor] Task extraction failed: {tasks_result}")
                 tasks_result = []  # Empty list as fallback
 
             if isinstance(note_result, Exception):
-                print(f"[MeetingProcessor] Note generation failed: {note_result}")
                 note_result = "Không thể tạo ghi chú cuộc họp do lỗi xử lý."  # Fallback message
 
-            print(f"[MeetingProcessor] Concurrent extraction completed - tasks: {len(tasks_result) if isinstance(tasks_result, list) else 0}, note_length: {len(note_result) if isinstance(note_result, str) else 0}")
 
         except Exception as exc:
-            print(f"[MeetingProcessor] Concurrent execution failed completely: {exc}")
             return self._format_failure(str(exc))
 
         # Step 3: Format and return success
@@ -80,14 +73,11 @@ class MeetingProcessor:
             True if valid, False otherwise
         """
         if not transcript or not transcript.strip():
-            print("[MeetingProcessor] Validation: transcript is empty")
             return False
 
         if len(transcript.strip()) < 100:
-            print(f"[MeetingProcessor] Validation: transcript too short ({len(transcript.strip())} < 100 chars)")
             return False
 
-        print(f"[MeetingProcessor] Validation: passed ({len(transcript.strip())} chars)")
         return True
 
     async def _extract_tasks_with_retry(self, transcript: str) -> List[Task]:
@@ -101,12 +91,9 @@ class MeetingProcessor:
             List of extracted tasks (empty list on failure after retries)
         """
         try:
-            print("[MeetingProcessor] Calling task extractor...")
             tasks = await self._task_extractor.extract(transcript)
-            print(f"[MeetingProcessor] Task extraction successful: {len(tasks)} tasks")
             return tasks
         except Exception as exc:
-            print(f"[MeetingProcessor] Task extraction failed after retries: {exc}")
             return []  # Return empty list as fallback
 
     async def _generate_note_with_retry(self, transcript: str, custom_prompt: Optional[str] = None) -> str:
@@ -121,13 +108,10 @@ class MeetingProcessor:
             Generated meeting note (fallback message on failure after retries)
         """
         try:
-            print("[MeetingProcessor] Calling note generator...")
             # Pass empty task list for now, will be updated after concurrent execution
             note = await self._note_generator.generate(transcript, [], custom_prompt)
-            print(f"[MeetingProcessor] Note generation successful: {len(note)} chars")
             return note
         except Exception as exc:
-            print(f"[MeetingProcessor] Note generation failed after retries: {exc}")
             return "Không thể tạo ghi chú cuộc họp do lỗi xử lý."  # Fallback message
 
     def _format_success(self, tasks: List[Task], note: str) -> Dict[str, Any]:
@@ -158,7 +142,6 @@ class MeetingProcessor:
         result = output.model_dump()
         result["task_items"] = [task.model_dump() for task in output.task_items]
 
-        print(f"[MeetingProcessor] Success result formatted - tasks: {len(result['task_items'])}, note_length: {len(result['meeting_note'])}")
 
         return result
 
@@ -172,7 +155,6 @@ class MeetingProcessor:
         Returns:
             Formatted failure dictionary
         """
-        print(f"[MeetingProcessor] Returning fallback response: {message}")
         return {
             "meeting_note": "",
             "task_items": [],
@@ -200,5 +182,5 @@ class MeetingProcessor:
                 try:
                     converted.append(model_cls(**item))
                 except Exception as exc:
-                    print(f"[MeetingProcessor] Failed to convert item to {model_cls.__name__}: {exc}")
+                    print(f"Failed to convert dict to {model_cls.__name__}: {str(exc)}")
         return converted

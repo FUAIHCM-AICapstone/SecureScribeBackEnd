@@ -16,7 +16,6 @@ from .meeting import (
 )
 from .notification import Notification
 from .project import Project, UserProject
-from .search import SearchDocument
 from .tag import MeetingTag, Tag
 from .task import Task, TaskProject
 from .user import User, UserDevice, UserIdentity
@@ -43,7 +42,6 @@ __all__ = [
     "TaskProject",
     "Notification",
     "AuditLog",
-    "SearchDocument",
     "Integration",
     "Conversation",
     "ChatMessageType",
