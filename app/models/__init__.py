@@ -3,7 +3,6 @@ from .audit import AuditLog
 from .base import BaseDatabaseModel
 from .chat import ChatMessage, ChatMessageType, Conversation
 from .file import File
-from .integration import Integration
 from .meeting import (
     AudioFile,
     Meeting,
@@ -42,7 +41,6 @@ __all__ = [
     "TaskProject",
     "Notification",
     "AuditLog",
-    "Integration",
     "Conversation",
     "ChatMessageType",
     "ChatMessage",

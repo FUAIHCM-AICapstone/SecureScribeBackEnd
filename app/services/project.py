@@ -242,11 +242,6 @@ def delete_project(db: Session, project_id: uuid.UUID, actor_user_id: uuid.UUID 
 
         db.query(TaskProject).filter(TaskProject.project_id == project_id).delete()
 
-        # 6. Delete Integrations
-        from app.models.integration import Integration
-
-        db.query(Integration).filter(Integration.project_id == project_id).delete()
-
         # 7. Finally delete the project
         db.delete(project)
         db.commit()

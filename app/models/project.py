@@ -9,7 +9,6 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from . import (
         File,
-        Integration,
         Project,
         ProjectMeeting,
         TaskProject,
@@ -47,7 +46,6 @@ class Project(SQLModel, table=True):
     meetings: list["ProjectMeeting"] = Relationship(back_populates="project")  # type: ignore
     files: list["File"] = Relationship(back_populates="project")  # type: ignore
     tasks: list["TaskProject"] = Relationship(back_populates="project")  # type: ignore
-    integrations: list["Integration"] = Relationship(back_populates="project")  # type: ignore
 
 
 class UserProject(SQLModel, table=True):

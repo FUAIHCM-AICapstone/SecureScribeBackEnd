@@ -226,7 +226,6 @@ def delete_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
         for project in user_projects:
             # Delete project with proper cascade handling (inline to avoid circular import)
             project_id = project.id
-            from app.models.integration import Integration
 
             # Delete UserProject relationships
             db.query(UserProject).filter(UserProject.project_id == project_id).delete()
@@ -237,8 +236,6 @@ def delete_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
             # Delete TaskProject relationships
             db.query(TaskProject).filter(TaskProject.project_id == project_id).delete()
 
-            # Delete Integrations
-            db.query(Integration).filter(Integration.project_id == project_id).delete()
 
             # Update Files - set project_id to NULL
             db.query(File).filter(File.project_id == project_id).update({"project_id": None})
@@ -254,11 +251,6 @@ def delete_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
         from app.models.notification import Notification
 
         db.query(Notification).filter(Notification.user_id == user_id).delete()
-
-        # 7. Delete user's integrations
-        from app.models.integration import Integration
-
-        db.query(Integration).filter(Integration.project_id.in_(db.query(Project.id).filter(Project.created_by == user_id))).delete()
 
         # 8. Finally delete the user
         db.delete(user)

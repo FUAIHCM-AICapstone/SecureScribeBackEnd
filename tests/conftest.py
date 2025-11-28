@@ -51,7 +51,6 @@ def _cleanup_test_data(session: Session):
     """Clean up all test data from database"""
     from app.models.chat import ChatMessage, Conversation
     from app.models.file import File
-    from app.models.integration import Integration
     from app.models.meeting import AudioFile, Meeting, MeetingBot, MeetingBotLog, MeetingNote, ProjectMeeting, Transcript
     from app.models.notification import Notification
     from app.models.project import Project, UserProject
@@ -74,7 +73,6 @@ def _cleanup_test_data(session: Session):
         session.query(Task).delete()
         session.query(File).delete()
         session.query(Notification).delete()
-        session.query(Integration).delete()
         session.query(UserDevice).delete()
         session.query(UserIdentity).delete()
         session.query(Project).delete()

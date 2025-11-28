@@ -96,7 +96,6 @@ def create_tables() -> None:
         ChatMessage,  # noqa: F401
         Conversation,  # noqa: F401
         File,  # noqa: F401
-        Integration,  # noqa: F401
         Meeting,  # noqa: F401
         MeetingBot,  # noqa: F401
         MeetingBotLog,  # noqa: F401
