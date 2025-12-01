@@ -447,17 +447,15 @@ def retry_webhook_processing_task(self, bot_id: str, meeting_url: str) -> Dict[s
 
 
 @celery_app.task(bind=True)
-def schedule_meeting_bot_task(self, meeting_id: str, user_id: str, bearer_token: str, meeting_url: str, webhook_url: str = ""):  # noqa: ARG001
+def schedule_meeting_bot_task(self, meeting_id: str, user_id: str, bearer_token: str, meeting_url: str, bot_id: str, webhook_url: str = ""):  # noqa: ARG001
     """Schedule bot to join meeting at specified time"""
-    import random
 
     import requests
 
     from app.core.config import settings
 
     try:
-        bot_id = f"Bot{random.randint(100, 999)}"
-
+        # Use the provided bot_id instead of generating a new one
         payload = {
             "bearerToken": bearer_token,
             "url": meeting_url,
@@ -853,6 +851,49 @@ def send_fcm_notification_background_task(
         )
         return {"status": "success", "users_count": len(user_ids)}
     except Exception:
+        raise
+
+
+@celery_app.task(soft_time_limit=60, time_limit=120)
+def send_bot_status_notification_task(bot_id: str, status: str, error: Optional[str] = None):
+    """
+    Celery task to send bot status notification via WebSocket and FCM.
+    Called asynchronously from sync context to avoid event loop issues.
+    """
+    import logging
+
+    from app.services.bot_notification import send_bot_status_notification
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        db = SessionLocal()
+        try:
+            # Convert string bot_id to UUID
+            bot_uuid = uuid.UUID(bot_id)
+
+            # Run the async notification function
+            import asyncio
+
+            try:
+                asyncio.get_running_loop()
+                # If there's a running loop, use it with a thread executor
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    executor.submit(asyncio.run, send_bot_status_notification(db, bot_uuid, status, error))
+            except RuntimeError:
+                # No running loop, create a new one
+                asyncio.run(send_bot_status_notification(db, bot_uuid, status, error))
+
+            logger.info(f"Bot status notification sent: bot_id={bot_id}, status={status}")
+            return {"status": "success", "bot_id": bot_id, "notification_status": status}
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.exception(f"Failed to send bot status notification: {e}")
         raise
 
 

@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from typing import Optional
 from uuid import UUID
@@ -71,59 +70,25 @@ async def send_bot_status_notification(
 
         ws_success = await publish_to_user_channel(creator_id, notification_data)
 
-        # Send FCM notification asynchronously (don't block on FCM)
-        asyncio.create_task(_send_fcm_notification_async(bot.created_by, status, meeting.title, error))
+        # Queue FCM notification via Celery (async, non-blocking)
+        from app.jobs.celery_worker import celery_app
+        celery_app.send_task(
+            "app.jobs.tasks.send_fcm_notification_background_task",
+            args=[
+                [str(bot.created_by)],
+                status == "recording" and "Recording Started" or (status == "complete" and "Recording Complete" or "Recording Failed"),
+                meeting.title or "Untitled Meeting",
+                {
+                    "bot_status": status,
+                    "meeting_title": meeting.title or "Untitled Meeting",
+                    "type": "bot_status_update",
+                },
+                "https://cdn-icons-png.flaticon.com/512/1995/1995473-camera.png",
+            ],
+        )
 
         return ws_success
 
     except Exception as e:
         logger.exception("Failed to send bot status notification: %s", e)
         return False
-
-
-async def _send_fcm_notification_async(
-    user_id: UUID,
-    status: str,
-    meeting_title: str,
-    error: Optional[str] = None,
-) -> None:
-    """
-    Send FCM notification asynchronously without blocking.
-    """
-    try:
-        from app.services.notification import send_fcm_notification
-
-        # Map status to user-friendly titles
-        status_titles = {
-            "recording": "Recording Started",
-            "complete": "Recording Complete",
-            "error": "Recording Failed",
-        }
-
-        status_bodies = {
-            "recording": f"Bot started recording meeting: {meeting_title}",
-            "complete": f"Bot finished recording meeting: {meeting_title}",
-            "error": f"Bot failed to record meeting: {meeting_title}" + (f" - {error}" if error else ""),
-        }
-
-        title = status_titles.get(status, "Bot Status Update")
-        body = status_bodies.get(status, f"Meeting bot status: {status}")
-
-        logger.info("Sending FCM notification to user %s (status=%s)", user_id, status)
-
-        send_fcm_notification(
-            user_ids=[user_id],
-            title=title,
-            body=body,
-            data={
-                "bot_status": status,
-                "meeting_title": meeting_title,
-                "type": "bot_status_update",
-            },
-            icon="https://cdn-icons-png.flaticon.com/512/1995/1995473-camera.png",
-        )
-
-        logger.info("FCM notification sent successfully to user %s", user_id)
-
-    except Exception as e:
-        logger.exception("Failed to send FCM notification to user %s: %s", user_id, e)

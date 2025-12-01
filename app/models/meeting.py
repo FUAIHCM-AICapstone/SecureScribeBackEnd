@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, func
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -239,7 +239,13 @@ class MeetingBotLog(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    meeting_bot_id: uuid.UUID = Field(foreign_key="meeting_bots.id", nullable=False)
+    meeting_bot_id: uuid.UUID = Field(
+        sa_column=Column(
+            UUID(as_uuid=True),
+            ForeignKey("meeting_bots.id", ondelete="CASCADE"),
+            nullable=False,
+        )
+    )
     action: Optional[str] = Field(default=None, sa_column=Column(String))
     message: Optional[str] = Field(default=None, sa_column=Column(Text))
 
