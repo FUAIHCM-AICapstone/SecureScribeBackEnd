@@ -41,6 +41,7 @@ def get_tasks_endpoint(
     assignee_id: Optional[uuid.UUID] = Query(None),
     due_date_gte: Optional[str] = Query(None),
     due_date_lte: Optional[str] = Query(None),
+    meeting_id: Optional[uuid.UUID] = Query(None),
     created_at_gte: Optional[str] = Query(None),
     created_at_lte: Optional[str] = Query(None),
 ):
@@ -55,6 +56,7 @@ def get_tasks_endpoint(
         due_date_lte=due_date_lte,
         created_at_gte=created_at_gte,
         created_at_lte=created_at_lte,
+        meeting_id=meeting_id,
         page=page,
         limit=limit,
     )

@@ -140,9 +140,9 @@ def get_meeting_endpoint(
         # Fetch transcripts with error handling
         transcripts = []
         try:
-            transcript_data = get_transcript_by_meeting(db, meeting_id, current_user.id)
-            if transcript_data:
-                transcripts = [TranscriptResponse.model_validate(t) for t in transcript_data]
+            transcript_obj = get_transcript_by_meeting(db, meeting_id, current_user.id)
+            if transcript_obj:
+                transcripts = [TranscriptResponse.model_validate(transcript_obj)]
         except Exception as e:
             print(f"Error fetching transcripts: {e}")
             transcripts = []

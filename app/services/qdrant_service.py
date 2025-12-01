@@ -16,41 +16,70 @@ from app.utils.qdrant import get_qdrant_client
 
 
 async def create_collection_if_not_exist(collection_name: str, dim: int) -> bool:
-    """Create a collection if it doesn't exist"""
-    client = get_qdrant_client()
+    """Create a collection if it doesn't exist.
 
+    Args:
+        collection_name: Name of the collection.
+        dim: Vector dimension size.
+
+    Returns:
+        bool: True if created or already exists, False on error.
+    """
     try:
+        client = get_qdrant_client()
         existing_collections = [c.name for c in client.get_collections().collections]
         if collection_name in existing_collections:
+            print(f"\033[94m[QDRANT] Collection {collection_name} already exists\033[0m")
             return False
 
         client.create_collection(
             collection_name=collection_name,
             vectors_config=qmodels.VectorParams(size=dim, distance=qmodels.Distance.COSINE),
         )
+        print(f"\033[92m[QDRANT] Created collection {collection_name} with dim={dim}\033[0m")
         return True
 
-    except Exception:
+    except Exception as e:
+        print(f"\033[91m[QDRANT] Failed to create collection {collection_name}: {str(e)}\033[0m")
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.error(f"Create collection failed: {e}", exc_info=True)
         return False
 
 
 async def upsert_vectors(collection: str, vectors: List[List[float]], payloads: List[Dict[str, Any]]) -> bool:
-    """Upsert vectors to a collection"""
+    """Upsert vectors to a collection with error handling.
+
+    Args:
+        collection: Collection name.
+        vectors: List of embedding vectors.
+        payloads: List of metadata payloads matching vectors.
+
+    Returns:
+        bool: True if successful, False otherwise.
+    """
     if not vectors:
         return False
 
-    client = get_qdrant_client()
     try:
+        client = get_qdrant_client()
         points = []
         for idx, vec in enumerate(vectors):
             point_id = str(uuid.uuid4())
             payload = payloads[idx] if idx < len(payloads) else {}
             points.append(qmodels.PointStruct(id=point_id, vector=vec, payload=payload))
 
-        client.upsert(collection_name=collection, points=points)
+        client.upsert(collection_name=collection, points=points, wait=True)
+        print(f"\033[92m[QDRANT] Successfully upserted {len(points)} vectors to {collection}\033[0m")
         return True
 
-    except Exception:
+    except Exception as e:
+        print(f"\033[91m[QDRANT] Failed to upsert vectors: {str(e)}\033[0m")
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.error(f"Upsert vectors failed: {e}", exc_info=True)
         return False
 
 
@@ -60,12 +89,22 @@ async def search_vectors(
     top_k: int = 5,
     query_filter: qmodels.Filter | None = None,
 ) -> List[qmodels.ScoredPoint]:
-    """Search for similar vectors in a collection"""
+    """Search for similar vectors in a collection with error handling.
+
+    Args:
+        collection: Collection name.
+        query_vector: Query embedding vector.
+        top_k: Number of results to return.
+        query_filter: Optional Qdrant filter for results.
+
+    Returns:
+        List of scored points matching the query.
+    """
     if not query_vector:
         return []
 
-    client = get_qdrant_client()
     try:
+        client = get_qdrant_client()
         response = client.query_points(
             collection_name=collection,
             query=query_vector,
@@ -75,9 +114,15 @@ async def search_vectors(
             with_vectors=True,
         )
         results = list(getattr(response, "points", response) or [])
+        print(f"\033[92m[QDRANT] Search returned {len(results)} results from {collection}\033[0m")
         return results
 
-    except Exception:
+    except Exception as e:
+        print(f"\033[91m[QDRANT] Search failed: {str(e)}\033[0m")
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.error(f"Search vectors failed: {e}", exc_info=True)
         return []
 
 

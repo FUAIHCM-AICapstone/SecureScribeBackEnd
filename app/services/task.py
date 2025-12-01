@@ -187,6 +187,7 @@ def get_tasks(
     assignee_id: Optional[uuid.UUID] = None,
     due_date_gte: Optional[str] = None,
     due_date_lte: Optional[str] = None,
+    meeting_id: Optional[uuid.UUID] = None,
     created_at_gte: Optional[str] = None,
     created_at_lte: Optional[str] = None,
     page: int = 1,
@@ -231,7 +232,8 @@ def get_tasks(
     task_projects_subquery = db.query(TaskProject.task_id).filter(TaskProject.project_id.in_(user_projects)).subquery()
 
     query = query.filter((Task.creator_id == user_id) | (Task.assignee_id == user_id) | (Task.id.in_(task_projects_subquery)) | (Task.meeting_id.in_(user_meetings)))
-
+    if meeting_id:
+        query = query.filter(Task.meeting_id == meeting_id)
     total = query.count()
     offset = (page - 1) * limit
     tasks = query.offset(offset).limit(limit).all()

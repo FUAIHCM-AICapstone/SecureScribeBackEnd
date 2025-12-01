@@ -50,7 +50,16 @@ sync_redis_client = get_redis_client()
 
 
 async def update_meeting_vectors_with_project_id(meeting_id: str, project_id: str, collection_name: str) -> bool:
-    """Update all vectors for a meeting with project_id"""
+    """Update all vectors for a meeting with project_id.
+
+    Args:
+        meeting_id: Meeting UUID.
+        project_id: Project UUID to assign.
+        collection_name: Qdrant collection name.
+
+    Returns:
+        bool: True if successful, False on error.
+    """
     try:
         import qdrant_client.models as qmodels
 
@@ -85,6 +94,7 @@ async def update_meeting_vectors_with_project_id(meeting_id: str, project_id: st
                 break
 
         if not all_points:
+            print(f"\033[93m[QDRANT] No vectors found for meeting {meeting_id}\033[0m")
             return True
 
         # Update payload with project_id
@@ -97,9 +107,15 @@ async def update_meeting_vectors_with_project_id(meeting_id: str, project_id: st
             wait=True,
         )
 
+        print(f"\033[92m[QDRANT] Updated {len(all_points)} vectors with project_id={project_id}\033[0m")
         return True
 
-    except Exception:
+    except Exception as e:
+        print(f"\033[91m[QDRANT] Failed to update meeting vectors: {str(e)}\033[0m")
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.error(f"Update meeting vectors failed: {e}", exc_info=True)
         return False
 
 
@@ -375,8 +391,9 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
                 asyncio.run(upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads))
                 transcript.qdrant_vector_id = str(transcript.id)
                 db.commit()
-        except Exception:
-            pass
+        except Exception as qdrant_error:
+            print(f"\033[93m[AUDIO_ASR] Qdrant indexing error (non-fatal): {str(qdrant_error)}\033[0m")
+            # Non-fatal error - continue processing
 
         update_task_progress(task_id, actor_user_id, 100, "completed", task_type="audio_asr")
         _broadcast(100, "completed", "0s")
@@ -494,25 +511,39 @@ def process_chat_message(
 
     This task handles AI processing and broadcasts the response via Redis for SSE clients.
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    print("\033[94m[CHAT_PROCESS] Starting chat message processing task\033[0m")
+    print(f"\033[94m[CHAT_PROCESS] Conversation ID: {conversation_id}, User Message ID: {user_message_id}, User ID: {user_id}\033[0m")
 
     # Create database session for this task
     db = SessionLocal()
     # Ensure user_id is always a plain string for downstream integrations (Agno expects str)
     user_id_str = str(user_id) if user_id is not None else ""
+    print(f"\033[94m[CHAT_PROCESS] Database session created, User ID string: {user_id_str}\033[0m")
 
     try:
+        print("\033[94m[CHAT_PROCESS] Getting Agno DB for agent\033[0m")
         # Get Agno DB for agent
         agno_db = get_agno_postgres_db()
+        print("\033[92m[CHAT_PROCESS] Agno DB retrieved successfully\033[0m")
 
+        print("\033[94m[CHAT_PROCESS] Creating chat agent\033[0m")
         # Create chat agent
         agent = create_general_chat_agent(agno_db, conversation_id, user_id_str)
+        print("\033[92m[CHAT_PROCESS] Chat agent created successfully\033[0m")
 
+        print("\033[94m[CHAT_PROCESS] Fetching conversation history\033[0m")
         # Fetch conversation history (using sync version for Celery task)
         history = fetch_conversation_history_sync(conversation_id)
+        print(f"\033[92m[CHAT_PROCESS] Conversation history fetched: {len(history)} messages\033[0m")
 
         # Prepare retrieval contexts (already deduped/expanded at API layer)
         mention_models: List[Mention] = []
         if mentions:
+            print(f"\033[94m[CHAT_PROCESS] Processing {len(mentions)} mentions\033[0m")
             for raw_mention in mentions:
                 try:
                     if isinstance(raw_mention, Mention):
@@ -522,9 +553,12 @@ def process_chat_message(
                     else:
                         mention_models.append(Mention.model_validate(raw_mention))
                 except Exception as mention_parse_error:
-                    print(f"Failed to parse mention: {mention_parse_error}")
+                    print(f"\033[91m[CHAT_PROCESS] Failed to parse mention: {mention_parse_error}\033[0m")
+            print(f"\033[92m[CHAT_PROCESS] Parsed {len(mention_models)} mention models\033[0m")
+
         combined_candidates: List[Dict[str, Any]] = []
         if mention_models:
+            print("\033[94m[CHAT_PROCESS] Querying documents for mentions\033[0m")
             try:
                 mention_candidates = asyncio.run(
                     chat_service.query_documents_for_mentions(
@@ -537,11 +571,14 @@ def process_chat_message(
                 )
                 if mention_candidates:
                     combined_candidates.extend(mention_candidates)
+                    print(f"\033[92m[CHAT_PROCESS] Found {len(mention_candidates)} mention candidates\033[0m")
             except Exception as mention_error:
-                print(f"Failed to query documents for mentions: {mention_error}")
+                print(f"\033[91m[CHAT_PROCESS] Failed to query documents for mentions: {mention_error}\033[0m")
+
         expansion_candidates: List[Dict[str, Any]] = []
         normalized_content = (content or "").strip()
         if normalized_content:
+            print("\033[94m[CHAT_PROCESS] Performing query expansion search\033[0m")
             try:
                 expansion_candidates = asyncio.run(
                     chat_service.perform_query_expansion_search(
@@ -553,10 +590,13 @@ def process_chat_message(
                 )
                 if expansion_candidates:
                     combined_candidates.extend(expansion_candidates)
+                    print(f"\033[92m[CHAT_PROCESS] Found {len(expansion_candidates)} expansion candidates\033[0m")
             except Exception as expansion_error:
-                print(f"Failed to perform expansion search: {expansion_error}")
+                print(f"\033[91m[CHAT_PROCESS] Failed to perform expansion search: {expansion_error}\033[0m")
         else:
-            print("No content provided for expansion search.")
+            print("\033[93m[CHAT_PROCESS] No content provided for expansion search\033[0m")
+
+        print(f"\033[94m[CHAT_PROCESS] Total combined candidates: {len(combined_candidates)}\033[0m")
 
         # Deduplicate contexts by file_id + chunk_index (fallback to doc id)
         aggregated_contexts: Dict[str, Dict[str, Any]] = {}
@@ -599,9 +639,12 @@ def process_chat_message(
             reverse=True,
         )[:5]
 
+        print(f"\033[92m[CHAT_PROCESS] Deduplicated to {len(combined_results)} top results\033[0m")
+
         # Optimization layer using LLM rerank
         optimized_contexts: List[Dict[str, Any]] = combined_results[:]
         if combined_results:
+            print("\033[94m[CHAT_PROCESS] Optimizing contexts with LLM rerank\033[0m")
             context_map = {doc["key"]: doc for doc in combined_results}
             context_lines = []
             for doc in combined_results:
@@ -661,9 +704,13 @@ def process_chat_message(
                 if not optimized_contexts:
                     optimized_contexts = combined_results[:desired_count]
 
-            except Exception:
+                print(f"\033[92m[CHAT_PROCESS] Optimized to {len(optimized_contexts)} contexts\033[0m")
+
+            except Exception as opt_error:
+                print(f"\033[91m[CHAT_PROCESS] Context optimization failed: {opt_error}\033[0m")
                 optimized_contexts = combined_results[:desired_count]
         else:
+            print("\033[93m[CHAT_PROCESS] No combined results for optimization\033[0m")
             optimized_contexts = []
 
         # Build enhanced content for agent prompt
@@ -673,15 +720,21 @@ def process_chat_message(
             for idx, doc in enumerate(optimized_contexts[:3], start=1):
                 snippet = (doc.get("payload", {}).get("text") or "Nội dung không có sẵn.").strip()
                 enhanced_content += f"\nTai lieu {idx} (score={doc.get('score', 0.0):.2f}):\n{snippet}\n"
+            print(f"\033[92m[CHAT_PROCESS] Enhanced content built with {len(optimized_contexts)} contexts\033[0m")
         else:
-            print("No optimized contexts available.")
+            print("\033[93m[CHAT_PROCESS] No optimized contexts available for enhancement\033[0m")
 
         # Process message with AI agent
+        print("\033[94m[CHAT_PROCESS] Processing message with AI agent\033[0m")
+        print("=== Enhanced Content for Agent ===")
+        print(enhanced_content)
+        print("==================================")
         response = agent.run(enhanced_content, history=history)
-
         ai_response_content = response.content
+        print(f"\033[92m[CHAT_PROCESS] AI response generated: {len(ai_response_content)} characters\033[0m")
 
         # Create AI message in database
+        print("\033[94m[CHAT_PROCESS] Creating AI message in database\033[0m")
         ai_message = ChatMessage(
             conversation_id=conversation_id,
             message_type=ChatMessageType.agent,
@@ -691,8 +744,10 @@ def process_chat_message(
         db.add(ai_message)
         db.commit()
         db.refresh(ai_message)
+        print(f"\033[92m[CHAT_PROCESS] AI message created with ID: {ai_message.id}\033[0m")
 
         # Broadcast message via Redis to SSE channel
+        print("\033[94m[CHAT_PROCESS] Broadcasting message via Redis\033[0m")
         channel = f"conversation:{conversation_id}:messages"
         message_data = {
             "type": "chat_message",
@@ -707,8 +762,10 @@ def process_chat_message(
 
         # Use sync Redis client for broadcasting in Celery task
         sync_redis_client.publish(channel, json.dumps(message_data))
+        print(f"\033[92m[CHAT_PROCESS] Message broadcasted to channel: {channel}\033[0m")
 
         # Create notification for task completion
+        print("\033[94m[CHAT_PROCESS] Creating completion notification\033[0m")
         notification_data = NotificationCreate(
             user_ids=[uuid.UUID(user_id_str)],
             type="task.chat_processing.completed",
@@ -728,7 +785,9 @@ def process_chat_message(
             payload=notification_data.payload,
             channel=notification_data.channel,
         )
+        print("\033[92m[CHAT_PROCESS] Completion notification created\033[0m")
 
+        print("\033[92m[CHAT_PROCESS] Chat message processing completed successfully\033[0m")
         return {
             "status": "success",
             "conversation_id": conversation_id,
@@ -738,7 +797,11 @@ def process_chat_message(
         }
 
     except Exception as e:
+        print(f"\033[91m[CHAT_PROCESS] Exception occurred: {str(e)}\033[0m")
+        logger.exception("Chat processing task failed")
+
         # Create error message in database
+        print("\033[94m[CHAT_PROCESS] Creating error message in database\033[0m")
         error_message = ChatMessage(
             conversation_id=conversation_id,
             message_type=ChatMessageType.agent,
@@ -749,6 +812,7 @@ def process_chat_message(
         db.commit()
 
         # Try to broadcast error message
+        print("\033[94m[CHAT_PROCESS] Broadcasting error message\033[0m")
         channel = f"conversation:{conversation_id}:messages"
         error_data = {
             "type": "chat_message",
@@ -764,7 +828,9 @@ def process_chat_message(
 
         # Use sync Redis client for error broadcasting
         sync_redis_client.publish(channel, json.dumps(error_data))
+        print(f"\033[92m[CHAT_PROCESS] Error message broadcasted to channel: {channel}\033[0m")
 
+        print("\033[91m[CHAT_PROCESS] Chat message processing failed\033[0m")
         return {
             "status": "error",
             "conversation_id": conversation_id,
@@ -775,7 +841,9 @@ def process_chat_message(
 
     finally:
         # Cleanup database session
+        print("\033[94m[CHAT_PROCESS] Cleaning up database session\033[0m")
         db.close()
+        print("\033[92m[CHAT_PROCESS] Database session closed\033[0m")
 
 
 @celery_app.task(soft_time_limit=60, time_limit=120)
@@ -940,6 +1008,17 @@ def process_meeting_analysis_task(
 
         if not transcript or len(transcript.strip()) < 100:
             raise Exception(f"Transcript too short or empty: {len(transcript.strip()) if transcript else 0} characters")
+        # query for meeting start time from database
+        db = SessionLocal()
+        try:
+            meeting_obj = db.query(Meeting).filter(Meeting.id == uuid.UUID(meeting_id)).first()
+            if meeting_obj and meeting_obj.start_time:
+                meeting_start_time = meeting_obj.start_time.isoformat()
+                meeting_title = meeting_obj.title or "Untitled Meeting"
+                # Prepend meeting start time to transcript for context
+                transcript = f"Title:{meeting_title}\nMeeting Start Time: {meeting_start_time}\n\n{transcript}"
+        finally:
+            db.close()
 
         # Step 3: Processing with concurrent extraction (30%)
         update_task_progress(task_id, user_id, 30, "processing", task_type="meeting_analysis")
@@ -988,24 +1067,44 @@ def process_meeting_analysis_task(
                     )
                     from app.utils.llm import embed_documents
 
+                    print(f"\033[94m[MEETING_ANALYSIS] Indexing meeting note ({len(meeting_note_content)} chars)\033[0m")
+
                     chunks = chunk_text(meeting_note_content)
-                    if chunks:
+                    if not chunks:
+                        print("\033[93m[MEETING_ANALYSIS] No chunks generated from meeting note\033[0m")
+                    else:
+                        print(f"\033[94m[MEETING_ANALYSIS] Generated {len(chunks)} chunks\033[0m")
                         vectors = asyncio.run(embed_documents(chunks))
-                        if vectors:
+                        if not vectors:
+                            print("\033[93m[MEETING_ANALYSIS] Failed to generate embeddings for chunks\033[0m")
+                        else:
+                            print(f"\033[94m[MEETING_ANALYSIS] Generated {len(vectors)} embeddings\033[0m")
                             asyncio.run(create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, len(vectors[0])))
-                        payloads = [
-                            {
-                                "text": ch,
-                                "chunk_index": i,
-                                "meeting_id": meeting_id,
-                                "note_type": "meeting_note",
-                                "total_chunks": len(chunks),
-                            }
-                            for i, ch in enumerate(chunks)
-                        ]
-                        asyncio.run(upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads))
+
+                            payloads = [
+                                {
+                                    "text": ch,
+                                    "chunk_index": i,
+                                    "meeting_id": meeting_id,
+                                    "note_type": "meeting_note",
+                                    "total_chunks": len(chunks),
+                                }
+                                for i, ch in enumerate(chunks)
+                            ]
+                            success = asyncio.run(upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads))
+                            if success:
+                                print("\033[92m[MEETING_ANALYSIS] Successfully indexed meeting note\033[0m")
+                            else:
+                                print("\033[93m[MEETING_ANALYSIS] Upsert vectors returned False\033[0m")
+
                 except Exception as index_error:
-                    print(f"Failed to index meeting note to Qdrant: {index_error}")
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    error_msg = f"Meeting note indexing error: {type(index_error).__name__}: {str(index_error)}"
+                    print(f"\033[93m[MEETING_ANALYSIS] {error_msg}\033[0m")
+                    logger.warning(error_msg, exc_info=True)
+            else:
+                print("\033[93m[MEETING_ANALYSIS] No meeting note content to index\033[0m")
 
             # Step 4.6: Update project_id for existing vectors (97%)
             update_task_progress(task_id, user_id, 97, "updating_vectors", task_type="meeting_analysis")
