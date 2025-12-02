@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -183,16 +182,13 @@ def update_bot_status(
 
     # Send notifications asynchronously for key status changes
     try:
-        from app.services.bot_notification import send_bot_status_notification
+        from app.jobs.celery_worker import celery_app
 
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        # Queue notification task (don't wait for it)
-        asyncio.create_task(send_bot_status_notification(db, bot_id, status, error))
+        # Queue notification task via Celery (async, non-blocking)
+        celery_app.send_task(
+            "app.jobs.tasks.send_bot_status_notification_task",
+            args=[bot_id, status, error],
+        )
     except Exception as e:
         # Log but don't fail the status update if notification fails
         import logging
@@ -291,13 +287,23 @@ def trigger_meeting_bot_join(
     # 2. MeetingBot validation (exists for meeting)
     bot = db.query(MeetingBot).filter(MeetingBot.meeting_id == meeting_id).first()
 
+    # Generate a consistent bot_id that will be used throughout the flow
+    bot_id = str(uuid.uuid4())
+
     if not bot:
         bot = MeetingBot(
+            id=uuid.UUID(bot_id),  # Use the generated bot_id as the database ID
             meeting_id=meeting_id,
             created_by=user_id,
             status="pending",
         )
         db.add(bot)
+        db.commit()
+        db.refresh(bot)
+    else:
+        # If bot exists, update its ID to match the generated one (for consistency)
+        # This ensures webhook callbacks use the correct bot_id
+        bot.id = uuid.UUID(bot_id)
         db.commit()
         db.refresh(bot)
 
@@ -362,13 +368,13 @@ def trigger_meeting_bot_join(
     from app.core.config import settings
     from app.jobs.celery_worker import celery_app
 
-    # Queue the Celery task with all required parameters
-    task = celery_app.send_task("app.jobs.tasks.schedule_meeting_bot_task", args=[str(meeting_id), str(user_id), bearer_token, meeting_url], kwargs={"webhook_url": settings.BOT_WEBHOOK_URL})
+    # Queue the Celery task with the consistent bot_id
+    task = celery_app.send_task("app.jobs.tasks.schedule_meeting_bot_task", args=[str(meeting_id), str(user_id), bearer_token, meeting_url, bot_id], kwargs={"webhook_url": settings.BOT_WEBHOOK_URL})
 
     # 9. Return task info dictionary
     return {
         "task_id": task.id,
-        "bot_id": str(bot.id),
+        "bot_id": bot_id,
         "meeting_id": str(meeting_id),
         "status": status,
         "scheduled_start_time": scheduled_start_time,

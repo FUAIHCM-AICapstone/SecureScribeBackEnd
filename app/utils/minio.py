@@ -137,7 +137,7 @@ def upload_bytes_to_minio(
 def download_file_from_minio(bucket_name: str, object_name: str) -> Optional[bytes]:
     try:
         client = get_minio_client()
-        response = client.get_object(bucket_name, object_name)
+        response = client.get_object(bucket_name=bucket_name, object_name=object_name)
         return response.read()
     except S3Error as e:
         logger.exception(f"MinIO download error: {e}")
