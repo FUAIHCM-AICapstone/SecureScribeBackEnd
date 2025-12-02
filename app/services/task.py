@@ -235,6 +235,7 @@ def get_tasks(
     if meeting_id:
         query = query.filter(Task.meeting_id == meeting_id)
     total = query.count()
+    query = query.order_by(Task.created_at.desc(), Task.updated_at.desc())
     offset = (page - 1) * limit
     tasks = query.offset(offset).limit(limit).all()
 

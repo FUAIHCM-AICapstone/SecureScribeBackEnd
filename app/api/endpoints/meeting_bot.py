@@ -74,7 +74,7 @@ def get_meeting_bots_endpoint(
             success=True,
             message=MessageConstants.MEETING_BOT_LIST_RETRIEVED_SUCCESS,
             data=[serialize_meeting_bot(bot) for bot in bots],
-            meta=create_pagination_meta(total, page, limit),
+            meta=create_pagination_meta(page, limit, total),
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -200,7 +200,7 @@ def get_bot_logs_endpoint(
             success=True,
             message=MessageConstants.MEETING_BOT_LOG_LIST_RETRIEVED_SUCCESS,
             data=[MeetingBotLogResponse.model_validate(log) for log in logs],
-            meta=create_pagination_meta(total, page, limit),
+            meta=create_pagination_meta(page, limit, total),
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

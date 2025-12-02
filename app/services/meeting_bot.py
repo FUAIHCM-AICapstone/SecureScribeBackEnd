@@ -75,6 +75,7 @@ def get_meeting_bots(db: Session, user_id: uuid.UUID, page: int = 1, limit: int 
             joinedload(MeetingBot.meeting).joinedload(Meeting.created_by_user),
         )
         .filter(MeetingBot.created_by == user_id)
+        .order_by(MeetingBot.created_at.desc())
     )
 
     total = query.count()
