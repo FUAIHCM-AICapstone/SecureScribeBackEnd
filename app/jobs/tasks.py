@@ -198,7 +198,7 @@ async def _perform_async_indexing(
         return False
 
 
-@celery_app.task(bind=True, soft_time_limit=300, time_limit=600)
+@celery_app.task(bind=True)
 def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
     """Background task to index a file for search"""
     task_id = self.request.id or f"index_file_{file_id}_{int(time.time())}"
@@ -334,7 +334,7 @@ def _get_meeting_member_ids(db, meeting_id: uuid.UUID, include_creator: bool = T
     return list(set(members))
 
 
-@celery_app.task(bind=True, soft_time_limit=300, time_limit=600)
+@celery_app.task(bind=True)
 def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str, Any]:
     task_id = self.request.id or f"process_audio_{audio_file_id}_{int(time.time())}"
     db = SessionLocal()
@@ -442,7 +442,7 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
             pass
 
 
-@celery_app.task(bind=True, soft_time_limit=120, time_limit=240)
+@celery_app.task(bind=True)
 def retry_webhook_processing_task(self, bot_id: str, meeting_url: str) -> Dict[str, Any]:  # noqa: ARG001
     """Retry failed webhook processing with exponential backoff"""
     import logging
