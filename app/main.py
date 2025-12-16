@@ -488,10 +488,8 @@ def download_file(object_name: str):
     bucket_name = object_name.split("/")[0]
     
     # Try with full object_name first, then just filename
-    file_bytes = download_file_from_minio(bucket_name, object_name)
-    if not file_bytes:
-        file_bytes = download_file_from_minio(bucket_name, filename_only)
-    
+    file_bytes = download_file_from_minio(bucket_name, filename_only)
+
     if not file_bytes:
         raise HTTPException(status_code=404, detail="File not found")
     
