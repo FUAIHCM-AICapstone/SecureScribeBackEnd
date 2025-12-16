@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse
 from fastapi.routing import APIRoute
+from google.cloud.storage import bucket
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -482,12 +483,20 @@ def health_services(db: Session = Depends(get_db)) -> Dict[str, Any]:
 def download_file(object_name: str):
     from app.utils.minio import download_file_from_minio
     
-    file_bytes = download_file_from_minio(settings.MINIO_BUCKET_NAME, object_name)
+    # Extract only filename (remove folder prefix like "audio-files/")
+    filename_only = object_name.split("/")[-1]
+    bucket_name = object_name.split("/")[0]
+    
+    # Try with full object_name first, then just filename
+    file_bytes = download_file_from_minio(bucket_name, object_name)
+    if not file_bytes:
+        file_bytes = download_file_from_minio(bucket_name, filename_only)
+    
     if not file_bytes:
         raise HTTPException(status_code=404, detail="File not found")
     
     return FileResponse(
         iter([file_bytes]),
         media_type="application/octet-stream",
-        filename=object_name.split("/")[-1]
+        filename=filename_only
     )
