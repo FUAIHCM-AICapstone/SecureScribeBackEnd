@@ -1,8 +1,9 @@
 from typing import Any, Dict
 
-from fastapi import Depends, FastAPI, FileResponse, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
+from fastapi.responses import FileResponse
 from fastapi.routing import APIRoute
 from sqlalchemy import text
 from sqlalchemy.orm import Session
