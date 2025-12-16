@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, FileResponse, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.routing import APIRoute
@@ -475,3 +475,18 @@ def health_services(db: Session = Depends(get_db)) -> Dict[str, Any]:
         "services": services_status,
         "overall_status": "healthy" if all("✅" in status for status in services_status.values()) else "degraded",
     }
+
+
+@app.get("/download")
+def download_file(object_name: str):
+    from app.utils.minio import download_file_from_minio
+    
+    file_bytes = download_file_from_minio(settings.MINIO_BUCKET_NAME, object_name)
+    if not file_bytes:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    return FileResponse(
+        iter([file_bytes]),
+        media_type="application/octet-stream",
+        filename=object_name.split("/")[-1]
+    )
