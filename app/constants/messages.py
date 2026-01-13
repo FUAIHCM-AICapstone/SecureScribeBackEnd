@@ -86,6 +86,13 @@ class MessageConstants:
     MEETING_BOT_WEBHOOK_QUEUED_FOR_RETRY = "MEETING_BOT_WEBHOOK_QUEUED_FOR_RETRY"
     MEETING_BOT_WEBHOOK_RECEIVED = "MEETING_BOT_WEBHOOK_RECEIVED"
     MEETING_BOT_JOIN_FAILED = "MEETING_BOT_JOIN_FAILED"
+    MEETING_BOT_UNAUTHORIZED_UPDATE = "MEETING_BOT_UNAUTHORIZED_UPDATE"
+    MEETING_BOT_UNAUTHORIZED_DELETE = "MEETING_BOT_UNAUTHORIZED_DELETE"
+    MEETING_BOT_UNAUTHORIZED_TRIGGER = "MEETING_BOT_UNAUTHORIZED_TRIGGER"
+    MEETING_BOT_INVALID_SCHEDULED_TIME = "MEETING_BOT_INVALID_SCHEDULED_TIME"
+    MEETING_URL_REQUIRED = "MEETING_URL_REQUIRED"
+    MEETING_UNAUTHORIZED_DELETE = "MEETING_UNAUTHORIZED_DELETE"
+    MEETING_ACCESS_DENIED = "MEETING_ACCESS_DENIED"
 
     # User Messages
     USER_CREATED_SUCCESS = "USER_CREATED_SUCCESS"
@@ -96,6 +103,7 @@ class MessageConstants:
 
     # Auth Messages
     AUTH_FAILED = "AUTH_FAILED"
+    AUTH_EMAIL_NOT_FOUND = "AUTH_EMAIL_NOT_FOUND"
     ACCESS_DENIED = "ACCESS_DENIED"
     ADMIN_ACCESS_REQUIRED = "ADMIN_ACCESS_REQUIRED"
     INVALID_CREDENTIALS = "INVALID_CREDENTIALS"
@@ -238,6 +246,13 @@ class MessageDescriptions:
     MEETING_BOT_WEBHOOK_QUEUED_FOR_RETRY = "Webhook received, queued for retry"
     MEETING_BOT_WEBHOOK_RECEIVED = "Webhook received"
     MEETING_BOT_JOIN_FAILED = "Failed to queue bot join task"
+    MEETING_BOT_UNAUTHORIZED_UPDATE = "Not authorized to update this bot"
+    MEETING_BOT_UNAUTHORIZED_DELETE = "Not authorized to delete this bot"
+    MEETING_BOT_UNAUTHORIZED_TRIGGER = "Not authorized to trigger bot for this meeting"
+    MEETING_BOT_INVALID_SCHEDULED_TIME = "Scheduled start time cannot be in the past"
+    MEETING_URL_REQUIRED = "Meeting URL is required"
+    MEETING_UNAUTHORIZED_DELETE = "You don't have permission to delete this meeting"
+    MEETING_ACCESS_DENIED = "Meeting not found or access denied"
 
     # User Messages
     USER_CREATED_SUCCESS = "User created successfully"
@@ -248,6 +263,7 @@ class MessageDescriptions:
 
     # Auth Messages
     AUTH_FAILED = "Authentication failed"
+    AUTH_EMAIL_NOT_FOUND = "Email not found in Firebase token"
     ACCESS_DENIED = "Access denied"
     ADMIN_ACCESS_REQUIRED = "Admin access required"
     INVALID_CREDENTIALS = "Invalid credentials"

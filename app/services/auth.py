@@ -1,9 +1,11 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageDescriptions
 from app.core.config import settings
+from app.crud.user import crud_get_user_by_email
 from app.events.domain_events import BaseDomainEvent
-from app.models.user import User, UserIdentity
+from app.models.user import UserIdentity
 from app.services.event_manager import EventManager
 from app.services.user import create_user
 from app.utils.auth import create_access_token, create_refresh_token, get_firebase_user_info
@@ -13,8 +15,8 @@ def firebase_login(db: Session, id_token: str):
     user_info = get_firebase_user_info(id_token)
     email = user_info.get("email")
     if not email:
-        raise HTTPException(status_code=400, detail="Email not found in Firebase token")
-    user = db.query(User).filter(User.email == email).first()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageDescriptions.AUTH_EMAIL_NOT_FOUND)
+    user = crud_get_user_by_email(db, email)
     if not user:
         user = create_user(db, email=email, name=user_info.get("name"), avatar_url=user_info.get("picture"))
         identity = UserIdentity(user_id=user.id, provider="google", provider_user_id=user_info.get("uid"), provider_email=email, provider_profile=user_info)

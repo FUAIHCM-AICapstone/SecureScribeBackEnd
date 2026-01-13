@@ -1,10 +1,11 @@
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from firebase_admin import messaging
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageDescriptions
 from app.crud.notification import (
     crud_create_global_notification,
     crud_create_notification,
@@ -16,6 +17,7 @@ from app.crud.notification import (
 )
 from app.db import SessionLocal
 from app.models.notification import Notification
+from app.utils.logging import logger
 
 
 def get_notifications(db: Session, user_id: uuid.UUID, **kwargs) -> Tuple[List[Notification], int]:
@@ -33,7 +35,7 @@ def get_notifications(db: Session, user_id: uuid.UUID, **kwargs) -> Tuple[List[N
 def get_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID) -> Notification:
     notification = crud_get_notification(db, notification_id=notification_id, user_id=user_id)
     if not notification:
-        raise HTTPException(status_code=404, detail="Notification not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.NOTIFICATION_NOT_FOUND)
     return notification
 
 
@@ -52,13 +54,13 @@ def create_global_notification(db: Session, **kwargs) -> List[Notification]:
 def update_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID, **kwargs) -> Notification:
     notification = crud_update_notification(db, notification_id, user_id, **kwargs)
     if not notification:
-        raise HTTPException(status_code=404, detail="Notification not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.NOTIFICATION_NOT_FOUND)
     return notification
 
 
 def delete_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID) -> None:
     if not crud_delete_notification(db, notification_id, user_id):
-        raise HTTPException(status_code=404, detail="Notification not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.NOTIFICATION_NOT_FOUND)
 
 
 def send_fcm_notification(
@@ -101,7 +103,7 @@ def send_fcm_notification(
         try:
             messaging.send_each_for_multicast(message)
         except Exception as e:
-            print(f"[FCM Notification] Error sending notification: {str(e)}")
+            logger.error(f"FCM Notification error sending notification: {str(e)}", exc_info=True)
             raise
     finally:
         db.close()

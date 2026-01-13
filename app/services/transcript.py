@@ -20,6 +20,7 @@ from app.schemas.transcript import TranscriptCreate, TranscriptUpdate
 from app.services.audio_file import get_audio_file
 from app.services.event_manager import EventManager
 from app.utils.inference import transcriber
+from app.utils.logging import logger
 from app.utils.meeting import check_meeting_access
 from app.utils.minio import download_file_from_minio
 
@@ -81,7 +82,7 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
     try:
         transcript_text = transcriber(temp_path)
         transcript_data = TranscriptCreate(meeting_id=audio_file.meeting_id, content=transcript_text, audio_concat_file_id=audio_file.id)
-        print(transcript_data)
+        logger.debug(f"Transcript created: {transcript_data}")
         transcript = create_transcript(db, transcript_data, audio_file.uploaded_by)
         if transcript:
             EventManager.emit_domain_event(

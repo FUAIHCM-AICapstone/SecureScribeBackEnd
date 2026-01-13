@@ -4,6 +4,7 @@ from typing import List
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageDescriptions
 from app.crud.task import (
     crud_check_direct_access,
     crud_check_meeting_access,
@@ -23,9 +24,6 @@ from app.schemas.task import TaskCreate, TaskResponse, TaskUpdate
 from app.schemas.user import UserResponse
 from app.services.event_manager import EventManager
 from app.services.notification import create_notifications_bulk, send_fcm_notification
-
-ERROR_NO_TASK_ACCESS = "No access to task"
-ERROR_TASK_NOT_FOUND = "Task not found"
 
 
 def check_task_access(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
@@ -183,10 +181,10 @@ def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id:
                 actor_user_id=user_id,
                 target_type="task",
                 target_id=task_id,
-                metadata={"reason": "permission_denied", "detail": ERROR_NO_TASK_ACCESS},
+                metadata={"reason": "permission_denied", "detail": MessageDescriptions.ACCESS_DENIED},
             )
         )
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ERROR_NO_TASK_ACCESS)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=MessageDescriptions.ACCESS_DENIED)
     task = crud_get_task(db, task_id)
     if not task:
         EventManager.emit_domain_event(
@@ -195,10 +193,10 @@ def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id:
                 actor_user_id=user_id,
                 target_type="task",
                 target_id=task_id,
-                metadata={"reason": "not_found", "detail": ERROR_TASK_NOT_FOUND},
+                metadata={"reason": "not_found", "detail": MessageDescriptions.TASK_NOT_FOUND},
             )
         )
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_TASK_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.TASK_NOT_FOUND)
     old_assignee_id = task.assignee_id
     old_status = task.status
     updates = task_data.model_dump(exclude_unset=True)
@@ -216,10 +214,10 @@ def delete_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
                 actor_user_id=user_id,
                 target_type="task",
                 target_id=task_id,
-                metadata={"reason": "permission_denied", "detail": ERROR_NO_TASK_ACCESS},
+                metadata={"reason": "permission_denied", "detail": MessageDescriptions.ACCESS_DENIED},
             )
         )
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ERROR_NO_TASK_ACCESS)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=MessageDescriptions.ACCESS_DENIED)
     if not crud_get_task(db, task_id):
         EventManager.emit_domain_event(
             BaseDomainEvent(
@@ -227,10 +225,10 @@ def delete_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
                 actor_user_id=user_id,
                 target_type="task",
                 target_id=task_id,
-                metadata={"reason": "not_found", "detail": ERROR_TASK_NOT_FOUND},
+                metadata={"reason": "not_found", "detail": MessageDescriptions.TASK_NOT_FOUND},
             )
         )
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ERROR_TASK_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.TASK_NOT_FOUND)
     crud_delete_task(db, task_id)
     try:
         EventManager.emit_domain_event(BaseDomainEvent(event_name="task.deleted", actor_user_id=user_id, target_type="task", target_id=task_id, metadata={}))

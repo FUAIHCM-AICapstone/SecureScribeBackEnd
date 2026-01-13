@@ -1,4 +1,3 @@
-import logging
 import mimetypes
 import os
 import re
@@ -9,12 +8,11 @@ from chonkie import CodeChunker, SentenceChunker
 from qdrant_client import models as qmodels
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(__name__)
-
 from app.core.config import settings
 from app.services.file import check_file_access, get_file
 from app.services.meeting import get_meeting
 from app.services.project import is_user_in_project
+from app.utils.logging import logger
 from app.utils.qdrant import get_qdrant_client
 
 
@@ -32,18 +30,17 @@ async def create_collection_if_not_exist(collection_name: str, dim: int) -> bool
         client = get_qdrant_client()
         existing_collections = [c.name for c in client.get_collections().collections]
         if collection_name in existing_collections:
-            print(f"\033[94m[QDRANT] Collection {collection_name} already exists\033[0m")
+            logger.debug(f"[QDRANT] Collection {collection_name} already exists")
             return False
 
         client.create_collection(
             collection_name=collection_name,
             vectors_config=qmodels.VectorParams(size=dim, distance=qmodels.Distance.COSINE),
         )
-        print(f"\033[92m[QDRANT] Created collection {collection_name} with dim={dim}\033[0m")
+        logger.info(f"[QDRANT] Created collection {collection_name} with dim={dim}")
         return True
 
     except Exception as e:
-        print(f"\033[91m[QDRANT] Failed to create collection {collection_name}: {str(e)}\033[0m")
         logger.error(f"Create collection failed: {e}", exc_info=True)
         return False
 
@@ -71,11 +68,10 @@ async def upsert_vectors(collection: str, vectors: List[List[float]], payloads: 
             points.append(qmodels.PointStruct(id=point_id, vector=vec, payload=payload))
 
         client.upsert(collection_name=collection, points=points, wait=True)
-        print(f"\033[92m[QDRANT] Successfully upserted {len(points)} vectors to {collection}\033[0m")
+        logger.info(f"[QDRANT] Successfully upserted {len(points)} vectors to {collection}")
         return True
 
     except Exception as e:
-        print(f"\033[91m[QDRANT] Failed to upsert vectors: {str(e)}\033[0m")
         logger.error(f"Upsert vectors failed: {e}", exc_info=True)
         return False
 

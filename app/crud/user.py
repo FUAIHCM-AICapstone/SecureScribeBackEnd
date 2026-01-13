@@ -77,6 +77,10 @@ def crud_get_user_by_id(db: Session, user_id: uuid.UUID) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
 
+def crud_get_user_by_email(db: Session, email: str) -> Optional[User]:
+    return db.query(User).filter(User.email == email).first()
+
+
 def crud_create_user(db: Session, **user_data) -> User:
     user = User(**user_data)
     db.add(user)

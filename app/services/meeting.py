@@ -2,9 +2,10 @@ import uuid
 from io import BytesIO
 from typing import List, Optional, Tuple
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.constants.messages import MessageDescriptions
 from app.core.config import settings
 from app.crud.meeting import (
     crud_check_project_exists,
@@ -68,11 +69,11 @@ def get_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, raise_40
     meeting = crud_get_meeting(db, meeting_id)
     if not meeting:
         if raise_404:
-            raise HTTPException(status_code=404, detail="Meeting not found or access denied")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.MEETING_ACCESS_DENIED)
         return None
     if not check_meeting_access(db, meeting, user_id):
         if raise_404:
-            raise HTTPException(status_code=404, detail="Meeting not found or access denied")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.MEETING_ACCESS_DENIED)
         return None
     return meeting
 
@@ -200,15 +201,15 @@ def remove_meeting_from_project(db: Session, meeting_id: uuid.UUID, project_id: 
 def validate_meeting_for_audio_operations(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Meeting:
     meeting = crud_get_meeting(db, meeting_id)
     if not meeting:
-        raise HTTPException(status_code=404, detail="Meeting not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.MEETING_NOT_FOUND)
     if not check_meeting_access(db, meeting, user_id):
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=MessageDescriptions.ACCESS_DENIED)
     return meeting
 
 
 def check_delete_permissions(db: Session, meeting: Meeting, current_user_id: uuid.UUID) -> Meeting:
     if not can_delete_meeting(db, meeting, current_user_id):
-        raise HTTPException(status_code=403, detail="You don't have permission to delete this meeting")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=MessageDescriptions.MEETING_UNAUTHORIZED_DELETE)
     return meeting
 
 
