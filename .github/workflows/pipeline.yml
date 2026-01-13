@@ -180,7 +180,7 @@ jobs:
             -e VAULT_ADDR="${{ secrets.VAULT_ADDR }}" \
             -e VAULT_TOKEN="${{ secrets.VAULT_TOKEN }}" \
             -e PYTHON_ENVIRONMENT="${{ secrets.PYTHON_ENVIRONMENT }}" \
-            -p 8082:8081 \
+            -p 8082:8000 \
             ${{ needs.build-backend.outputs.backend-image }}
 
       - name: ✅ Verify deployment
