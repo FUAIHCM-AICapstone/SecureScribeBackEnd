@@ -52,7 +52,7 @@ def upload_audio_file(
     if file.content_type not in supported_formats:
         error_msg = f"Invalid audio format: {file.content_type}. Supported formats: {', '.join(supported_formats)}"
         logger.warning(error_msg)
-        raise HTTPException(status_code=400, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
 
     # Handle meeting_id: auto-create personal meeting or validate RBAC
     if meeting_id is None:
@@ -74,7 +74,7 @@ def upload_audio_file(
         if len(file_content) == 0:
             error_msg = "Uploaded file is empty"
             logger.warning(error_msg)
-            raise HTTPException(status_code=400, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
 
         audio_data = AudioFileCreate(meeting_id=meeting_id, uploaded_by=current_user.id)
         audio_file = create_audio_file(db, audio_data, file_content, file.content_type)
@@ -82,7 +82,7 @@ def upload_audio_file(
         if not audio_file:
             error_msg = "Failed to upload audio file to storage"
             logger.error(error_msg)
-            raise HTTPException(status_code=500, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
 
         logger.info(f"Audio file uploaded: {audio_file.id}, file_url: {audio_file.file_url}")
 
@@ -97,7 +97,7 @@ def upload_audio_file(
     except Exception as e:
         error_msg = f"Unexpected error during audio upload: {str(e)}"
         logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=MessageConstants.INTERNAL_SERVER_ERROR)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=MessageConstants.INTERNAL_SERVER_ERROR)
 
 
 @router.get("/audio-files/{audio_id}", response_model=AudioFileApiResponse)
@@ -108,7 +108,7 @@ def get_audio_file_endpoint(
 ):
     audio_file = get_audio_file(db, audio_id)
     if not audio_file:
-        raise HTTPException(status_code=404, detail=MessageConstants.AUDIO_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.AUDIO_NOT_FOUND)
 
     return ApiResponse(
         success=True,
@@ -140,7 +140,7 @@ def update_audio_file_endpoint(
 ):
     audio_file = update_audio_file(db, audio_id, updates)
     if not audio_file:
-        raise HTTPException(status_code=404, detail=MessageConstants.AUDIO_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.AUDIO_NOT_FOUND)
 
     return ApiResponse(
         success=True,
