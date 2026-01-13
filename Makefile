@@ -78,3 +78,24 @@ status: ## Show status of all services
 # Stop and remove volumes (destructive)
 nuke: ## Stop everything and remove all volumes (WARNING: destroys data)
 	docker-compose -f docker-compose.local.yml down -v
+
+# Run backend image alone
+run-backend: ## Run backend image alone with .env file
+	docker run --rm -d \
+		--name securescribe-backend \
+		--env-file .env \
+		-p 8000:8000 \
+		luongnguyenminhan/securescribe:backend
+
+# Run backend image in foreground
+run-backend-fg: ## Run backend image alone in foreground with .env file
+	docker run --rm \
+		--name securescribe-backend \
+		--env-file .env \
+		-p 8000:8000 \
+		luongnguyenminhan/securescribe:backend
+
+# Stop backend container
+stop-backend: ## Stop the running backend container
+	docker stop securescribe-backend || true
+	docker rm securescribe-backend || true
