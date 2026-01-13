@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "securescribe"
 
     # Firebase Configuration
-    FIREBASE_SERVICE_ACCOUNT_KEY_PATH: str = "/app/config/keys/scribe-c7f13-firebase-adminsdk-fbsvc-1ab2f55755.json"
+    FIREBASE_SERVICE_ACCOUNT_KEY_PATH: str = '{"type": "service_account", "project_id": ""}'
 
     # Redis Configuration
     REDIS_HOST: str = "redis"
