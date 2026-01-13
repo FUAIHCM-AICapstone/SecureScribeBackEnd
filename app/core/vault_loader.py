@@ -108,7 +108,7 @@ def _load_from_vault_api_v2(vault_addr: str, vault_token: str, service_env: str)
         vault_token: Vault authentication token
         service_env: Environment name (e.g., development, staging, production)
     """
-    secret_path = f"secret/data/PhotoHelper/{service_env}"
+    secret_path = f"v1/kv/data/Meobeo/{service_env}"
     vault_url = f"{vault_addr.rstrip('/')}/v1/{secret_path}"
 
     try:
