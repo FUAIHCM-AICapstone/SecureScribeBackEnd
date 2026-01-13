@@ -72,6 +72,7 @@ async def send_bot_status_notification(
 
         # Queue FCM notification via Celery (async, non-blocking)
         from app.jobs.celery_worker import celery_app
+
         celery_app.send_task(
             "app.jobs.tasks.send_fcm_notification_background_task",
             args=[

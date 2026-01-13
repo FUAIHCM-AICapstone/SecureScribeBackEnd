@@ -3,12 +3,11 @@ import json
 import re
 import time
 import uuid
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.chat import ChatMessage, Conversation
+from app.crud.chat import crud_create_chat_message
 from app.schemas.chat import Mention
 from app.services.qdrant_service import (
     query_documents_by_file_id,
@@ -19,37 +18,8 @@ from app.utils.llm import embed_documents, expand_query_with_llm
 from app.utils.redis import get_async_redis_client
 
 
-def create_chat_message(db: Session, conversation_id: uuid.UUID, user_id: uuid.UUID, content: str, message_type: str, mentions: Optional[List] = None) -> Optional[ChatMessage]:
-    """Create a chat message"""
-    # Verify conversation exists and user has access
-    conversation = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.user_id == user_id, Conversation.is_active == True).first()
-
-    if not conversation:
-        return None
-
-    # Ensure mentions are serializable dictionaries
-    serializable_mentions = None
-    if mentions:
-        serializable_mentions = []
-        for mention in mentions:
-            if hasattr(mention, "dict"):
-                # Convert Pydantic model to dict
-                serializable_mentions.append(mention.dict())
-            elif isinstance(mention, dict):
-                # Already a dict
-                serializable_mentions.append(mention)
-            else:
-                # Convert to dict if it's a simple object
-                serializable_mentions.append(dict(mention))
-
-    db_message = ChatMessage(conversation_id=conversation_id, message_type=message_type, content=content, mentions=serializable_mentions)
-    db.add(db_message)
-
-    # Update conversation's updated_at timestamp
-    conversation.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(db_message)
-    return db_message
+def create_chat_message(db: Session, conversation_id: uuid.UUID, user_id: uuid.UUID, content: str, message_type: str, mentions: Optional[List] = None) -> Optional:
+    return crud_create_chat_message(db, conversation_id, user_id, content, message_type, mentions)
 
 
 def _merge_context_candidates(candidates: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:

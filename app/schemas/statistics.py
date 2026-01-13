@@ -27,6 +27,7 @@ class ChartDataPoint(BaseModel):
 
 class TaskStatusBreakdown(BaseModel):
     """Detailed task status breakdown"""
+
     todo: int = Field(default=0, description="Tasks not yet started")
     in_progress: int = Field(default=0, description="Tasks currently being worked on")
     done: int = Field(default=0, description="Completed tasks")
@@ -34,6 +35,7 @@ class TaskStatusBreakdown(BaseModel):
 
 class TaskStats(BaseModel):
     """Task statistics with trends"""
+
     total: int = Field(default=0, description="Total number of tasks")
     status_breakdown: TaskStatusBreakdown = Field(default_factory=TaskStatusBreakdown)
     overdue_count: int = Field(default=0, description="Number of overdue active tasks")
@@ -47,6 +49,7 @@ class TaskStats(BaseModel):
 
 class MeetingStats(BaseModel):
     """Meeting statistics with trends"""
+
     total_count: int = Field(default=0, description="Total number of meetings")
     total_duration_minutes: int = Field(default=0, description="Total duration in minutes")
     average_duration_minutes: float = Field(default=0.0, description="Average meeting duration")
@@ -59,6 +62,7 @@ class MeetingStats(BaseModel):
 
 class ProjectStats(BaseModel):
     """Project statistics"""
+
     total_count: int = Field(default=0, description="Total projects user is part of")
     active_count: int = Field(default=0, description="Active (non-archived) projects")
     archived_count: int = Field(default=0, description="Archived projects")
@@ -68,6 +72,7 @@ class ProjectStats(BaseModel):
 
 class StorageStats(BaseModel):
     """Storage usage statistics"""
+
     total_files: int = Field(default=0, description="Total number of files")
     total_size_bytes: int = Field(default=0, description="Total storage in bytes")
     total_size_mb: float = Field(default=0.0, description="Total storage in megabytes")
@@ -76,6 +81,7 @@ class StorageStats(BaseModel):
 
 class QuickAccessMeeting(BaseModel):
     """Meeting for quick access panel"""
+
     id: UUID
     title: Optional[str] = None
     start_time: Optional[datetime] = None
@@ -88,6 +94,7 @@ class QuickAccessMeeting(BaseModel):
 
 class QuickAccessTask(BaseModel):
     """Task for quick access panel"""
+
     id: UUID
     title: str
     due_date: Optional[datetime] = None
@@ -99,6 +106,7 @@ class QuickAccessTask(BaseModel):
 
 class QuickAccessProject(BaseModel):
     """Project for quick access panel"""
+
     id: UUID
     name: str
     description: Optional[str] = None
@@ -111,6 +119,7 @@ class QuickAccessProject(BaseModel):
 
 class QuickAccessData(BaseModel):
     """Quick access data for dashboard"""
+
     upcoming_meetings: List[QuickAccessMeeting] = Field(default_factory=list)
     recent_meetings: List[QuickAccessMeeting] = Field(default_factory=list)
     priority_tasks: List[QuickAccessTask] = Field(default_factory=list)
@@ -119,6 +128,7 @@ class QuickAccessData(BaseModel):
 
 class SummaryStats(BaseModel):
     """High-level summary statistics"""
+
     total_tasks: int = Field(default=0)
     total_meetings: int = Field(default=0)
     total_projects: int = Field(default=0)
@@ -128,6 +138,7 @@ class SummaryStats(BaseModel):
 
 class DashboardResponse(BaseModel):
     """Complete dashboard response"""
+
     period: DashboardPeriod
     scope: DashboardScope
     summary: SummaryStats = Field(default_factory=SummaryStats)

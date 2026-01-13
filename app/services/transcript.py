@@ -4,12 +4,18 @@ import uuid
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
+from app.crud.transcript import (
+    crud_check_transcript_meeting_match,
+    crud_create_transcript,
+    crud_delete_transcript,
+    crud_get_transcript,
+    crud_get_transcripts,
+    crud_update_transcript,
+)
 from app.events.domain_events import BaseDomainEvent, build_diff
-from app.models.meeting import Meeting, ProjectMeeting, Transcript
-from app.models.project import Project, UserProject
+from app.models.meeting import Transcript
 from app.schemas.transcript import TranscriptCreate, TranscriptUpdate
 from app.services.audio_file import get_audio_file
 from app.services.event_manager import EventManager
@@ -21,7 +27,7 @@ from .meeting import get_meeting
 
 
 def check_transcript_access(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID) -> bool:
-    transcript = db.query(Transcript).filter(Transcript.id == transcript_id).first()
+    transcript = crud_get_transcript(db, transcript_id)
     if not transcript:
         return False
     meeting = get_meeting(db, transcript.meeting_id, user_id)
@@ -116,38 +122,7 @@ def create_transcript(db: Session, transcript_data: TranscriptCreate, user_id: u
             )
         )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to meeting")
-    existing = db.query(Transcript).filter(Transcript.meeting_id == transcript_data.meeting_id).first()
-    if existing:
-        original = {
-            "content": existing.content,
-            "audio_concat_file_id": existing.audio_concat_file_id,
-        }
-        existing.content = transcript_data.content
-        existing.audio_concat_file_id = transcript_data.audio_concat_file_id
-        db.commit()
-        db.refresh(existing)
-        diff = build_diff(
-            original,
-            {
-                "content": existing.content,
-                "audio_concat_file_id": existing.audio_concat_file_id,
-            },
-        )
-        if diff:
-            EventManager.emit_domain_event(
-                BaseDomainEvent(
-                    event_name="transcript.updated",
-                    actor_user_id=user_id,
-                    target_type="transcript",
-                    target_id=existing.id,
-                    metadata={"diff": diff},
-                )
-            )
-        return existing
-    transcript = Transcript(**transcript_data.model_dump())
-    db.add(transcript)
-    db.commit()
-    db.refresh(transcript)
+    transcript = crud_create_transcript(db, **transcript_data.model_dump())
     EventManager.emit_domain_event(
         BaseDomainEvent(
             event_name="transcript.created",
@@ -163,7 +138,7 @@ def create_transcript(db: Session, transcript_data: TranscriptCreate, user_id: u
 def get_transcript(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Transcript]:
     if not check_transcript_access(db, transcript_id, user_id):
         return None
-    return db.query(Transcript).options(joinedload(Transcript.meeting), joinedload(Transcript.audio_concat_file)).filter(Transcript.id == transcript_id).first()
+    return crud_get_transcript(db, transcript_id)
 
 
 def get_transcript_by_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Transcript]:
@@ -172,23 +147,11 @@ def get_transcript_by_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.
         return None
     if not check_meeting_access(db, meeting, user_id):
         return None
-    return db.query(Transcript).options(joinedload(Transcript.meeting), joinedload(Transcript.audio_concat_file)).filter(Transcript.meeting_id == meeting_id).first()
+    return crud_get_transcript(db, meeting_id=meeting_id)
 
 
 def get_transcripts(db: Session, user_id: uuid.UUID, content_search: Optional[str] = None, meeting_id: Optional[uuid.UUID] = None, page: int = 1, limit: int = 20) -> Tuple[List[Transcript], int]:
-    from sqlalchemy import and_
-
-    query = db.query(Transcript).options(joinedload(Transcript.meeting), joinedload(Transcript.audio_concat_file))
-    accessible_meetings = db.query(Meeting.id).outerjoin(ProjectMeeting).outerjoin(Project).outerjoin(UserProject).filter(or_(and_(Meeting.is_personal == True, Meeting.created_by == user_id), UserProject.user_id == user_id)).subquery()
-    query = query.filter(Transcript.meeting_id.in_(accessible_meetings))
-    if content_search:
-        query = query.filter(or_(Transcript.content.ilike(f"%{content_search}%"), Transcript.extracted_text_for_search.ilike(f"%{content_search}%")))
-    if meeting_id:
-        query = query.filter(Transcript.meeting_id == meeting_id)
-    total = query.count()
-    offset = (page - 1) * limit
-    transcripts = query.offset(offset).limit(limit).all()
-    return transcripts, total
+    return crud_get_transcripts(db, user_id, content_search=content_search, meeting_id=meeting_id, page=page, limit=limit)
 
 
 def update_transcript(db: Session, transcript_id: uuid.UUID, transcript_data: TranscriptUpdate, user_id: uuid.UUID) -> Transcript:
@@ -203,7 +166,7 @@ def update_transcript(db: Session, transcript_id: uuid.UUID, transcript_data: Tr
             )
         )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to transcript")
-    transcript = db.query(Transcript).filter(Transcript.id == transcript_id).first()
+    transcript = crud_get_transcript(db, transcript_id)
     if not transcript:
         EventManager.emit_domain_event(
             BaseDomainEvent(
@@ -217,11 +180,7 @@ def update_transcript(db: Session, transcript_id: uuid.UUID, transcript_data: Tr
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
     updates = transcript_data.model_dump(exclude_unset=True)
     original = {k: getattr(transcript, k, None) for k in updates.keys() if hasattr(transcript, k)}
-    for key, value in updates.items():
-        if hasattr(transcript, key):
-            setattr(transcript, key, value)
-    db.commit()
-    db.refresh(transcript)
+    transcript = crud_update_transcript(db, transcript_id, **updates)
     diff = build_diff(original, {k: getattr(transcript, k, None) for k in original.keys()})
     if diff:
         EventManager.emit_domain_event(
@@ -248,8 +207,7 @@ def delete_transcript(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID)
             )
         )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to transcript")
-    transcript = db.query(Transcript).filter(Transcript.id == transcript_id).first()
-    if not transcript:
+    if not crud_delete_transcript(db, transcript_id):
         EventManager.emit_domain_event(
             BaseDomainEvent(
                 event_name="transcript.delete_failed",
@@ -260,8 +218,6 @@ def delete_transcript(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID)
             )
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
-    db.delete(transcript)
-    db.commit()
     EventManager.emit_domain_event(
         BaseDomainEvent(
             event_name="transcript.deleted",
@@ -311,11 +267,10 @@ def serialize_transcript(transcript: Transcript) -> dict:
 
 
 def validate_transcript_access(db: Session, transcript_id: uuid.UUID, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Transcript:
-    """Validate transcript access and return transcript object"""
-    transcript = db.query(Transcript).filter(Transcript.id == transcript_id).first()
+    transcript = crud_get_transcript(db, transcript_id)
     if not transcript:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")
-    if transcript.meeting_id != meeting_id:
+    if not crud_check_transcript_meeting_match(db, transcript_id, meeting_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript does not belong to this meeting")
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:

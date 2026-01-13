@@ -142,6 +142,5 @@ class NotificationListener(BaseListener):
                     removed_notification_data["payload"],
                 )
 
-
         except Exception:
             pass

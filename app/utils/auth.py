@@ -128,7 +128,8 @@ def get_current_user(token: str = Depends(jwt_bearer), db: Session = Depends(get
     try:
         # Strip Bearer prefix if present (for direct calls to this function)
         import re
-        token = re.sub(r'^[Bb]earer\s+', '', token).strip()
+
+        token = re.sub(r"^[Bb]earer\s+", "", token).strip()
 
         user_id = get_current_user_from_token(token)
         if not user_id:

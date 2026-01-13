@@ -1099,6 +1099,7 @@ def process_meeting_analysis_task(
 
                 except Exception as index_error:
                     import logging
+
                     logger = logging.getLogger(__name__)
                     error_msg = f"Meeting note indexing error: {type(index_error).__name__}: {str(index_error)}"
                     print(f"\033[93m[MEETING_ANALYSIS] {error_msg}\033[0m")

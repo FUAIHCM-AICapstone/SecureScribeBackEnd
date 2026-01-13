@@ -4,13 +4,21 @@ from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.crud.file import (
+    crud_check_file_access,
+    crud_check_user_project_role,
+    crud_create_file,
+    crud_delete_file,
+    crud_get_file,
+    crud_get_files,
+    crud_get_project_ids_for_meeting,
+    crud_move_file,
+    crud_update_file,
+)
 from app.events.domain_events import BaseDomainEvent, build_diff
 from app.models.file import File
-from app.models.meeting import Meeting
-from app.models.project import Project, UserProject
 from app.schemas.file import FileCreate, FileFilter, FileUpdate
 from app.services.event_manager import EventManager
-from app.utils.meeting import check_meeting_access as check_meeting_access_utils
 from app.utils.minio import (
     delete_file_from_minio,
     generate_presigned_url,
@@ -19,10 +27,7 @@ from app.utils.minio import (
 
 
 def create_file(db: Session, file_data: FileCreate, uploaded_by: uuid.UUID, file_bytes: bytes) -> Optional[File]:
-    file = File(**file_data.model_dump(), uploaded_by=uploaded_by)
-    db.add(file)
-    db.commit()
-    db.refresh(file)
+    file = crud_create_file(db, **{**file_data.model_dump(), "uploaded_by": uploaded_by})
     upload_result = upload_bytes_to_minio(file_bytes, settings.MINIO_BUCKET_NAME, str(file.id), file_data.mime_type)
     if upload_result:
         # Generate and store presigned URL
@@ -85,348 +90,83 @@ def create_file(db: Session, file_data: FileCreate, uploaded_by: uuid.UUID, file
 
 
 def get_file(db: Session, file_id: uuid.UUID) -> Optional[File]:
-    return db.query(File).filter(File.id == file_id).first()
+    return crud_get_file(db, file_id)
 
 
-def get_files(
-    db: Session,
-    filters: Optional[FileFilter] = None,
-    page: int = 1,
-    limit: int = 20,
-    user_id: Optional[uuid.UUID] = None,
-) -> Tuple[List[File], int]:
-    query = db.query(File)
-    if filters:
-        if filters.filename:
-            query = query.filter(File.filename.ilike(f"%{filters.filename}%"))
-        if filters.mime_type:
-            query = query.filter(File.mime_type == filters.mime_type)
-        if filters.file_type:
-            query = query.filter(File.file_type == filters.file_type)
-        if filters.project_id:
-            query = query.filter(File.project_id == filters.project_id)
-        if filters.meeting_id:
-            query = query.filter(File.meeting_id == filters.meeting_id)
-        if filters.uploaded_by:
-            query = query.filter(File.uploaded_by == filters.uploaded_by)
-    if user_id:
-        # Get all projects the user has access to
-        user_projects = db.query(Project.id).join(Project.users).filter(Project.users.any(user_id=user_id)).subquery()
-        # Get all meetings the user has access to (through projects)
-        from app.models.meeting import Meeting, ProjectMeeting
-
-        user_meetings = db.query(Meeting.id).join(ProjectMeeting, Meeting.id == ProjectMeeting.meeting_id).join(Project, ProjectMeeting.project_id == Project.id).join(Project.users).filter(Project.users.any(user_id=user_id), Meeting.is_deleted == False).subquery()
-        # Filter files to only include those the user has access to
-        query = query.filter(
-            # Files uploaded by the user (personal files)
-            (File.uploaded_by == user_id)
-            |
-            # Files that belong to projects the user has access to
-            (File.project_id.in_(user_projects))
-            |
-            # Files that belong to meetings the user has access to
-            (File.meeting_id.in_(user_meetings))
-        )
-    total = query.count()
-    files = query.offset((page - 1) * limit).limit(limit).all()
-    return files, total
+def get_files(db: Session, filters: Optional[FileFilter] = None, page: int = 1, limit: int = 20, user_id: Optional[uuid.UUID] = None) -> Tuple[List[File], int]:
+    return crud_get_files(db, filters.model_dump() if filters else None, page=page, limit=limit, user_id=user_id)
 
 
 def update_file(db: Session, file_id: uuid.UUID, updates: FileUpdate, actor_user_id: uuid.UUID | None = None) -> Optional[File]:
-    file = db.query(File).filter(File.id == file_id).first()
+    file = crud_get_file(db, file_id)
     if not file:
-        EventManager.emit_domain_event(
-            BaseDomainEvent(
-                event_name="file.update_failed",
-                actor_user_id=actor_user_id or uuid.uuid4(),
-                target_type="file",
-                target_id=file_id,
-                metadata={"reason": "not_found"},
-            )
-        )
+        EventManager.emit_domain_event(BaseDomainEvent(event_name="file.update_failed", actor_user_id=actor_user_id or uuid.uuid4(), target_type="file", target_id=file_id, metadata={"reason": "not_found"}))
         return None
     update_data = updates.model_dump(exclude_unset=True)
     original = {k: getattr(file, k, None) for k in update_data.keys()}
-    for key, value in update_data.items():
-        setattr(file, key, value)
-    db.commit()
-    db.refresh(file)
+    file = crud_update_file(db, file_id, **update_data)
     diff = build_diff(original, {k: getattr(file, k, None) for k in update_data.keys()})
     if diff:
-        EventManager.emit_domain_event(
-            BaseDomainEvent(
-                event_name="file.updated",
-                actor_user_id=actor_user_id or file.uploaded_by,
-                target_type="file",
-                target_id=file.id,
-                metadata={"diff": diff},
-            )
-        )
+        EventManager.emit_domain_event(BaseDomainEvent(event_name="file.updated", actor_user_id=actor_user_id or file.uploaded_by, target_type="file", target_id=file.id, metadata={"diff": diff}))
     return file
 
 
 def delete_file(db: Session, file_id: uuid.UUID, actor_user_id: uuid.UUID | None = None) -> bool:
-    file = db.query(File).filter(File.id == file_id).first()
+    file = crud_get_file(db, file_id)
     if not file:
-        EventManager.emit_domain_event(
-            BaseDomainEvent(
-                event_name="file.delete_failed",
-                actor_user_id=actor_user_id or uuid.uuid4(),
-                target_type="file",
-                target_id=file_id,
-                metadata={"reason": "not_found"},
-            )
-        )
+        EventManager.emit_domain_event(BaseDomainEvent(event_name="file.delete_failed", actor_user_id=actor_user_id or uuid.uuid4(), target_type="file", target_id=file_id, metadata={"reason": "not_found"}))
         return False
     delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
-    db.delete(file)
-    db.commit()
-    EventManager.emit_domain_event(
-        BaseDomainEvent(
-            event_name="file.deleted",
-            actor_user_id=actor_user_id or file.uploaded_by,
-            target_type="file",
-            target_id=file_id,
-            metadata={},
-        )
-    )
+    crud_delete_file(db, file_id)
+    EventManager.emit_domain_event(BaseDomainEvent(event_name="file.deleted", actor_user_id=actor_user_id or file.uploaded_by, target_type="file", target_id=file_id, metadata={}))
     return True
 
 
 def bulk_delete_files(db: Session, file_ids: List[uuid.UUID], user_id: Optional[uuid.UUID] = None) -> List[dict]:
     results = []
     for file_id in file_ids:
-        file = db.query(File).filter(File.id == file_id).first()
-        if not file:
-            results.append({"success": False, "file_id": str(file_id), "error": "File not found"})
-            EventManager.emit_domain_event(
-                BaseDomainEvent(
-                    event_name="file.delete_failed",
-                    actor_user_id=user_id or uuid.uuid4(),
-                    target_type="file",
-                    target_id=file_id,
-                    metadata={"reason": "not_found"},
-                )
-            )
-            continue
-        # Check user access if user_id is provided
-        if user_id and not check_file_access(db, file, user_id):
-            results.append({"success": False, "file_id": str(file_id), "error": "Access denied"})
-            EventManager.emit_domain_event(
-                BaseDomainEvent(
-                    event_name="file.delete_failed",
-                    actor_user_id=user_id,
-                    target_type="file",
-                    target_id=file_id,
-                    metadata={"reason": "permission_denied"},
-                )
-            )
-            continue
-        delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
-        db.delete(file)
-        results.append({"success": True, "file_id": str(file_id)})
-        EventManager.emit_domain_event(
-            BaseDomainEvent(
-                event_name="file.deleted",
-                actor_user_id=user_id or file.uploaded_by,
-                target_type="file",
-                target_id=file_id,
-                metadata={},
-            )
-        )
-    db.commit()
+        success = delete_file(db, file_id, user_id)
+        results.append({"success": success, "file_id": str(file_id)})
     return results
 
 
-async def bulk_move_files(
-    db: Session,
-    file_ids: List[uuid.UUID],
-    target_project_id: Optional[uuid.UUID] = None,
-    target_meeting_id: Optional[uuid.UUID] = None,
-    user_id: Optional[uuid.UUID] = None,
-) -> List[dict]:
+async def bulk_move_files(db: Session, file_ids: List[uuid.UUID], target_project_id: Optional[uuid.UUID] = None, target_meeting_id: Optional[uuid.UUID] = None, user_id: Optional[uuid.UUID] = None) -> List[dict]:
     from app.services.qdrant_service import update_file_vectors_metadata
 
     results = []
     for file_id in file_ids:
-        file = db.query(File).filter(File.id == file_id).first()
+        file = crud_get_file(db, file_id)
         if not file:
             results.append({"success": False, "file_id": str(file_id), "error": "File not found"})
-            EventManager.emit_domain_event(
-                BaseDomainEvent(
-                    event_name="file.move_failed",
-                    actor_user_id=user_id or uuid.uuid4(),
-                    target_type="file",
-                    target_id=file_id,
-                    metadata={"reason": "not_found"},
-                )
-            )
             continue
-        # Check user access if user_id is provided
-        if user_id and not check_file_access(db, file, user_id):
-            results.append({"success": False, "file_id": str(file_id), "error": "Access denied"})
-            EventManager.emit_domain_event(
-                BaseDomainEvent(
-                    event_name="file.move_failed",
-                    actor_user_id=user_id,
-                    target_type="file",
-                    target_id=file_id,
-                    metadata={"reason": "permission_denied"},
-                )
-            )
-            continue
-        # Check if user has access to target project/meeting
-        if target_project_id:
-            from app.services.project import is_user_in_project
-
-            if not is_user_in_project(db, target_project_id, user_id):
-                results.append(
-                    {
-                        "success": False,
-                        "file_id": str(file_id),
-                        "error": "Access denied to target project",
-                    }
-                )
-                EventManager.emit_domain_event(
-                    BaseDomainEvent(
-                        event_name="file.move_failed",
-                        actor_user_id=user_id,
-                        target_type="file",
-                        target_id=file_id,
-                        metadata={"reason": "permission_denied_target_project"},
-                    )
-                )
-                continue
-        if target_meeting_id:
-            target_meeting = db.query(Meeting).filter(Meeting.id == target_meeting_id, Meeting.is_deleted == False).first()
-            if not target_meeting or not check_meeting_access_utils(db, target_meeting, user_id):
-                results.append(
-                    {
-                        "success": False,
-                        "file_id": str(file_id),
-                        "error": "Access denied to target meeting",
-                    }
-                )
-                EventManager.emit_domain_event(
-                    BaseDomainEvent(
-                        event_name="file.move_failed",
-                        actor_user_id=user_id,
-                        target_type="file",
-                        target_id=file_id,
-                        metadata={"reason": "permission_denied_target_meeting"},
-                    )
-                )
-                continue
-        old_project_id = file.project_id
-        old_meeting_id = file.meeting_id
-        if target_project_id is not None:
-            file.project_id = target_project_id
-        if target_meeting_id is not None:
-            file.meeting_id = target_meeting_id
-
-        # Update Qdrant vectors with new metadata
-        vector_update_success = await update_file_vectors_metadata(
-            file_id=str(file_id),
-            project_id=str(target_project_id) if target_project_id else None,
-            meeting_id=str(target_meeting_id) if target_meeting_id else None,
-            owner_user_id=str(user_id) if user_id else None,
-        )
-
-        if not vector_update_success:
+        old_project_id, old_meeting_id = file.project_id, file.meeting_id
+        file = crud_move_file(db, file_id, target_project_id, target_meeting_id)
+        vector_update_success = await update_file_vectors_metadata(file_id=str(file_id), project_id=str(target_project_id) if target_project_id else None, meeting_id=str(target_meeting_id) if target_meeting_id else None, owner_user_id=str(user_id) if user_id else None)
+        if vector_update_success:
+            results.append({"success": True, "file_id": str(file_id)})
+            EventManager.emit_domain_event(BaseDomainEvent(event_name="file.moved", actor_user_id=user_id, target_type="file", target_id=file_id, metadata={"old_project_id": str(old_project_id) if old_project_id else None, "new_project_id": str(target_project_id) if target_project_id else None, "old_meeting_id": str(old_meeting_id) if old_meeting_id else None, "new_meeting_id": str(target_meeting_id) if target_meeting_id else None}))
+        else:
             results.append({"success": False, "file_id": str(file_id), "error": "Failed to update vector metadata"})
-            EventManager.emit_domain_event(
-                BaseDomainEvent(
-                    event_name="file.move_failed",
-                    actor_user_id=user_id,
-                    target_type="file",
-                    target_id=file_id,
-                    metadata={"reason": "vector_metadata_update_failed"},
-                )
-            )
-            continue
-
-        results.append({"success": True, "file_id": str(file_id)})
-        EventManager.emit_domain_event(
-            BaseDomainEvent(
-                event_name="file.moved",
-                actor_user_id=user_id,
-                target_type="file",
-                target_id=file_id,
-                metadata={
-                    "old_project_id": str(old_project_id) if old_project_id else None,
-                    "new_project_id": str(target_project_id) if target_project_id else None,
-                    "old_meeting_id": str(old_meeting_id) if old_meeting_id else None,
-                    "new_meeting_id": str(target_meeting_id) if target_meeting_id else None,
-                },
-            )
-        )
-    db.commit()
     return results
 
 
 def check_file_access(db: Session, file: File, user_id: uuid.UUID) -> bool:
-    """Check if user has access to a file"""
-    # User owns the file
-    if file.uploaded_by == user_id:
-        return True
-    # File belongs to a project - check project membership
-    if file.project_id:
-        return db.query(Project).join(Project.users).filter(Project.id == file.project_id, Project.users.any(user_id=user_id)).first() is not None
-    return False
+    return crud_check_file_access(db, file, user_id)
 
 
 def check_delete_permissions(db: Session, file: File, current_user_id: uuid.UUID) -> File:
-    """Check if user can delete file and raise HTTPException if not.
-
-    Permission rules:
-    - File owner (uploaded_by) can always delete their own file
-    - If file has project_id: project admin/owner can delete
-    - If file has meeting_id: user must be admin/owner of a project linked to the meeting
-    """
     from fastapi import HTTPException
 
-    # Rule 1: File owner can always delete
     if file.uploaded_by == current_user_id:
         return file
-
-    # Rule 2: Project admin/owner can delete files in their project
-    if file.project_id:
-        user_project = (
-            db.query(UserProject)
-            .filter(
-                UserProject.user_id == current_user_id,
-                UserProject.project_id == file.project_id,
-                UserProject.role.in_(["admin", "owner"]),
-            )
-            .first()
-        )
-        if user_project:
-            return file
-
-    # Rule 3: For meeting files, check if user is admin/owner of linked project
+    if file.project_id and crud_check_user_project_role(db, current_user_id, file.project_id, ["admin", "owner"]):
+        return file
     if file.meeting_id:
-        from app.models.meeting import ProjectMeeting
-
-        linked_projects = db.query(ProjectMeeting.project_id).filter(ProjectMeeting.meeting_id == file.meeting_id).all()
-
-        for (project_id,) in linked_projects:
-            user_project = (
-                db.query(UserProject)
-                .filter(
-                    UserProject.user_id == current_user_id,
-                    UserProject.project_id == project_id,
-                    UserProject.role.in_(["admin", "owner"]),
-                )
-                .first()
-            )
-            if user_project:
+        linked_projects = crud_get_project_ids_for_meeting(db, file.meeting_id)
+        for project_id in linked_projects:
+            if crud_check_user_project_role(db, current_user_id, project_id, ["admin", "owner"]):
                 return file
-
-    # No permission found
-    raise HTTPException(
-        status_code=403,
-        detail="You don't have permission to delete this file",
-    )
+    raise HTTPException(status_code=403, detail="You don't have permission to delete this file")
 
 
 def validate_file(filename: str, mime_type: str, file_size: int) -> bool:

@@ -203,3 +203,23 @@ SecureScribeBackEnd/
 - Relationship definitions with proper foreign keys
 - Composite primary keys for junction tables
 - Timestamp fields for audit trails
+
+## Refactoring Principles
+
+**CRUD Consolidation:**
+
+- Remove redundant database functions: Replace `get_user_by_email` with `get_users(**kwargs)`
+- Use flexible kwargs for query operations: `get_users(email="test@example.com", limit=1)`
+- Eliminate bulk operations: Replace bulk functions with loops of single operations
+- Consolidate similar operations: Use generic functions instead of specific variants
+- Direct function naming: Use `crud_` prefix to eliminate import aliases
+- Single get function per entity: One function per entity with eager loading, no "simple" variants
+- Services use single get function: Use `crud_get_entity()` for all access patterns, don't use relationships if not needed
+
+**Service Simplification:**
+
+- Remove unnecessary abstractions: Direct service calls without wrapper functions
+- Inline bulk operations: Loop through individual operations instead of batch functions
+- Minimize function count: Combine related operations into flexible interfaces
+- Remove redundant error handling: Let exceptions propagate naturally
+- Direct database delegation: Services call CRUD functions without intermediate logic

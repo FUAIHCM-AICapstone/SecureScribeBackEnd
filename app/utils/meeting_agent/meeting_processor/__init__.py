@@ -32,7 +32,6 @@ class MeetingProcessor:
         """
         transcript_value = transcript or ""
 
-
         # Step 1: Simple validation
         if not self._simple_validation(transcript_value):
             return self._format_failure("Transcript validation failed: too short or empty")
@@ -54,7 +53,6 @@ class MeetingProcessor:
 
             if isinstance(note_result, Exception):
                 note_result = "Không thể tạo ghi chú cuộc họp do lỗi xử lý."  # Fallback message
-
 
         except Exception as exc:
             return self._format_failure(str(exc))
@@ -141,7 +139,6 @@ class MeetingProcessor:
 
         result = output.model_dump()
         result["task_items"] = [task.model_dump() for task in output.task_items]
-
 
         return result
 

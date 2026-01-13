@@ -45,7 +45,6 @@ class TaskExtractor(Agent):
             "task_prompt": get_task_extraction_prompt(),
         }
 
-
         try:
             prompt = dedent(
                 f"""

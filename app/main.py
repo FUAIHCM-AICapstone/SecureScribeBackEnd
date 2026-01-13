@@ -22,6 +22,7 @@ from app.utils.throttling import ThrottlingMiddleware
 
 load_config_from_api_v2()
 
+
 def custom_generate_unique_id(route: APIRoute) -> str:
     """
     Custom function to generate unique operation IDs for OpenAPI schema.
@@ -487,7 +488,6 @@ def health_services(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
 @app.get("/download")
 def download_file(object_name: str):
-
     from app.utils.minio import download_file_from_minio
 
     filename_only = object_name.split("/")[-1]
@@ -497,8 +497,4 @@ def download_file(object_name: str):
     if not file_bytes:
         raise HTTPException(status_code=404, detail="File not found")
 
-    return StreamingResponse(
-        iter([file_bytes]),
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f"attachment; filename={filename_only}"}
-    )
+    return StreamingResponse(iter([file_bytes]), media_type="application/octet-stream", headers={"Content-Disposition": f"attachment; filename={filename_only}"})

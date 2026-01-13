@@ -1,18 +1,13 @@
 import uuid
-from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.constants.messages import MessageDescriptions
-from app.core.config import settings
-from app.crud.user import bulk_create_users as crud_bulk_create_users, bulk_delete_users as crud_bulk_delete_users, bulk_update_users as crud_bulk_update_users, check_email_exists as crud_check_email_exists, create_user as crud_create_user, delete_user_with_cascade as crud_delete_user_with_cascade, get_or_create_user_device as crud_get_or_create_user_device, get_user_by_email as crud_get_user_by_email, get_user_by_id as crud_get_user_by_id, get_users as crud_get_users, update_user as crud_update_user
+from app.crud.user import crud_check_email_exists, crud_create_user, crud_delete_user_with_cascade, crud_get_or_create_user_device, crud_get_user_by_id, crud_get_users, crud_update_user
 from app.events.domain_events import BaseDomainEvent, build_diff
-from app.models.file import File
-from app.models.meeting import Meeting, ProjectMeeting
-from app.models.project import Project, UserProject
-from app.models.task import Task, TaskProject
+from app.models.project import UserProject
 from app.models.user import User
 from app.services.event_manager import EventManager
 
@@ -78,6 +73,7 @@ def update_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
     )
     return user
 
+
 def create_user(db: Session, actor_user_id: uuid.UUID | None = None, **user_data) -> User:
     email = user_data.get("email")
     if email and crud_check_email_exists(db, email):
@@ -115,6 +111,7 @@ def delete_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
     try:
         # Soft delete user's meetings
         from app.models.meeting import Meeting
+
         db.query(Meeting).filter(Meeting.created_by == user_id, Meeting.is_deleted == False).update({"is_deleted": True})
 
         result = crud_delete_user_with_cascade(db, user_id)
@@ -145,39 +142,40 @@ def delete_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
 
 
 def bulk_create_users(db: Session, users_data: List[dict]) -> List[dict]:
-    return crud_bulk_create_users(db, users_data)
+    results = []
+    for user_data in users_data:
+        try:
+            user = create_user(db, **user_data)
+            results.append({"success": True, "id": user.id, "error": None})
+        except Exception as e:
+            results.append({"success": False, "id": None, "error": str(e)})
+    return results
 
 
 def bulk_update_users(db: Session, updates: List[dict]) -> List[dict]:
-    return crud_bulk_update_users(db, updates)
-
-
-def bulk_delete_users(db: Session, user_ids: List[uuid.UUID]) -> List[dict]:
-    """Bulk delete users and return results with success/failure status"""
     results = []
-
-    for user_id in user_ids:
+    for update_item in updates:
+        user_id = update_item["id"]
+        update_data = update_item["updates"]
         try:
-            user = db.query(User).filter(User.id == user_id).first()
-            if not user:
-                results.append({"success": False, "id": user_id, "error": MessageDescriptions.USER_NOT_FOUND})
-                continue
-
-            db.delete(user)
+            user = update_user(db, user_id, **update_data)
             results.append({"success": True, "id": user_id, "error": None})
         except Exception as e:
             results.append({"success": False, "id": user_id, "error": str(e)})
+    return results
 
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        # Mark all as failed if commit fails
-        for result in results:
-            if result["success"]:
-                result["success"] = False
-                result["error"] = MessageDescriptions.INTERNAL_SERVER_ERROR
 
+def bulk_delete_users(db: Session, user_ids: List[uuid.UUID]) -> List[dict]:
+    results = []
+    for user_id in user_ids:
+        try:
+            success = delete_user(db, user_id)
+            if success:
+                results.append({"success": True, "id": user_id, "error": None})
+            else:
+                results.append({"success": False, "id": user_id, "error": MessageDescriptions.USER_NOT_FOUND})
+        except Exception as e:
+            results.append({"success": False, "id": user_id, "error": str(e)})
     return results
 
 
@@ -187,7 +185,6 @@ def get_user_by_id(db: Session, user_id: uuid.UUID) -> Optional[User]:
 
 def get_user_projects_stats(db: Session, user_id: uuid.UUID) -> dict:
     """Get user's project statistics"""
-    from app.models.project import UserProject
 
     # Get user's projects directly
     user_projects = db.query(UserProject).options(selectinload(UserProject.project)).filter(UserProject.user_id == user_id).all()
