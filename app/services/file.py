@@ -18,7 +18,6 @@ from app.crud.file import (
 from app.events.domain_events import BaseDomainEvent, build_diff
 from app.models.file import File
 from app.schemas.file import FileCreate, FileFilter, FileUpdate
-from app.services.event_manager import EventManager
 from app.services.meeting import get_meeting
 from app.services.project import get_project, is_user_in_project
 from app.services.qdrant_service import update_file_vectors_metadata
@@ -30,6 +29,9 @@ from app.utils.minio import (
 
 
 def create_file(db: Session, file_data: FileCreate, uploaded_by: uuid.UUID, file_bytes: bytes) -> Optional[File]:
+    # Lazy import to avoid circular import
+    from app.services.event_manager import EventManager
+
     file = crud_create_file(db, **{**file_data.model_dump(), "uploaded_by": uploaded_by})
     upload_result = upload_bytes_to_minio(file_bytes, settings.MINIO_BUCKET_NAME, str(file.id), file_data.mime_type)
     if upload_result:
@@ -101,6 +103,9 @@ def get_files(db: Session, filters: Optional[FileFilter] = None, page: int = 1, 
 
 
 def update_file(db: Session, file_id: uuid.UUID, updates: FileUpdate, actor_user_id: uuid.UUID | None = None) -> Optional[File]:
+    # Lazy import to avoid circular import
+    from app.services.event_manager import EventManager
+
     file = crud_get_file(db, file_id)
     if not file:
         EventManager.emit_domain_event(BaseDomainEvent(event_name="file.update_failed", actor_user_id=actor_user_id or uuid.uuid4(), target_type="file", target_id=file_id, metadata={"reason": "not_found"}))
@@ -115,6 +120,9 @@ def update_file(db: Session, file_id: uuid.UUID, updates: FileUpdate, actor_user
 
 
 def delete_file(db: Session, file_id: uuid.UUID, actor_user_id: uuid.UUID | None = None) -> bool:
+    # Lazy import to avoid circular import
+    from app.services.event_manager import EventManager
+
     file = crud_get_file(db, file_id)
     if not file:
         EventManager.emit_domain_event(BaseDomainEvent(event_name="file.delete_failed", actor_user_id=actor_user_id or uuid.uuid4(), target_type="file", target_id=file_id, metadata={"reason": "not_found"}))
@@ -134,6 +142,9 @@ def bulk_delete_files(db: Session, file_ids: List[uuid.UUID], user_id: Optional[
 
 
 async def bulk_move_files(db: Session, file_ids: List[uuid.UUID], target_project_id: Optional[uuid.UUID] = None, target_meeting_id: Optional[uuid.UUID] = None, user_id: Optional[uuid.UUID] = None) -> List[dict]:
+    # Lazy import to avoid circular import
+    from app.services.event_manager import EventManager
+
     results = []
     for file_id in file_ids:
         file = crud_get_file(db, file_id)
