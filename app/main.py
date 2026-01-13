@@ -59,7 +59,7 @@ def custom_openapi():
     # Add custom servers for different environments
     openapi_schema["servers"] = [
         {"url": "http://localhost:8081/be", "description": "Development server"},
-        {"url": "https://fptdigimeet.wc504.io.vn/be", "description": "Production server"},
+        {"url": "https://chang.wc504.io.vn/be", "description": "Production server"},
     ]
 
     # Add security schemes
@@ -81,11 +81,11 @@ def custom_openapi():
 
 
 app = FastAPI(
-    title="FPT Digimeet",
+    title="Chang",
     version="1.0.0",
     contact={
-        "name": "FPT Digimeet Team",
-        "email": "support@fptdigimeet.com",
+        "name": "Chang",
+        "email": "support@Chang.com",
     },
     license_info={
         "name": "MIT",
