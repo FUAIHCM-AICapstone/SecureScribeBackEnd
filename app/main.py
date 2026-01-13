@@ -58,7 +58,7 @@ def custom_openapi():
     # Add custom servers for different environments
     openapi_schema["servers"] = [
         {"url": "http://localhost:8081/be", "description": "Development server"},
-        {"url": "https://securescribe.wc504.io.vn/be", "description": "Production server"},
+        {"url": "https://fptdigimeet.wc504.io.vn/be", "description": "Production server"},
     ]
 
     # Add security schemes
@@ -80,11 +80,11 @@ def custom_openapi():
 
 
 app = FastAPI(
-    title="SecureScribeBE",
+    title="FPT Digimeet",
     version="1.0.0",
     contact={
-        "name": "SecureScribe Team",
-        "email": "support@securescribe.com",
+        "name": "FPT Digimeet Team",
+        "email": "support@fptdigimeet.com",
     },
     license_info={
         "name": "MIT",

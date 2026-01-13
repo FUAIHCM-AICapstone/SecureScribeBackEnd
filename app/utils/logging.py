@@ -68,7 +68,7 @@ def setup_logging(level: str = "INFO") -> None:
         try:
             loki_handler = LokiLoggerHandler(
                 url=loki_url,
-                labels={"job": f"securescribe-backend-{os.getenv('PYTHON_ENVIRONMENT', 'development')}", "environment": os.getenv("PYTHON_ENVIRONMENT", "development")},
+                labels={"job": f"fpt-digimeet-backend-{os.getenv('PYTHON_ENVIRONMENT', 'development')}", "environment": os.getenv("PYTHON_ENVIRONMENT", "development")},
                 timeout=10,
                 label_keys={},
                 default_formatter=LoguruFormatter(),
