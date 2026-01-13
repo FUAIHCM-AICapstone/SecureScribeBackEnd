@@ -109,7 +109,7 @@ def _build_meeting_scope_filter(user_id: UUID, scope: DashboardScope):
 
 def get_task_stats(db: Session, user_id: UUID, start_date: Optional[datetime], scope: DashboardScope) -> TaskStats:
     scope_filter = _build_task_scope_filter(user_id, scope)
-    total, todo, in_progress, done, overdue, due_today, due_this_week = crud_get_task_aggregates(db, scope_filter, start_date)
+    total, todo, in_progress, done, overdue, due_today, due_this_week = crud_get_task_aggregates(db, scope_filter)
 
     created_in_period, completed_in_period = 0, 0
     if start_date:
