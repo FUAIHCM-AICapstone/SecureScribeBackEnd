@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.constants.messages import MessageConstants
@@ -79,7 +79,7 @@ def get_task_endpoint(
 ):
     task = get_task(db, task_id, current_user.id)
     if not task:
-        raise HTTPException(status_code=404, detail=MessageConstants.TASK_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.TASK_NOT_FOUND)
 
     return ApiResponse(
         success=True,

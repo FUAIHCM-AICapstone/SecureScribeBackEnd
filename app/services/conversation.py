@@ -37,3 +37,8 @@ def update_conversation(db: Session, conversation_id: uuid.UUID, user_id: uuid.U
 
 def delete_conversation(db: Session, conversation_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     return crud_delete_conversation(db, conversation_id, user_id)
+
+
+def check_conversation_active(db: Session, conversation_id: uuid.UUID) -> bool:
+    conversation = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.is_active == True).first()
+    return conversation is not None

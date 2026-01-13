@@ -242,3 +242,34 @@ def get_file_with_meeting_info(db: Session, file_id: uuid.UUID, user_id: uuid.UU
         meeting = get_meeting(db, file.meeting_id, user_id)
         meeting_title = meeting.title if meeting else None
     return file, meeting_title
+
+
+async def move_file(db: Session, file: File, project_id: Optional[uuid.UUID], meeting_id: Optional[uuid.UUID], user_id: uuid.UUID) -> Optional[File]:
+    """Move file to a project or meeting"""
+    old_project_id = file.project_id
+    old_meeting_id = file.meeting_id
+
+    # Update file associations
+    if project_id is not None:
+        file.project_id = project_id
+    if meeting_id is not None:
+        file.meeting_id = meeting_id
+
+    db.commit()
+    db.refresh(file)
+
+    # Update Qdrant vectors with new metadata
+    vector_update_success = await update_file_vectors_metadata(
+        file_id=str(file.id),
+        project_id=str(file.project_id) if file.project_id else None,
+        meeting_id=str(file.meeting_id) if file.meeting_id else None,
+        owner_user_id=str(user_id),
+    )
+
+    if not vector_update_success:
+        file.project_id = old_project_id
+        file.meeting_id = old_meeting_id
+        db.commit()
+        return None
+
+    return file

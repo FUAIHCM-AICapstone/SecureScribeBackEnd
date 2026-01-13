@@ -17,6 +17,7 @@ from app.jobs.tasks import (
     send_fcm_notification_background_task,
 )
 from app.models.user import User
+from app.utils.logging import logger
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.notification import (
     NotificationCreate,
@@ -266,7 +267,7 @@ async def websocket_endpoint(
             db.close()
 
         user_id_str = str(user.id)
-        print(f"WebSocket connected for user: {user_id_str}")
+        logger.info(f"WebSocket connected for user: {user_id_str}")
 
         # Accept WebSocket connection
         await websocket.accept()
@@ -307,7 +308,7 @@ async def websocket_endpoint(
                 if message_type == "ping":
                     # Respond to ping
                     await websocket.send_json({"type": "pong"})
-                    print(f"Ping received from user {user_id_str}")
+                    logger.debug(f"Ping received from user {user_id_str}")
 
                 elif message_type == "status":
                     # Send simple status
@@ -319,22 +320,22 @@ async def websocket_endpoint(
                     )
 
                 else:
-                    print(f"Message from user {user_id_str}: {message_type}")
+                    logger.debug(f"Message from user {user_id_str}: {message_type}")
 
             except asyncio.TimeoutError:
                 # Send ping to keep connection alive
                 try:
                     await websocket.send_json({"type": "ping"})
                 except Exception:
-                    print(f"Failed to send ping to user {user_id_str}")
+                    logger.warning(f"Failed to send ping to user {user_id_str}")
                     break
 
             except Exception as e:
-                print(f"WebSocket error for user {user_id_str}: {e}")
+                logger.error(f"WebSocket error for user {user_id_str}: {e}")
                 break
 
     except Exception as e:
-        print(f"WebSocket error: {str(e)}")
+        logger.error(f"WebSocket error: {str(e)}")
         try:
             await websocket.close(code=4000, reason="Connection error")
         except Exception:

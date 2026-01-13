@@ -3,7 +3,7 @@ import json
 import uuid
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -19,8 +19,9 @@ from app.schemas.chat import (
 )
 from app.schemas.common import ApiResponse
 from app.services import chat as chat_service
-from app.services.conversation import get_conversation
+from app.services.conversation import get_conversation, check_conversation_active
 from app.utils.auth import get_current_user
+from app.utils.logging import logger
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Chat"])
 
@@ -36,12 +37,12 @@ async def send_chat_message_endpoint(
     # Create user message with mentions (existing logic)
     user_message = chat_service.create_chat_message(db=db, conversation_id=conversation_id, user_id=current_user.id, content=message_data.content, message_type=ChatMessageType.user, mentions=message_data.mentions)
     if not user_message:
-        raise HTTPException(status_code=404, detail=MessageConstants.CONVERSATION_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.CONVERSATION_NOT_FOUND)
 
     # Get conversation for context (existing logic)
     conversation = get_conversation(db, conversation_id, current_user.id)
     if not conversation:
-        raise HTTPException(status_code=404, detail=MessageConstants.CONVERSATION_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.CONVERSATION_NOT_FOUND)
 
     # Serialize mention payloads for async task
     mention_payloads = []
@@ -57,7 +58,7 @@ async def send_chat_message_endpoint(
         mentions=mention_payloads,
     )
 
-    print(f"Triggered background task {task.id} for conversation_id={conversation_id}")
+    logger.info(f"Triggered background task {task.id} for conversation_id={conversation_id}")
 
     # Return user message + task_id immediately (Agno_chat logic)
     return ApiResponse(  # Standardized to SecureScribeBackEnd's ApiResponse
@@ -88,10 +89,8 @@ async def chat_sse_endpoint(
         # Verify conversation access
         db = SessionLocal()
         try:
-            # For SSE, we'll use a simpler approach - just verify the conversation exists
-            # In a real app, you'd want to authenticate the SSE connection properly
-            conversation = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.is_active == True).first()
-            if not conversation:
+            # Check if conversation exists and is active using service
+            if not check_conversation_active(db, conversation_id):
                 yield f"data: {json.dumps({'error': 'Conversation not found'})}\n\n"
                 return
         finally:
@@ -128,7 +127,7 @@ async def chat_sse_endpoint(
                     # Send heartbeat on timeout
                     yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
                 except Exception as e:
-                    print(f"SSE error: {e}")
+                    logger.error(f"SSE error: {e}")
                     break
 
         except asyncio.CancelledError:

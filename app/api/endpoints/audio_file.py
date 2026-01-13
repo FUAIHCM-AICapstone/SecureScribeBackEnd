@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.constants.messages import MessageConstants
@@ -26,6 +26,7 @@ from app.services.audio_file import (
 )
 from app.services.meeting import create_meeting, validate_meeting_for_audio_operations
 from app.utils.auth import get_current_user
+from app.utils.logging import logger
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Audio Files"])
 
@@ -50,7 +51,7 @@ def upload_audio_file(
 
     if file.content_type not in supported_formats:
         error_msg = f"Invalid audio format: {file.content_type}. Supported formats: {', '.join(supported_formats)}"
-        print(error_msg)
+        logger.warning(error_msg)
         raise HTTPException(status_code=400, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
 
     # Handle meeting_id: auto-create personal meeting or validate RBAC
@@ -60,11 +61,11 @@ def upload_audio_file(
         meeting_data = MeetingCreate(title=f"Audio Upload - {timestamp}", description="Auto-created meeting from audio upload", is_personal=True, project_ids=[])
         new_meeting = create_meeting(db, meeting_data, current_user.id)
         meeting_id = new_meeting.id
-        print(f"Auto-created personal meeting: {meeting_id}")
+        logger.info(f"Auto-created personal meeting: {meeting_id}")
     else:
         # Validate RBAC for existing meeting
         validate_meeting_for_audio_operations(db, meeting_id, current_user.id)
-        print(f"Validated access to meeting: {meeting_id}")
+        logger.info(f"Validated access to meeting: {meeting_id}")
 
     try:
         file_content = file.file.read()
@@ -72,7 +73,7 @@ def upload_audio_file(
 
         if len(file_content) == 0:
             error_msg = "Uploaded file is empty"
-            print(error_msg)
+            logger.warning(error_msg)
             raise HTTPException(status_code=400, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
 
         audio_data = AudioFileCreate(meeting_id=meeting_id, uploaded_by=current_user.id)
@@ -80,10 +81,10 @@ def upload_audio_file(
 
         if not audio_file:
             error_msg = "Failed to upload audio file to storage"
-            print(error_msg)
+            logger.error(error_msg)
             raise HTTPException(status_code=500, detail=MessageConstants.AUDIO_UPLOAD_FAILED)
 
-        print(f"Audio file uploaded: {audio_file.id}, file_url: {audio_file.file_url}")
+        logger.info(f"Audio file uploaded: {audio_file.id}, file_url: {audio_file.file_url}")
 
         return ApiResponse(
             success=True,
@@ -95,7 +96,7 @@ def upload_audio_file(
         raise
     except Exception as e:
         error_msg = f"Unexpected error during audio upload: {str(e)}"
-        print(error_msg)
+        logger.error(error_msg)
         raise HTTPException(status_code=500, detail=MessageConstants.INTERNAL_SERVER_ERROR)
 
 

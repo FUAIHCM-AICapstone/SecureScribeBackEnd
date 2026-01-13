@@ -1,13 +1,14 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
+from app.utils.logging import logger
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.meeting_bot import (
     MeetingBotCreate,
@@ -298,31 +299,31 @@ def bot_webhook_status_endpoint(
     authorization: Optional[str] = Header(None),
 ):
     """Webhook endpoint for bot status updates during recording"""
-    print("\033[94m[WEBHOOK_STATUS] ===== BOT STATUS WEBHOOK STARTED =====\033[0m")
-    print(f"\033[94m[WEBHOOK_STATUS] Received request with botId: {botId}, status: {status}\033[0m")
+    logger.info("[WEBHOOK_STATUS] BOT STATUS WEBHOOK STARTED")
+    logger.info(f"[WEBHOOK_STATUS] Received request with botId: {botId}, status: {status}")
 
     try:
-        print("\033[94m[WEBHOOK_STATUS] Step 1: Validating authorization header\033[0m")
+        logger.debug("[WEBHOOK_STATUS] Step 1: Validating authorization header")
         if not authorization:
-            print("\033[91m[WEBHOOK_STATUS] ERROR: Authorization header missing\033[0m")
+            logger.error("[WEBHOOK_STATUS] ERROR: Authorization header missing")
             raise HTTPException(status_code=401, detail=MessageConstants.AUTHORIZATION_HEADER_REQUIRED)
 
         auth_parts = authorization.split()
         if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
-            print("\033[91m[WEBHOOK_STATUS] ERROR: Invalid bearer token format\033[0m")
+            logger.error("[WEBHOOK_STATUS] ERROR: Invalid bearer token format")
             raise HTTPException(status_code=400, detail=MessageConstants.INVALID_BEARER_TOKEN_FORMAT)
 
-        print("\033[92m[WEBHOOK_STATUS] Authorization validation passed\033[0m")
+        logger.info("[WEBHOOK_STATUS] Authorization validation passed")
 
-        print("\033[94m[WEBHOOK_STATUS] Step 2: Parsing bot UUID\033[0m")
+        logger.debug("[WEBHOOK_STATUS] Step 2: Parsing bot UUID")
         try:
             bot_uuid = uuid.UUID(botId)
-            print(f"\033[92m[WEBHOOK_STATUS] Bot UUID parsed successfully: {bot_uuid}\033[0m")
+            logger.info(f"[WEBHOOK_STATUS] Bot UUID parsed successfully: {bot_uuid}")
         except ValueError as e:
-            print(f"\033[91m[WEBHOOK_STATUS] ERROR: Invalid bot UUID format: {e}\033[0m")
+            logger.error(f"[WEBHOOK_STATUS] ERROR: Invalid bot UUID format: {e}")
             raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
 
-        print("\033[94m[WEBHOOK_STATUS] Step 3: Parsing timestamps\033[0m")
+        logger.debug("[WEBHOOK_STATUS] Step 3: Parsing timestamps")
         # Parse timestamps if provided
         start_time = None
         end_time = None
@@ -331,24 +332,24 @@ def bot_webhook_status_endpoint(
                 from datetime import datetime
 
                 start_time = datetime.fromisoformat(actual_start_time.replace("Z", "+00:00"))
-                print(f"\033[92m[WEBHOOK_STATUS] Start time parsed: {start_time}\033[0m")
+                logger.info(f"[WEBHOOK_STATUS] Start time parsed: {start_time}")
             except (ValueError, AttributeError) as e:
-                print(f"\033[93m[WEBHOOK_STATUS] WARNING: Could not parse start time '{actual_start_time}': {e}\033[0m")
+                logger.warning(f"[WEBHOOK_STATUS] WARNING: Could not parse start time '{actual_start_time}': {e}")
         else:
-            print("\033[94m[WEBHOOK_STATUS] No start time provided\033[0m")
+            logger.debug("[WEBHOOK_STATUS] No start time provided")
 
         if actual_end_time:
             try:
                 from datetime import datetime
 
                 end_time = datetime.fromisoformat(actual_end_time.replace("Z", "+00:00"))
-                print(f"\033[92m[WEBHOOK_STATUS] End time parsed: {end_time}\033[0m")
+                logger.info(f"[WEBHOOK_STATUS] End time parsed: {end_time}")
             except (ValueError, AttributeError) as e:
-                print(f"\033[93m[WEBHOOK_STATUS] WARNING: Could not parse end time '{actual_end_time}': {e}\033[0m")
+                logger.warning(f"[WEBHOOK_STATUS] WARNING: Could not parse end time '{actual_end_time}': {e}")
         else:
-            print("\033[94m[WEBHOOK_STATUS] No end time provided\033[0m")
+            logger.debug("[WEBHOOK_STATUS] No end time provided")
 
-        print("\033[94m[WEBHOOK_STATUS] Step 4: Updating bot status in database\033[0m")
+        logger.debug("[WEBHOOK_STATUS] Step 4: Updating bot status in database")
         updated_bot = update_bot_status(
             db,
             bot_uuid,
@@ -359,32 +360,32 @@ def bot_webhook_status_endpoint(
         )
 
         if updated_bot:
-            print(f"\033[92m[WEBHOOK_STATUS] Bot status updated successfully to: {status}\033[0m")
+            logger.info(f"[WEBHOOK_STATUS] Bot status updated successfully to: {status}")
 
-            print("\033[94m[WEBHOOK_STATUS] Step 5: Creating bot log entry\033[0m")
+            logger.debug("[WEBHOOK_STATUS] Step 5: Creating bot log entry")
             # Create bot log for status update
             log_data = MeetingBotLogCreate(
                 action="status_updated",
                 message=f"Status changed to: {status}" + (f" - {error}" if error else ""),
             )
             create_bot_log(db, bot_uuid, log_data)
-            print("\033[92m[WEBHOOK_STATUS] Bot log created successfully\033[0m")
+            logger.info("[WEBHOOK_STATUS] Bot log created successfully")
 
-            print("\033[92m[WEBHOOK_STATUS] ===== BOT STATUS WEBHOOK COMPLETED SUCCESSFULLY =====\033[0m")
+            logger.info("[WEBHOOK_STATUS] BOT STATUS WEBHOOK COMPLETED SUCCESSFULLY")
             return ApiResponse(
                 success=True,
                 message=MessageConstants.MEETING_BOT_UPDATED_SUCCESS,
                 data={"bot_id": str(bot_uuid), "status": status},
             )
         else:
-            print(f"\033[91m[WEBHOOK_STATUS] ERROR: Bot not found with ID: {bot_uuid}\033[0m")
+            logger.error(f"[WEBHOOK_STATUS] ERROR: Bot not found with ID: {bot_uuid}")
             raise HTTPException(status_code=404, detail=MessageConstants.MEETING_BOT_NOT_FOUND)
 
     except HTTPException:
-        print("\033[91m[WEBHOOK_STATUS] HTTPException raised, re-raising\033[0m")
+        logger.error("[WEBHOOK_STATUS] HTTPException raised, re-raising")
         raise
     except Exception as e:
-        print(f"\033[91m[WEBHOOK_STATUS] UNEXPECTED ERROR: {type(e).__name__}: {str(e)}\033[0m")
+        logger.error(f"[WEBHOOK_STATUS] UNEXPECTED ERROR: {type(e).__name__}: {str(e)}")
         raise HTTPException(status_code=500, detail=MessageConstants.INTERNAL_SERVER_ERROR)
 
 
@@ -402,55 +403,55 @@ def bot_webhook_recording_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """Webhook endpoint to receive bot recording and update bot status"""
-    print("\033[94m[WEBHOOK_RECORDING] ===== BOT RECORDING WEBHOOK STARTED =====\033[0m")
-    print(f"\033[94m[WEBHOOK_RECORDING] Received request - recording: {recording is not None}, botId: {botId}, meetingUrl: {meetingUrl}, status: {status}\033[0m")
+    logger.info("[WEBHOOK_RECORDING] BOT RECORDING WEBHOOK STARTED")
+    logger.info(f"[WEBHOOK_RECORDING] Received request - recording: {recording is not None}, botId: {botId}, meetingUrl: {meetingUrl}, status: {status}")
 
     try:
-        print("\033[94m[WEBHOOK_RECORDING] Step 1: Validating authorization header\033[0m")
+        logger.debug("[WEBHOOK_RECORDING] Step 1: Validating authorization header")
         if not authorization:
-            print("\033[91m[WEBHOOK_RECORDING] ERROR: Authorization header missing\033[0m")
+            logger.error("[WEBHOOK_RECORDING] ERROR: Authorization header missing")
             raise HTTPException(status_code=401, detail=MessageConstants.AUTHORIZATION_HEADER_REQUIRED)
 
         auth_parts = authorization.split()
         if len(auth_parts) != 2 or auth_parts[0].lower() != "bearer":
-            print("\033[91m[WEBHOOK_RECORDING] ERROR: Invalid bearer token format\033[0m")
+            logger.error("[WEBHOOK_RECORDING] ERROR: Invalid bearer token format")
             raise HTTPException(status_code=400, detail=MessageConstants.INVALID_BEARER_TOKEN_FORMAT)
 
-        print("\033[92m[WEBHOOK_RECORDING] Authorization validation passed\033[0m")
+        logger.info("[WEBHOOK_RECORDING] Authorization validation passed")
 
-        from app.models.meeting import Meeting
+        from app.services.meeting import get_meeting_by_url
 
         result = {}
-        print(f"\033[94m[WEBHOOK_RECORDING] Step 2: Processing recording upload (recording present: {recording is not None})\033[0m")
+        logger.debug(f"[WEBHOOK_RECORDING] Step 2: Processing recording upload (recording present: {recording is not None})")
 
         # Process recording if provided
         if recording and meetingUrl:
-            print(f"\033[94m[WEBHOOK_RECORDING] Recording file detected: {recording.filename}, size: {getattr(recording, 'size', 'unknown')}\033[0m")
+            logger.info(f"[WEBHOOK_RECORDING] Recording file detected: {recording.filename}, size: {getattr(recording, 'size', 'unknown')}")
 
-            print("\033[94m[WEBHOOK_RECORDING] Step 2.1: Finding meeting by URL\033[0m")
-            meeting = db.query(Meeting).filter(Meeting.url == meetingUrl).first()
+            logger.debug("[WEBHOOK_RECORDING] Step 2.1: Finding meeting by URL")
+            meeting = get_meeting_by_url(db, meetingUrl)
             if not meeting:
-                print(f"\033[91m[WEBHOOK_RECORDING] ERROR: Meeting not found for URL: {meetingUrl}\033[0m")
+                logger.error(f"[WEBHOOK_RECORDING] ERROR: Meeting not found for URL: {meetingUrl}")
                 raise HTTPException(status_code=404, detail=MessageConstants.MEETING_NOT_FOUND)
 
-            print(f"\033[92m[WEBHOOK_RECORDING] Meeting found: {meeting.id}\033[0m")
+            logger.info(f"[WEBHOOK_RECORDING] Meeting found: {meeting.id}")
 
-            print("\033[94m[WEBHOOK_RECORDING] Step 2.2: Reading recording file bytes\033[0m")
+            logger.debug("[WEBHOOK_RECORDING] Step 2.2: Reading recording file bytes")
             file_bytes = recording.file.read()
             file_size = len(file_bytes)
-            print(f"\033[92m[WEBHOOK_RECORDING] File read successfully: {file_size} bytes\033[0m")
+            logger.info(f"[WEBHOOK_RECORDING] File read successfully: {file_size} bytes")
 
             if file_bytes:
-                print("\033[94m[WEBHOOK_RECORDING] Step 2.3: Processing bot webhook recording\033[0m")
+                logger.debug("[WEBHOOK_RECORDING] Step 2.3: Processing bot webhook recording")
                 result = process_bot_webhook_recording(
                     db=db,
                     meeting_id=meeting.id,
                     user_id=current_user.id,
                     file_bytes=file_bytes,
                 )
-                print(f"\033[92m[WEBHOOK_RECORDING] Recording processed successfully, audio_file_id: {result.get('audio_file_id')}\033[0m")
+                logger.info(f"[WEBHOOK_RECORDING] Recording processed successfully, audio_file_id: {result.get('audio_file_id')}")
 
-                print("\033[94m[WEBHOOK_RECORDING] Step 2.4: Queueing audio processing task\033[0m")
+                logger.debug("[WEBHOOK_RECORDING] Step 2.4: Queueing audio processing task")
                 # Queue audio processing task
                 from app.jobs.celery_worker import celery_app
 
@@ -459,22 +460,22 @@ def bot_webhook_recording_endpoint(
                     args=[result["audio_file_id"], str(current_user.id)],
                 )
                 result["task_id"] = task.id
-                print(f"\033[92m[WEBHOOK_RECORDING] Audio processing task queued: {task.id}\033[0m")
+                logger.info(f"[WEBHOOK_RECORDING] Audio processing task queued: {task.id}")
             else:
-                print("\033[93m[WEBHOOK_RECORDING] WARNING: Recording file is empty\033[0m")
+                logger.warning("[WEBHOOK_RECORDING] WARNING: Recording file is empty")
         else:
-            print("\033[94m[WEBHOOK_RECORDING] No recording or meeting URL provided, skipping recording processing\033[0m")
+            logger.debug("[WEBHOOK_RECORDING] No recording or meeting URL provided, skipping recording processing")
 
-        print(f"\033[94m[WEBHOOK_RECORDING] Step 3: Processing bot status update (botId present: {botId is not None}, status present: {status is not None})\033[0m")
+        logger.debug(f"[WEBHOOK_RECORDING] Step 3: Processing bot status update (botId present: {botId is not None}, status present: {status is not None})")
         # Update bot status if provided
         if botId and status:
-            print(f"\033[94m[WEBHOOK_RECORDING] Processing status update for bot: {botId}\033[0m")
+            logger.info(f"[WEBHOOK_RECORDING] Processing status update for bot: {botId}")
 
             try:
                 bot_uuid = uuid.UUID(botId)
-                print(f"\033[92m[WEBHOOK_RECORDING] Bot UUID parsed: {bot_uuid}\033[0m")
+                logger.info(f"[WEBHOOK_RECORDING] Bot UUID parsed: {bot_uuid}")
 
-                print("\033[94m[WEBHOOK_RECORDING] Step 3.1: Parsing timestamps for status update\033[0m")
+                logger.debug("[WEBHOOK_RECORDING] Step 3.1: Parsing timestamps for status update")
                 # Parse timestamps if provided
                 start_time = None
                 end_time = None
@@ -483,19 +484,19 @@ def bot_webhook_recording_endpoint(
                         from datetime import datetime
 
                         start_time = datetime.fromisoformat(actual_start_time.replace("Z", "+00:00"))
-                        print(f"\033[92m[WEBHOOK_RECORDING] Start time parsed: {start_time}\033[0m")
+                        logger.info(f"[WEBHOOK_RECORDING] Start time parsed: {start_time}")
                     except (ValueError, AttributeError) as e:
-                        print(f"\033[93m[WEBHOOK_RECORDING] WARNING: Could not parse start time '{actual_start_time}': {e}\033[0m")
+                        logger.warning(f"[WEBHOOK_RECORDING] WARNING: Could not parse start time '{actual_start_time}': {e}")
                 if actual_end_time:
                     try:
                         from datetime import datetime
 
                         end_time = datetime.fromisoformat(actual_end_time.replace("Z", "+00:00"))
-                        print(f"\033[92m[WEBHOOK_RECORDING] End time parsed: {end_time}\033[0m")
+                        logger.info(f"[WEBHOOK_RECORDING] End time parsed: {end_time}")
                     except (ValueError, AttributeError) as e:
-                        print(f"\033[93m[WEBHOOK_RECORDING] WARNING: Could not parse end time '{actual_end_time}': {e}\033[0m")
+                        logger.warning(f"[WEBHOOK_RECORDING] WARNING: Could not parse end time '{actual_end_time}': {e}")
 
-                print("\033[94m[WEBHOOK_RECORDING] Step 3.2: Updating bot status in database\033[0m")
+                logger.debug("[WEBHOOK_RECORDING] Step 3.2: Updating bot status in database")
                 updated_bot = update_bot_status(
                     db,
                     bot_uuid,
@@ -506,56 +507,56 @@ def bot_webhook_recording_endpoint(
                 )
 
                 if updated_bot:
-                    print(f"\033[92m[WEBHOOK_RECORDING] Bot status updated to: {status}\033[0m")
+                    logger.info(f"[WEBHOOK_RECORDING] Bot status updated to: {status}")
 
-                    print("\033[94m[WEBHOOK_RECORDING] Step 3.3: Creating bot log entry\033[0m")
+                    logger.debug("[WEBHOOK_RECORDING] Step 3.3: Creating bot log entry")
                     # Create bot log for status update
                     log_data = MeetingBotLogCreate(
                         action="status_updated",
                         message=f"Status changed to: {status}" + (f" - {error}" if error else ""),
                     )
                     create_bot_log(db, bot_uuid, log_data)
-                    print("\033[92m[WEBHOOK_RECORDING] Bot log created successfully\033[0m")
+                    logger.info("[WEBHOOK_RECORDING] Bot log created successfully")
                     result["bot_status_updated"] = True
                 else:
-                    print(f"\033[91m[WEBHOOK_RECORDING] ERROR: Bot not found: {bot_uuid}\033[0m")
+                    logger.error(f"[WEBHOOK_RECORDING] ERROR: Bot not found: {bot_uuid}")
 
             except ValueError as e:
-                print(f"\033[91m[WEBHOOK_RECORDING] ERROR: Invalid bot UUID format: {e}\033[0m")
+                logger.error(f"[WEBHOOK_RECORDING] ERROR: Invalid bot UUID format: {e}")
                 raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
         else:
-            print("\033[94m[WEBHOOK_RECORDING] No bot status update requested\033[0m")
+            logger.debug("[WEBHOOK_RECORDING] No bot status update requested")
 
-        print("\033[92m[WEBHOOK_RECORDING] ===== BOT RECORDING WEBHOOK COMPLETED SUCCESSFULLY =====\033[0m")
-        print(f"\033[92m[WEBHOOK_RECORDING] Result summary: {result}\033[0m")
+        logger.info("[WEBHOOK_RECORDING] BOT RECORDING WEBHOOK COMPLETED SUCCESSFULLY")
+        logger.info(f"[WEBHOOK_RECORDING] Result summary: {result}")
         return ApiResponse(
             success=True,
             message=MessageConstants.MEETING_BOT_WEBHOOK_PROCESSED_SUCCESS,
             data=result,
         )
     except HTTPException:
-        print("\033[91m[WEBHOOK_RECORDING] HTTPException raised, re-raising\033[0m")
+        logger.error("[WEBHOOK_RECORDING] HTTPException raised, re-raising")
         raise
     except Exception as e:
-        print(f"\033[91m[WEBHOOK_RECORDING] UNEXPECTED ERROR: {type(e).__name__}: {str(e)}\033[0m")
-        print("\033[93m[WEBHOOK_RECORDING] Attempting retry mechanism\033[0m")
+        logger.error(f"[WEBHOOK_RECORDING] UNEXPECTED ERROR: {type(e).__name__}: {str(e)}")
+        logger.warning("[WEBHOOK_RECORDING] Attempting retry mechanism")
 
         from app.jobs.celery_worker import celery_app
 
         if botId and meetingUrl:
-            print("\033[94m[WEBHOOK_RECORDING] Queueing retry task\033[0m")
+            logger.info("[WEBHOOK_RECORDING] Queueing retry task")
             retry_task = celery_app.send_task(
                 "app.jobs.tasks.retry_webhook_processing_task",
                 args=[botId, meetingUrl],
             )
-            print(f"\033[92m[WEBHOOK_RECORDING] Retry task queued: {retry_task.id}\033[0m")
+            logger.info(f"[WEBHOOK_RECORDING] Retry task queued: {retry_task.id}")
             return ApiResponse(
                 success=True,
                 message=MessageConstants.MEETING_BOT_WEBHOOK_QUEUED_FOR_RETRY,
                 data={"retry_task_id": retry_task.id},
             )
 
-        print("\033[93m[WEBHOOK_RECORDING] No retry possible, returning basic success response\033[0m")
+        logger.warning("[WEBHOOK_RECORDING] No retry possible, returning basic success response")
         return ApiResponse(
             success=True,
             message=MessageConstants.MEETING_BOT_WEBHOOK_RECEIVED,

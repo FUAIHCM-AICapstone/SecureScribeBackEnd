@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.constants.messages import MessageConstants
@@ -40,6 +40,7 @@ from app.services.meeting import (
 from app.services.meeting_note import get_meeting_note
 from app.services.transcript import get_transcript_by_meeting
 from app.utils.auth import get_current_user
+from app.utils.logging import logger
 from app.utils.meeting import get_meeting_projects
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting"])
@@ -62,8 +63,8 @@ def create_meeting_endpoint(
             message=MessageConstants.MEETING_CREATED_SUCCESS,
             data=response_data,
         )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.get("/meetings", response_model=MeetingsPaginatedResponse)
@@ -88,7 +89,7 @@ def get_meetings_endpoint(
             try:
                 created_by_uuid = uuid.UUID(created_by)
             except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid created_by UUID format")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid created_by UUID format")
 
         # Parse tag IDs
         tag_id_list = []
@@ -119,8 +120,8 @@ def get_meetings_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.get("/meetings/{meeting_id}", response_model=MeetingWithProjectsApiResponse)
@@ -144,7 +145,7 @@ def get_meeting_endpoint(
             if transcript_obj:
                 transcripts = [TranscriptResponse.model_validate(transcript_obj)]
         except Exception as e:
-            print(f"Error fetching transcripts: {e}")
+            logger.error(f"Error fetching transcripts: {e}")
             transcripts = []
 
         response_data = serialize_meeting_with_projects(
@@ -162,8 +163,8 @@ def get_meeting_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.put("/meetings/{meeting_id}", response_model=MeetingApiResponse)
@@ -178,7 +179,7 @@ def update_meeting_endpoint(
         meeting = get_meeting(db, meeting_id, current_user.id, raise_404=True)
         updated_meeting = update_meeting(db, meeting.id, updates, current_user.id)
         if not updated_meeting:
-            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_UPDATE_FAILED)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.MEETING_UPDATE_FAILED)
 
         updated_meeting = get_meeting(db, updated_meeting.id, current_user.id)
         response_data = serialize_meeting(updated_meeting)
@@ -190,8 +191,8 @@ def update_meeting_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.delete("/meetings/{meeting_id}", response_model=ApiResponse[dict])
@@ -206,7 +207,7 @@ def delete_meeting_endpoint(
         check_delete_permissions(db, meeting, current_user.id)
         success = delete_meeting(db, meeting.id, current_user.id)
         if not success:
-            raise HTTPException(status_code=404, detail=MessageConstants.MEETING_NOT_FOUND)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.MEETING_NOT_FOUND)
 
         return ApiResponse(
             success=True,
@@ -215,8 +216,8 @@ def delete_meeting_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.post("/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict])
@@ -230,7 +231,7 @@ def add_meeting_to_project_endpoint(
     try:
         success = add_meeting_to_project(db, meeting_id, project_id, current_user.id)
         if not success:
-            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_ADD_TO_PROJECT_FAILED)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.MEETING_ADD_TO_PROJECT_FAILED)
 
         return ApiResponse(
             success=True,
@@ -239,8 +240,8 @@ def add_meeting_to_project_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.delete("/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict])
@@ -254,7 +255,7 @@ def remove_meeting_from_project_endpoint(
     try:
         success = remove_meeting_from_project(db, meeting_id, project_id, current_user.id)
         if not success:
-            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_REMOVE_FROM_PROJECT_FAILED)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.MEETING_REMOVE_FROM_PROJECT_FAILED)
 
         return ApiResponse(
             success=True,
@@ -263,8 +264,8 @@ def remove_meeting_from_project_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.post("/meetings/{meeting_id}/audio-files", response_model=ApiResponse[dict])
@@ -284,7 +285,7 @@ def upload_meeting_audio_endpoint(
         content = file.file.read()
         size_bytes = len(content)
         if size_bytes > 100 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_FILE_TOO_LARGE)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.MEETING_FILE_TOO_LARGE)
 
         allowed_types = {
             "audio/mpeg",
@@ -295,7 +296,7 @@ def upload_meeting_audio_endpoint(
             "audio/m4a",
         }
         if file.content_type not in allowed_types:
-            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_UNSUPPORTED_AUDIO_TYPE)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.MEETING_UNSUPPORTED_AUDIO_TYPE)
 
         # Create and upload
         audio = create_audio_file(
@@ -308,7 +309,7 @@ def upload_meeting_audio_endpoint(
             seq_order=seq_order,
         )
         if not audio:
-            raise HTTPException(status_code=400, detail=MessageConstants.MEETING_AUDIO_UPLOAD_FAILED)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.MEETING_AUDIO_UPLOAD_FAILED)
 
         # Enqueue Celery task (mock ASR)
         async_result = process_audio_task.delay(str(audio.id), str(current_user.id))
@@ -324,8 +325,8 @@ def upload_meeting_audio_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.get(
@@ -367,5 +368,5 @@ def list_meeting_audio_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)

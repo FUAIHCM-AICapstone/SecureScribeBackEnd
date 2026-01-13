@@ -78,6 +78,11 @@ def get_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, raise_40
     return meeting
 
 
+def get_meeting_by_url(db: Session, meeting_url: str) -> Optional[Meeting]:
+    """Get meeting by URL"""
+    return db.query(Meeting).filter(Meeting.url == meeting_url).first()
+
+
 def get_meetings(db: Session, user_id: uuid.UUID, filters: Optional[MeetingFilter] = None, page: int = 1, limit: int = 20) -> Tuple[List[Meeting], int]:
     filter_params = {}
     if filters:

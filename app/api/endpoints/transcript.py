@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.constants.messages import MessageConstants
@@ -48,7 +48,7 @@ def transcribe_audio_endpoint(audio_id: uuid.UUID, db: Session = Depends(get_db)
         # Get audio file to find meeting_id
         audio_file = get_audio_file(db, audio_id)
         if not audio_file:
-            raise HTTPException(status_code=404, detail=MessageConstants.AUDIO_NOT_FOUND)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.AUDIO_NOT_FOUND)
 
         # Validate meeting access for audio operations
         validate_meeting_for_audio_operations(db, audio_file.meeting_id, current_user.id)
@@ -67,7 +67,7 @@ def transcribe_audio_endpoint(audio_id: uuid.UUID, db: Session = Depends(get_db)
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(status_code=400, detail=MessageConstants.OPERATION_FAILED)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
 @router.get("/transcripts", response_model=TranscriptsPaginatedResponse)
@@ -81,7 +81,7 @@ def get_transcripts_endpoint(db: Session = Depends(get_db), current_user: User =
 def get_transcript_endpoint(transcript_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     transcript = get_transcript(db, transcript_id, current_user.id)
     if not transcript:
-        raise HTTPException(status_code=404, detail=MessageConstants.TRANSCRIPT_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.TRANSCRIPT_NOT_FOUND)
     return ApiResponse(success=True, message=MessageConstants.TRANSCRIPT_RETRIEVED_SUCCESS, data=TranscriptResponse.model_validate(transcript))
 
 
@@ -89,7 +89,7 @@ def get_transcript_endpoint(transcript_id: uuid.UUID, db: Session = Depends(get_
 def get_meeting_transcript_endpoint(meeting_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     transcript = get_transcript_by_meeting(db, meeting_id, current_user.id)
     if not transcript:
-        raise HTTPException(status_code=404, detail=MessageConstants.TRANSCRIPT_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.TRANSCRIPT_NOT_FOUND)
     return ApiResponse(success=True, message=MessageConstants.TRANSCRIPT_RETRIEVED_SUCCESS, data=TranscriptResponse.model_validate(transcript))
 
 
@@ -169,4 +169,4 @@ def reindex_transcript_endpoint(
             },
         )
     except Exception:
-        raise HTTPException(status_code=400, detail=MessageConstants.OPERATION_FAILED)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)

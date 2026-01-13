@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -32,12 +32,12 @@ def refresh_token_endpoint(request: RefreshTokenRequest):
     try:
         payload = verify_token(refresh_token)
         if not payload or payload.get("type") != "refresh":
-            raise HTTPException(status_code=401, detail=MessageConstants.INVALID_CREDENTIALS)
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=MessageConstants.INVALID_CREDENTIALS)
 
         user_id = payload.get("sub")
 
         if not user_id:
-            raise HTTPException(status_code=401, detail=MessageConstants.INVALID_CREDENTIALS)
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=MessageConstants.INVALID_CREDENTIALS)
 
         access_token = create_access_token({"sub": user_id})
 
@@ -102,4 +102,4 @@ def firebase_login_endpoint(request: GoogleAuthRequest, db: Session = Depends(ge
         result = firebase_login(db, request.id_token)
         return ApiResponse(success=True, message=MessageConstants.OPERATION_SUCCESSFUL, data=result)
     except Exception:
-        raise HTTPException(status_code=400, detail=MessageConstants.AUTH_FAILED)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.AUTH_FAILED)
