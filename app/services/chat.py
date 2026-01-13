@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from app.crud.chat import crud_create_chat_message
+from app.services.qdrant_service import semantic_search_with_filters
 from app.schemas.chat import Mention
 from app.services.qdrant_service import (
     query_documents_by_file_id,
@@ -139,8 +140,6 @@ async def perform_query_expansion_search(
 ) -> List[Dict[str, Any]]:
     """Orchestrate query expansion and semantic search."""
     try:
-        from app.services.qdrant_service import semantic_search_with_filters
-
         print(f"Starting query expansion search for: '{query[:50]}...'")
 
         normalized_seed = re.sub(r"\s+", " ", (query or "").strip())

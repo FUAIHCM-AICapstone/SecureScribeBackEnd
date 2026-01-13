@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Optional, Tuple
+from typing import List
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -13,8 +13,6 @@ from app.crud.task import (
     crud_delete_task,
     crud_get_task,
     crud_get_task_status_notifyees,
-    crud_get_tasks,
-    crud_link_task_to_projects,
     crud_update_task,
 )
 from app.events.domain_events import BaseDomainEvent, build_diff
@@ -245,7 +243,7 @@ def bulk_create_tasks(db: Session, tasks_data: List[TaskCreate], creator_id: uui
     results = []
     for task_data in tasks_data:
         try:
-            task = create_task(db, task_data, creator_id)
+            task = crud_create_task(db, task_data, creator_id)
             results.append({"success": True, "id": task.id})
         except Exception as e:
             results.append({"success": False, "error": str(e)})

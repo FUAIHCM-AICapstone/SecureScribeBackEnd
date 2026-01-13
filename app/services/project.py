@@ -5,18 +5,10 @@ from sqlalchemy.orm import Session
 
 from app.crud.project import crud_add_user_to_project, crud_create_project, crud_delete_project_with_cascade, crud_get_project, crud_get_project_members, crud_get_projects, crud_get_user_role_in_project, crud_is_user_in_project, crud_remove_user_from_project, crud_update_project, crud_update_user_role_in_project
 from app.events.domain_events import BaseDomainEvent
+from app.events.project_events import UserAddedToProjectEvent, UserRemovedFromProjectEvent
 from app.models.project import Project, UserProject
-from app.schemas.project import (
-    ProjectCreate,
-    ProjectFilter,
-    ProjectResponse,
-    ProjectUpdate,
-    ProjectWithMembers,
-    UserProjectCreate,
-    UserProjectResponse,
-)
+from app.schemas.project import ProjectCreate, ProjectFilter, ProjectUpdate, UserProjectCreate
 from app.services.event_manager import EventManager
-from app.utils.project_formatters import format_project_response, format_project_with_members_response, format_user_project_response
 
 
 def create_project(db: Session, project_data: ProjectCreate, created_by: uuid.UUID) -> Project:
@@ -52,8 +44,6 @@ def delete_project(db: Session, project_id: uuid.UUID, actor_user_id: uuid.UUID 
 def add_user_to_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, role: str = "member", added_by_user_id: uuid.UUID = None) -> Optional[UserProject]:
     user_project = crud_add_user_to_project(db, project_id, user_id, role)
     if user_project and added_by_user_id:
-        from app.events.project_events import UserAddedToProjectEvent
-
         event = UserAddedToProjectEvent(project_id=project_id, user_id=user_id, added_by_user_id=added_by_user_id, db=db)
         EventManager.emit(event)
         EventManager.emit_domain_event(BaseDomainEvent(event_name="project.member_added", actor_user_id=added_by_user_id, target_type="project", target_id=project_id, metadata={"added_user_id": str(user_id), "role": role}))
@@ -63,8 +53,6 @@ def add_user_to_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, 
 def remove_user_from_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, removed_by_user_id: uuid.UUID = None, is_self_removal: bool = False) -> bool:
     result = crud_remove_user_from_project(db, project_id, user_id)
     if result and removed_by_user_id:
-        from app.events.project_events import UserRemovedFromProjectEvent
-
         event = UserRemovedFromProjectEvent(project_id=project_id, user_id=user_id, removed_by_user_id=removed_by_user_id, db=db, is_self_removal=is_self_removal)
         EventManager.emit(event)
         EventManager.emit_domain_event(BaseDomainEvent(event_name="project.member_removed", actor_user_id=removed_by_user_id, target_type="project", target_id=project_id, metadata={"removed_user_id": str(user_id), "is_self_removal": is_self_removal}))

@@ -2,6 +2,7 @@ from typing import Any, Dict, List
 
 from app.events.base import BaseEvent, BaseListener
 from app.events.domain_events import BaseDomainEvent
+from app.jobs.tasks import process_domain_event
 
 
 class EventManager:
@@ -28,8 +29,6 @@ class EventManager:
         This must remain lightweight and MUST NOT perform business logic.
         """
         try:
-            from app.jobs.tasks import process_domain_event
-
             payload = event.to_dict() if isinstance(event, BaseDomainEvent) else event
             process_domain_event.delay(payload)
             print(f"[EventManager] Enqueued domain event: {payload.get('event_name')}")

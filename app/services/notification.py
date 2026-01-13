@@ -14,6 +14,7 @@ from app.crud.notification import (
     crud_get_user_fcm_tokens,
     crud_update_notification,
 )
+from app.db import SessionLocal
 from app.models.notification import Notification
 
 
@@ -70,8 +71,6 @@ def send_fcm_notification(
     sound: Optional[str] = None,
     ttl: Optional[int] = None,
 ) -> None:
-    from app.db import SessionLocal
-
     db = SessionLocal()
     try:
         tokens = crud_get_user_fcm_tokens(db, user_ids)

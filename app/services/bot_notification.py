@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.jobs.celery_worker import celery_app
 from app.models.meeting import Meeting, MeetingBot
 from app.utils.redis import publish_to_user_channel
 
@@ -71,7 +72,6 @@ async def send_bot_status_notification(
         ws_success = await publish_to_user_channel(creator_id, notification_data)
 
         # Queue FCM notification via Celery (async, non-blocking)
-        from app.jobs.celery_worker import celery_app
 
         celery_app.send_task(
             "app.jobs.tasks.send_fcm_notification_background_task",

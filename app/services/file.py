@@ -19,6 +19,9 @@ from app.events.domain_events import BaseDomainEvent, build_diff
 from app.models.file import File
 from app.schemas.file import FileCreate, FileFilter, FileUpdate
 from app.services.event_manager import EventManager
+from app.services.meeting import get_meeting
+from app.services.project import get_project, is_user_in_project
+from app.services.qdrant_service import update_file_vectors_metadata
 from app.utils.minio import (
     delete_file_from_minio,
     generate_presigned_url,
@@ -131,8 +134,6 @@ def bulk_delete_files(db: Session, file_ids: List[uuid.UUID], user_id: Optional[
 
 
 async def bulk_move_files(db: Session, file_ids: List[uuid.UUID], target_project_id: Optional[uuid.UUID] = None, target_meeting_id: Optional[uuid.UUID] = None, user_id: Optional[uuid.UUID] = None) -> List[dict]:
-    from app.services.qdrant_service import update_file_vectors_metadata
-
     results = []
     for file_id in file_ids:
         file = crud_get_file(db, file_id)
@@ -190,9 +191,6 @@ def get_project_files_with_info(
     filename: Optional[str] = None,
 ) -> Tuple[List[File], str, int]:
     """Get files for a project with project name and pagination"""
-    from app.services.project import get_project, is_user_in_project
-
-    # Check access
     if not is_user_in_project(db, project_id, user_id):
         return [], None, 0
     # Get project name
@@ -212,9 +210,6 @@ def get_meeting_files_with_info(
     limit: int = 20,
 ) -> Tuple[List[File], str, int]:
     """Get files for a meeting with meeting title and pagination"""
-    from app.services.meeting import get_meeting
-
-    # Get meeting with access check
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
         return [], None, 0
@@ -227,8 +222,6 @@ def get_meeting_files_with_info(
 
 def get_file_with_project_info(db: Session, file_id: uuid.UUID, user_id: uuid.UUID) -> Tuple[Optional[File], Optional[str]]:
     """Get a file with its project information"""
-    from app.services.project import get_project
-
     file = get_file(db, file_id)
     if not file or not check_file_access(db, file, user_id):
         return None, None
@@ -241,8 +234,6 @@ def get_file_with_project_info(db: Session, file_id: uuid.UUID, user_id: uuid.UU
 
 def get_file_with_meeting_info(db: Session, file_id: uuid.UUID, user_id: uuid.UUID) -> Tuple[Optional[File], Optional[str]]:
     """Get a file with its meeting information"""
-    from app.services.meeting import get_meeting
-
     file = get_file(db, file_id)
     if not file or not check_file_access(db, file, user_id):
         return None, None

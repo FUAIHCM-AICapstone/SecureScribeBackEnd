@@ -1,3 +1,4 @@
+import logging
 import mimetypes
 import os
 import re
@@ -7,6 +8,8 @@ from typing import Any, Dict, List
 from chonkie import CodeChunker, SentenceChunker
 from qdrant_client import models as qmodels
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.services.file import check_file_access, get_file
@@ -41,9 +44,6 @@ async def create_collection_if_not_exist(collection_name: str, dim: int) -> bool
 
     except Exception as e:
         print(f"\033[91m[QDRANT] Failed to create collection {collection_name}: {str(e)}\033[0m")
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.error(f"Create collection failed: {e}", exc_info=True)
         return False
 
@@ -76,9 +76,6 @@ async def upsert_vectors(collection: str, vectors: List[List[float]], payloads: 
 
     except Exception as e:
         print(f"\033[91m[QDRANT] Failed to upsert vectors: {str(e)}\033[0m")
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.error(f"Upsert vectors failed: {e}", exc_info=True)
         return False
 

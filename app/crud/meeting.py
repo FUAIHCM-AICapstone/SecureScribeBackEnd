@@ -178,3 +178,9 @@ def crud_get_meeting_audio_files(db: Session, meeting_id: uuid.UUID, page: int =
 
 def crud_check_project_exists(db: Session, project_id: uuid.UUID) -> bool:
     return db.query(Project).filter(Project.id == project_id).first() is not None
+
+
+def crud_soft_delete_meetings_by_creator(db: Session, user_id: uuid.UUID) -> int:
+    count = db.query(Meeting).filter(Meeting.created_by == user_id, Meeting.is_deleted == False).update({"is_deleted": True})
+    db.commit()
+    return count

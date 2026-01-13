@@ -85,7 +85,7 @@ def crud_get_tasks(
 
 
 def crud_update_task(db: Session, task_id: uuid.UUID, **updates) -> Optional[Task]:
-    task = crud_get_task_simple(db, task_id)
+    task = crud_get_task(db, task_id)
     if not task:
         return None
     for key, value in updates.items():
@@ -98,7 +98,7 @@ def crud_update_task(db: Session, task_id: uuid.UUID, **updates) -> Optional[Tas
 
 def crud_delete_task(db: Session, task_id: uuid.UUID) -> bool:
     db.query(TaskProject).filter(TaskProject.task_id == task_id).delete()
-    task = crud_get_task_simple(db, task_id)
+    task = crud_get_task(db, task_id)
     if not task:
         return False
     db.delete(task)

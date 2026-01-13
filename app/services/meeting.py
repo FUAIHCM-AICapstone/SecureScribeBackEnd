@@ -239,7 +239,7 @@ def create_audio_file(
         )
         url = generate_presigned_url(settings.MINIO_BUCKET_NAME, object_name)
         crud_update_audio_file_url(db, audio.id, url)
-        return crud_get_meeting_simple(db, meeting_id)
+        return crud_get_meeting(db, meeting_id)
     except Exception:
         try:
             crud_delete_audio_file(db, audio.id)

@@ -16,8 +16,10 @@ def write_audit_log(event: Dict[str, Any], db: Optional[Session] = None) -> None
     if local_db:
         db.close()
 
+
 class AuditLogService:
     def __init__(self, db: Optional[Session] = None) -> None:
         self._db = db
+
     def write_log(self, event: Dict[str, Any]) -> None:
         write_audit_log(event, db=self._db)

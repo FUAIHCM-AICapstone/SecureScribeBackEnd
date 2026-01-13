@@ -163,3 +163,14 @@ def crud_get_or_create_user_device(db: Session, user_id: uuid.UUID, device_name:
     db.commit()
     db.refresh(device)
     return device
+
+
+def crud_get_user_projects_stats(db: Session, user_id: uuid.UUID) -> dict:
+    from app.models.project import UserProject
+
+    user_projects = db.query(UserProject).filter(UserProject.user_id == user_id).all()
+    total_projects = len(user_projects)
+    admin_projects = sum(1 for up in user_projects if up.role in ["admin", "owner"])
+    member_projects = total_projects - admin_projects
+    active_projects = sum(1 for up in user_projects if up.project and not up.project.is_archived)
+    return {"total_projects": total_projects, "admin_projects": admin_projects, "member_projects": member_projects, "active_projects": active_projects, "archived_projects": total_projects - active_projects}
