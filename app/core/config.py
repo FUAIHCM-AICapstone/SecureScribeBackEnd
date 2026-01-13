@@ -9,7 +9,9 @@ from pydantic import (
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.vault_loader import load_config_from_api_v2
 
+load_config_from_api_v2()
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",

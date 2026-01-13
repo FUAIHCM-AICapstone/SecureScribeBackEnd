@@ -3,21 +3,24 @@ from typing import Any, Dict
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRoute
-from google.cloud.storage import bucket
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api import api_router
 from app.core.config import settings
 from app.core.firebase import initialize_firebase
+from app.core.vault_loader import load_config_from_api_v2
 from app.db import get_db
 from app.events.listeners.notification_listener import NotificationListener
 from app.events.listeners.websocket_listener import WebSocketListener
+from app.exception_handlers.http_exception import custom_exception_handler, custom_http_exception_handler
 from app.services.event_manager import EventManager
+from app.utils.logging import FastAPILoggingMiddleware, logger
 from app.utils.throttling import ThrottlingMiddleware
 
+load_config_from_api_v2()
 
 def custom_generate_unique_id(route: APIRoute) -> str:
     """
@@ -121,9 +124,9 @@ async def shutdown_event():
 # Add middleware to log all requests
 @app.middleware("http")
 async def log_requests(request, call_next):
-    print(f"[REQUEST] {request.method} {request.url}")
+    logger.info(f"→ {request.method} {request.url}")
     response = await call_next(request)
-    print(f"\033[92m[RESPONSE]\033[0m {response.__class__.__name__}({response.status_code if hasattr(response, 'status_code') else 'streaming'}, {getattr(response, 'media_type', 'unknown')})")
+    logger.success(f"← {response.__class__.__name__}({response.status_code if hasattr(response, 'status_code') else 'streaming'}, {getattr(response, 'media_type', 'unknown')})")
 
     try:
         if hasattr(response, "body"):
@@ -131,14 +134,14 @@ async def log_requests(request, call_next):
             # Limit body size to avoid flooding logs
             if len(body_content) > 500:
                 body_content = body_content[:500] + "..."
-            print(f"\033[93m[RESPONSE BODY]\033[0m {body_content}")
+            logger.debug(f"Response body: {body_content}")
         elif hasattr(response, "content") and response.content:
             body_content = response.content.decode("utf-8", errors="ignore")
             if len(body_content) > 500:
                 body_content = body_content[:500] + "..."
-            print(f"\033[93m[RESPONSE BODY]\033[0m {body_content}")
+            logger.debug(f"Response body: {body_content}")
     except Exception as e:
-        print(f"\033[91m[BODY LOG ERROR]\033[0m Could not read response body: {e}")
+        logger.error(f"Could not read response body: {e}")
 
     return response
 
@@ -160,9 +163,12 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
-
+app.add_middleware(FastAPILoggingMiddleware)
 # Add throttling middleware for rate limiting
 app.add_middleware(ThrottlingMiddleware)
+# Error handler
+app.add_exception_handler(HTTPException, custom_http_exception_handler)
+app.add_exception_handler(Exception, custom_exception_handler)
 
 app.include_router(api_router)
 
@@ -481,16 +487,16 @@ def health_services(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
 @app.get("/download")
 def download_file(object_name: str):
-    import io
+
     from app.utils.minio import download_file_from_minio
-    
+
     filename_only = object_name.split("/")[-1]
     bucket_name = object_name.split("/")[0]
-    
+
     file_bytes = download_file_from_minio(bucket_name, filename_only)
     if not file_bytes:
         raise HTTPException(status_code=404, detail="File not found")
-    
+
     return StreamingResponse(
         iter([file_bytes]),
         media_type="application/octet-stream",

@@ -18,6 +18,7 @@ SecureScribeBackEnd/
 │   │   ├── endpoints/           # Route handlers
 │   │   └── dependencies/        # Dependency injection
 │   ├── core/                    # Core configuration
+│   ├── crud/                    # Database operations layer
 │   ├── models/                  # SQLModel database models
 │   ├── schemas/                 # Pydantic request/response schemas
 │   ├── services/                # Business logic layer
@@ -76,6 +77,7 @@ SecureScribeBackEnd/
 
 ## Database Rules
 
+- All database operations must be in crud folder
 - Minimal query operations: Single table queries when possible
 - No eager loading unless required: Use lazy loading
 - Direct SQL when ORM is verbose: `db.query(text("SELECT * FROM users"))`
@@ -91,6 +93,22 @@ SecureScribeBackEnd/
 - No import aliases: Use full module names
 - Direct module imports: `import sqlalchemy.orm`
 - Remove all utility imports: No helper libraries
+
+## Logging Rules
+
+- Use logger from app.utils.logging instead of print statements
+- Import logger: `from app.utils.logging import logger`
+- Use appropriate log levels: logger.info(), logger.warning(), logger.error(), logger.debug()
+- No print statements: Replace all print() with logger calls
+- Structured logging: Include relevant context in log messages
+
+## Development Workflow
+
+- Code only: When requested for code, provide code only
+- No commands: Do not run any terminal commands, tests, or compilation
+- No validation: Skip all testing, linting, and validation steps
+- Direct delivery: Deliver code changes immediately without verification
+- Pure code: Focus solely on code implementation without execution
 
 ## Code Structure
 

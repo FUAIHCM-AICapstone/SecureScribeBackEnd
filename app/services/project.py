@@ -6,6 +6,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import settings
+from app.crud.project import add_user_to_project as crud_add_user_to_project, bulk_add_users_to_project as crud_bulk_add_users_to_project, bulk_remove_users_from_project as crud_bulk_remove_users_from_project, create_project as crud_create_project, delete_project_with_cascade as crud_delete_project_with_cascade, get_project as crud_get_project, get_project_members as crud_get_project_members, get_projects as crud_get_projects, get_user_role_in_project as crud_get_user_role_in_project, is_user_in_project as crud_is_user_in_project, remove_user_from_project as crud_remove_user_from_project, update_project as crud_update_project, update_user_role_in_project as crud_update_user_role_in_project
 from app.events.domain_events import BaseDomainEvent, build_diff
 from app.models.file import File
 from app.models.meeting import Meeting, ProjectMeeting
@@ -25,18 +26,7 @@ from app.utils.minio import delete_file_from_minio
 
 
 def create_project(db: Session, project_data: ProjectCreate, created_by: uuid.UUID) -> Project:
-    """
-    Create a new project
-    """
-    project = Project(
-        name=project_data.name,
-        description=project_data.description,
-        created_by=created_by,
-    )
-
-    db.add(project)
-    db.commit()
-    db.refresh(project)
+    project = crud_create_project(db, project_data.name, project_data.description, created_by)
 
     # Emit domain event (async audit)
     EventManager.emit_domain_event(
@@ -49,35 +39,16 @@ def create_project(db: Session, project_data: ProjectCreate, created_by: uuid.UU
         )
     )
 
-    # Add creator as project owner directly
-    creator_user_project = UserProject(
-        user_id=created_by,
-        project_id=project.id,
-        role="owner",
-    )
-    db.add(creator_user_project)
-    db.commit()
+    # Add creator as project owner
+    crud_add_user_to_project(db, project.id, created_by, "owner")
+    return project
     db.refresh(creator_user_project)
 
     return project
 
 
 def get_project(db: Session, project_id: uuid.UUID, include_members: bool = False) -> Optional[Project]:
-    """
-    Get a project by ID
-    """
-    if include_members:
-        return (
-            db.query(Project)
-            .options(
-                joinedload(Project.users).joinedload(UserProject.user),
-                joinedload(Project.created_by_user),
-            )
-            .filter(Project.id == project_id)
-            .first()
-        )
-    else:
-        return db.query(Project).filter(Project.id == project_id).first()
+    return crud_get_project(db, project_id, include_members)
 
 
 def get_projects(
