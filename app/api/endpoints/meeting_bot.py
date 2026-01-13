@@ -1,14 +1,13 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
-from app.utils.logging import logger
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.meeting_bot import (
     MeetingBotCreate,
@@ -33,6 +32,7 @@ from app.services.meeting_bot import (
     update_meeting_bot,
 )
 from app.utils.auth import get_current_user
+from app.utils.logging import logger
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting Bot"])
 

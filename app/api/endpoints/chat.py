@@ -11,7 +11,7 @@ from app.constants.messages import MessageConstants
 from app.core.config import settings
 from app.db import SessionLocal, get_db
 from app.jobs.tasks import process_chat_message
-from app.models.chat import ChatMessageType, Conversation
+from app.models.chat import ChatMessageType
 from app.models.user import User
 from app.schemas.chat import (
     ChatMessageApiResponse,
@@ -19,7 +19,7 @@ from app.schemas.chat import (
 )
 from app.schemas.common import ApiResponse
 from app.services import chat as chat_service
-from app.services.conversation import get_conversation, check_conversation_active
+from app.services.conversation import check_conversation_active, get_conversation
 from app.utils.auth import get_current_user
 from app.utils.logging import logger
 
