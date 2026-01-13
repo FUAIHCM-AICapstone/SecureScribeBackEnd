@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ from app.crud.task import (
     crud_delete_task,
     crud_get_task,
     crud_get_task_status_notifyees,
+    crud_get_tasks,
     crud_update_task,
 )
 from app.events.domain_events import BaseDomainEvent, build_diff
@@ -173,6 +174,14 @@ def _emit_update_event_and_notifications(
         print(f"Failed to send task update notification: {e}")
 
 
+def create_task(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> Task:
+    _validate_meeting_and_projects(db, task_data, creator_id)
+    task = crud_create_task(db, task_data, creator_id)
+    _emit_task_created_event(creator_id, task, task_data)
+    _notify_assignee(db, task, creator_id)
+    return task
+
+
 def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id: uuid.UUID) -> Task:
     if not check_task_access(db, task_id, user_id):
         EventManager.emit_domain_event(
@@ -268,6 +277,50 @@ def bulk_delete_tasks(db: Session, task_ids: List[uuid.UUID], user_id: uuid.UUID
         except Exception as e:
             results.append({"success": False, "id": task_id, "error": str(e)})
     return results
+
+
+def get_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Task]:
+    if not check_task_access(db, task_id, user_id):
+        return None
+    return crud_get_task(db, task_id)
+
+
+def get_tasks(
+    db: Session,
+    user_id: uuid.UUID,
+    title: Optional[str] = None,
+    status: Optional[str] = None,
+    creator_id: Optional[uuid.UUID] = None,
+    assignee_id: Optional[uuid.UUID] = None,
+    due_date_gte: Optional[str] = None,
+    due_date_lte: Optional[str] = None,
+    meeting_id: Optional[uuid.UUID] = None,
+    created_at_gte: Optional[str] = None,
+    created_at_lte: Optional[str] = None,
+    page: int = 1,
+    limit: int = 20,
+) -> Tuple[List[Task], int]:
+    # Get all tasks with filters first
+    tasks, total = crud_get_tasks(
+        db=db,
+        user_id=user_id,
+        title=title,
+        status=status,
+        creator_id=creator_id,
+        assignee_id=assignee_id,
+        due_date_gte=due_date_gte,
+        due_date_lte=due_date_lte,
+        meeting_id=meeting_id,
+        created_at_gte=created_at_gte,
+        created_at_lte=created_at_lte,
+        page=page,
+        limit=limit,
+    )
+
+    # Filter tasks based on access control
+    accessible_tasks = [task for task in tasks if check_task_access(db, task.id, user_id)]
+
+    return accessible_tasks, len(accessible_tasks)
 
 
 def serialize_task(task: Task) -> TaskResponse:

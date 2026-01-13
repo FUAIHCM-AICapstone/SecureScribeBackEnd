@@ -17,10 +17,11 @@ from app.events.listeners.notification_listener import NotificationListener
 from app.events.listeners.websocket_listener import WebSocketListener
 from app.exception_handlers.http_exception import custom_exception_handler, custom_http_exception_handler
 from app.services.event_manager import EventManager
-from app.utils.logging import FastAPILoggingMiddleware, logger
+from app.utils.logging import FastAPILoggingMiddleware, logger, setup_logging
 from app.utils.throttling import ThrottlingMiddleware
 
 load_config_from_api_v2()
+setup_logging(settings.LOG_LEVEL)
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -101,7 +102,6 @@ async def startup_event():
 
     # Initialize database and create tables if needed
     from app.db import init_database
-
     init_database()
 
     EventManager.register(NotificationListener())

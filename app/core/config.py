@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     MINIO_BUCKET_NAME: str = "securescribe-files"
     MINIO_PUBLIC_BUCKET_NAME: str = "securescribe-public"
     MINIO_PUBLIC_URL: str = "http://localhost:9000"  # Public URL for permanent links (internal Docker network)
-
+    LOG_LEVEL: str = "DEBUG"
     # File Configuration
     MAX_FILE_SIZE_MB: int = 100
     ALLOWED_FILE_EXTENSIONS: str = ".pdf,.docx,.txt,.mp3,.wav,.m4a,.webm"

@@ -20,7 +20,6 @@ from app.models.file import File
 from app.schemas.file import FileCreate, FileFilter, FileUpdate
 from app.services.meeting import get_meeting
 from app.services.project import get_project, is_user_in_project
-from app.services.qdrant_service import update_file_vectors_metadata
 from app.utils.minio import (
     delete_file_from_minio,
     generate_presigned_url,
@@ -144,6 +143,7 @@ def bulk_delete_files(db: Session, file_ids: List[uuid.UUID], user_id: Optional[
 async def bulk_move_files(db: Session, file_ids: List[uuid.UUID], target_project_id: Optional[uuid.UUID] = None, target_meeting_id: Optional[uuid.UUID] = None, user_id: Optional[uuid.UUID] = None) -> List[dict]:
     # Lazy import to avoid circular import
     from app.services.event_manager import EventManager
+    from app.services.qdrant_service import update_file_vectors_metadata
 
     results = []
     for file_id in file_ids:
@@ -257,6 +257,9 @@ def get_file_with_meeting_info(db: Session, file_id: uuid.UUID, user_id: uuid.UU
 
 async def move_file(db: Session, file: File, project_id: Optional[uuid.UUID], meeting_id: Optional[uuid.UUID], user_id: uuid.UUID) -> Optional[File]:
     """Move file to a project or meeting"""
+    # Lazy import to avoid circular import
+    from app.services.qdrant_service import update_file_vectors_metadata
+
     old_project_id = file.project_id
     old_meeting_id = file.meeting_id
 

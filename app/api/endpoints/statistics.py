@@ -11,7 +11,7 @@ from app.schemas.statistics import (
     DashboardResponse,
     DashboardScope,
 )
-from app.services.statistics import StatisticsService
+from app.services.statistics import get_dashboard_stats
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix=settings.API_V1_STR)
@@ -33,6 +33,5 @@ def get_dashboard_statistics(
         - `project`: Items from all projects the user is a member of
         - `hybrid`: Mix (Personal Tasks/Files, Project Meetings)
     """
-    service = StatisticsService(db, current_user.id)
-    stats = service.get_dashboard_stats(period, scope)
+    stats = get_dashboard_stats(db, current_user.id, period, scope)
     return ApiResponse(success=True, message=MessageConstants.STATISTICS_RETRIEVED_SUCCESS, data=stats)

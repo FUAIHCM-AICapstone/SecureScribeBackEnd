@@ -30,9 +30,6 @@ from app.services.project import (
     bulk_remove_users_from_project,
     create_project,
     delete_project,
-    format_project_response,
-    format_project_with_members_response,
-    format_user_project_response,
     get_project,
     get_project_members,
     get_projects,
@@ -45,6 +42,11 @@ from app.services.project import (
 from app.services.user import get_user_projects_stats
 from app.utils.auth import get_current_user
 from app.utils.logging import logger
+from app.utils.project_formatters import (
+    format_project_response,
+    format_project_with_members_response,
+    format_user_project_response,
+)
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Project"])
 
