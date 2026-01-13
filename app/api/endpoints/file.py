@@ -111,7 +111,7 @@ def upload_file_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -158,7 +158,7 @@ def get_files_endpoint(
             ],
             pagination=pagination_meta,
         )
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -194,7 +194,7 @@ def get_file_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -234,7 +234,7 @@ def update_file_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -292,7 +292,7 @@ async def move_file_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -316,7 +316,7 @@ def delete_file_endpoint(
         return ApiResponse(success=True, message=MessageConstants.FILE_DELETED_SUCCESS, data={})
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -356,7 +356,7 @@ async def bulk_files_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -393,7 +393,7 @@ def get_project_files_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -429,7 +429,7 @@ def get_meeting_files_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -457,7 +457,7 @@ def get_file_with_project_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -485,5 +485,5 @@ def get_file_with_meeting_endpoint(
         )
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)

@@ -17,7 +17,6 @@ from app.jobs.tasks import (
     send_fcm_notification_background_task,
 )
 from app.models.user import User
-from app.utils.logging import logger
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.notification import (
     NotificationCreate,
@@ -36,6 +35,7 @@ from app.services.notification import (
 from app.services.user import get_user_by_id
 from app.services.websocket_manager import websocket_manager
 from app.utils.auth import get_current_user, get_current_user_from_token
+from app.utils.logging import logger
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Notification"])
 

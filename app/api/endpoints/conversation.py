@@ -98,7 +98,7 @@ def delete_conversation_endpoint(
     """Delete a conversation"""
     success = delete_conversation(db, conversation_id, current_user.id)
     if not success:
-        raise HTTPException(status_code=404, detail=MessageConstants.CONVERSATION_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.CONVERSATION_NOT_FOUND)
 
     return ApiResponse(success=True, message=MessageConstants.CONVERSATION_DELETED_SUCCESS, data=None)
 
@@ -113,6 +113,6 @@ def get_conversation_with_messages_endpoint(
     """Get a conversation with its messages"""
     conversation = get_conversation_with_messages(db, conversation_id, current_user.id, limit)
     if not conversation:
-        raise HTTPException(status_code=404, detail=MessageConstants.CONVERSATION_NOT_FOUND)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.CONVERSATION_NOT_FOUND)
 
     return ApiResponse(success=True, message=MessageConstants.CONVERSATION_RETRIEVED_SUCCESS, data=conversation)

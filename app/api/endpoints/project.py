@@ -71,6 +71,7 @@ def create_project_endpoint(
             data=response_data,
         )
     except Exception as e:
+        logger.error(f"Error creating project: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -146,6 +147,7 @@ def get_projects_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error retrieving projects: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -182,6 +184,7 @@ def get_project_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error retrieving project {project_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -215,6 +218,7 @@ def update_project_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error updating project {project_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -245,6 +249,7 @@ def delete_project_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error deleting project {project_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -286,6 +291,7 @@ def bulk_add_members_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error bulk adding members to project {project_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -346,6 +352,7 @@ def bulk_remove_members_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error bulk removing members from project {project_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -382,6 +389,7 @@ def add_member_to_project_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error adding member to project {project_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -431,6 +439,7 @@ def remove_member_from_project_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error removing member {user_id} from project {project_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -472,6 +481,7 @@ def update_member_role_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error updating role for member {user_id} in project {project_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -493,6 +503,7 @@ def get_my_project_stats_endpoint(
             data=stats,
         )
     except Exception as e:
+        logger.error(f"Error retrieving project stats for user {current_user.id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
@@ -573,4 +584,5 @@ def request_role_change_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error requesting role change for user {current_user.id} in project {project_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
