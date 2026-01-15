@@ -19,7 +19,7 @@ class QdrantClientManager:
         """Get or create Qdrant client instance with retry logic.
 
         Attempts to establish connection with exponential backoff.
-        Supports both local and cloud instances with optional API key.
+        Uses HTTP REST API for maximum compatibility.
         Raises exception if all retries fail.
         """
         if self._client is not None:
@@ -31,44 +31,27 @@ class QdrantClientManager:
         while attempt < self._max_retries:
             try:
                 attempt += 1
-                print(f"\033[94m[QDRANT] Attempting connection (attempt {attempt}/{self._max_retries})\033[0m")
+                print(f"\033[94m[QDRANT] Attempting HTTP REST connection (attempt {attempt}/{self._max_retries})\033[0m")
 
-                # Build client kwargs based on whether API key is set
-                client_kwargs = {"timeout": 30.0}
-
-                # Check if host looks like a Qdrant cloud URL (qdrant.io domain)
-                is_cloud_url = "qdrant.io" in settings.QDRANT_HOST or settings.QDRANT_HOST.startswith("https://")
-
-                if settings.QDRANT_API_KEY and is_cloud_url:
-                    # Cloud instance with API key - use HTTPS
-                    url = settings.QDRANT_HOST if settings.QDRANT_HOST.startswith("https://") else f"https://{settings.QDRANT_HOST}"
-                    if ":" not in url.split("//")[1]:  # Add port if not present
-                        url = f"{url}:{settings.QDRANT_PORT}"
-                    client_kwargs["url"] = url
-                    client_kwargs["api_key"] = settings.QDRANT_API_KEY
-                    print(f"\033[94m[QDRANT] Using cloud instance: {url}\033[0m")
-                else:
-                    # Local instance (with or without API key) - use HTTP
-                    client_kwargs["host"] = settings.QDRANT_HOST
-                    client_kwargs["port"] = 6333  # HTTP REST API port
-                    client_kwargs["prefer_grpc"] = False
-                    if settings.QDRANT_API_KEY:
-                        client_kwargs["api_key"] = settings.QDRANT_API_KEY
-                        print(f"\033[94m[QDRANT] Using local instance with API key: {settings.QDRANT_HOST}:6333\033[0m")
-                    else:
-                        print(f"\033[94m[QDRANT] Using local instance: {settings.QDRANT_HOST}:6333\033[0m")
-
-                self._client = QdrantClient(**client_kwargs)
+                # Use HTTP REST API for maximum compatibility
+                # REST API is on port 6333
+                self._client = QdrantClient(
+                    host=settings.QDRANT_HOST,
+                    api_key=settings.QDRANT_API_KEY or None,
+                    port=6333,  # HTTP REST API port
+                    prefer_grpc=True,
+                    timeout=30.0,
+                )
 
                 # Test connection by listing collections
                 self._client.get_collections()
-                print("\033[92m[QDRANT] Client connected successfully\033[0m")
+                print("\033[92m[QDRANT] HTTP REST client connected successfully\033[0m")
                 return self._client
 
             except Exception as connection_error:
                 last_error = connection_error
                 self._client = None
-                error_msg = f"Connection attempt {attempt} failed: {type(connection_error).__name__}: {str(connection_error)}"
+                error_msg = f"HTTP REST connection attempt {attempt} failed: {type(connection_error).__name__}: {str(connection_error)}"
                 print(f"\033[93m[QDRANT] {error_msg}\033[0m")
                 logger.warning(error_msg)
 
