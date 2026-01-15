@@ -11,6 +11,9 @@ class TranscriptBase(BaseModel):
     meeting_id: uuid.UUID
     content: Optional[str] = None
     audio_concat_file_id: Optional[uuid.UUID] = None
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
 
 
 class TranscriptCreate(TranscriptBase):
@@ -30,6 +33,9 @@ class TranscriptResponse(BaseModel):
     audio_concat_file_id: Optional[uuid.UUID]
     extracted_text_for_search: Optional[str]
     qdrant_vector_id: Optional[str]
+    input_tokens: Optional[int]
+    output_tokens: Optional[int]
+    total_tokens: Optional[int]
     created_at: datetime
     updated_at: Optional[datetime] = None
 

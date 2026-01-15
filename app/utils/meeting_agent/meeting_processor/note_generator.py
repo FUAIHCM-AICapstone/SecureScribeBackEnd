@@ -94,12 +94,21 @@ After applying the custom instruction above, also follow the context below:
 
             note = (result.meeting_note or "").replace("```", "").strip()
 
+            # Extract token usage from run_output.metrics
+            token_usage = {}
+            if hasattr(run_output, "metrics") and run_output.metrics:
+                token_usage = {
+                    "input_tokens": getattr(run_output.metrics, "input_tokens", None),
+                    "output_tokens": getattr(run_output.metrics, "output_tokens", None),
+                    "total_tokens": getattr(run_output.metrics, "total_tokens", None),
+                }
+
             if not note:
                 note = "Không thể tạo ghi chú cuộc họp."
             else:
                 print("[NoteGenerator] Generated meeting note successfully.")
 
-            return note
+            return note, token_usage
 
         except ValidationError as exc:
             print(f"[NoteGenerator] Validation error during generation: {exc}")
@@ -108,3 +117,10 @@ After applying the custom instruction above, also follow the context below:
         except Exception as exc:
             print(f"[NoteGenerator] Unexpected error during generation: {exc}")
             raise  # Re-raise for retry
+
+    async def generate_with_empty_fallback(self, transcript: str, tasks: List[Task], custom_prompt: Optional[str] = None) -> tuple[str, dict]:
+        """Wrapper to return fallback on failure instead of raising."""
+        try:
+            return await self.generate(transcript, tasks, custom_prompt)
+        except Exception:
+            return "Không thể tạo ghi chú cuộc họp do lỗi xử lý.", {}

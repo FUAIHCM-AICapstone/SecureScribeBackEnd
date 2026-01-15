@@ -153,6 +153,9 @@ class Transcript(SQLModel, table=True):
     audio_concat_file_id: Optional[uuid.UUID] = Field(default=None, foreign_key="audio_files.id")
     extracted_text_for_search: Optional[str] = Field(default=None, sa_column=Column(Text))
     qdrant_vector_id: Optional[str] = Field(default=None, sa_column=Column(String))
+    input_tokens: Optional[int] = Field(default=None, description="Input tokens used")
+    output_tokens: Optional[int] = Field(default=None, description="Output tokens used")
+    total_tokens: Optional[int] = Field(default=None, description="Total tokens used")
 
     # Relationships
     meeting: Meeting = Relationship(back_populates="transcript")
@@ -181,6 +184,9 @@ class MeetingNote(SQLModel, table=True):
     content: Optional[str] = Field(default=None, sa_column=Column(Text))
     last_editor_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     last_edited_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    input_tokens: Optional[int] = Field(default=None, description="Input tokens used")
+    output_tokens: Optional[int] = Field(default=None, description="Output tokens used")
+    total_tokens: Optional[int] = Field(default=None, description="Total tokens used")
 
     # Relationships
     meeting: Meeting = Relationship(back_populates="notes")

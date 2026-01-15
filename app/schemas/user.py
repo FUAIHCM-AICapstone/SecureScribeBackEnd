@@ -119,8 +119,13 @@ class AuditLogResponse(BaseModel):
 
 class MeetingNoteResponse(BaseModel):
     id: uuid.UUID
+    meeting_id: uuid.UUID
     content: Optional[str]
+    last_editor_id: Optional[uuid.UUID]
     last_edited_at: Optional[datetime]
+    input_tokens: Optional[int]
+    output_tokens: Optional[int]
+    total_tokens: Optional[int]
     created_at: datetime
     updated_at: Optional[datetime] = None
 

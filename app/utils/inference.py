@@ -54,19 +54,19 @@ def transcriber(audio_path):
         raise Exception("Transcription polling timed out")
 
     # Parse and format the results
-    transcriptions = data["data"]["results"].get("transcriptions", [])
+    transcriptions = data["data"]["results"].get("speakers", [])
+    token_usage = data["data"]["results"].get("token_usage", {})
 
     if not transcriptions:
-        return "No transcription available"
+        formatted_text = "No transcription available"
+    else:
+        formatted_text = ""
+        for transcription in transcriptions:
+            speaker = transcription.get("speaker", "UNKNOWN")
+            text = transcription.get("transcription", "")
+            start_time = transcription.get("start_time", 0)
+            end_time = transcription.get("end_time", 0)
+            formatted_text += f"{speaker} [{start_time:.2f}s - {end_time:.2f}s]: {text}\n\n"
+        formatted_text = formatted_text.strip()
 
-    formatted_text = ""
-    for transcription in transcriptions:
-        speaker = transcription.get("speaker", "UNKNOWN")
-        text = transcription.get("transcription", "")
-        start_time = transcription.get("start_time", 0)
-        end_time = transcription.get("end_time", 0)
-
-        # Format with speaker and timestamps
-        formatted_text += f"{speaker} [{start_time:.2f}s - {end_time:.2f}s]: {text}\n\n"
-
-    return formatted_text.strip()
+    return formatted_text, token_usage

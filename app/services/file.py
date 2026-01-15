@@ -199,6 +199,7 @@ def get_meeting_files_with_info(
     files, total = get_files(db, filters, page, limit, user_id)
     return files, meeting_title, total
 
+
 async def move_file(db: Session, file: File, project_id: Optional[uuid.UUID], meeting_id: Optional[uuid.UUID], user_id: uuid.UUID) -> Optional[File]:
     """Move file to a project or meeting"""
     # Lazy import to avoid circular import

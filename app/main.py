@@ -102,6 +102,7 @@ async def startup_event():
 
     # Initialize database and create tables if needed
     from app.db import init_database
+
     init_database()
 
     EventManager.register(NotificationListener())

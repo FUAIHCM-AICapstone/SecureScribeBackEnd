@@ -57,13 +57,10 @@ def _global_exception_handler(exc_type, exc_value, exc_traceback):
 
     # Format the full traceback
     tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
-    tb_text = ''.join(tb_lines)
+    tb_text = "".join(tb_lines)
 
     # Log with full traceback - this will be sent to both console and Loki
-    logger.critical(
-        f"Uncaught exception in thread {threading.current_thread().name}: {exc_value}",
-        extra={"traceback": tb_text}
-    )
+    logger.critical(f"Uncaught exception in thread {threading.current_thread().name}: {exc_value}", extra={"traceback": tb_text})
 
     # Call the default exception handler
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
@@ -119,8 +116,8 @@ def setup_logging(level: str = "INFO") -> None:
                 serialize=True,
                 level=level,
                 backtrace=True,  # Include backtrace in serialized logs
-                diagnose=True,   # Include diagnostic information
-                enqueue=True     # Async logging to avoid blocking
+                diagnose=True,  # Include diagnostic information
+                enqueue=True,  # Async logging to avoid blocking
             )
             loguru_logger.info(f"Loki HTTP logging configured: {loki_url}")
         except Exception as e:

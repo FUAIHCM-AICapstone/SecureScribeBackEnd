@@ -80,8 +80,15 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
         temp_file.write(audio_bytes)
         temp_path = temp_file.name
     try:
-        transcript_text = transcriber(temp_path)
-        transcript_data = TranscriptCreate(meeting_id=audio_file.meeting_id, content=transcript_text, audio_concat_file_id=audio_file.id)
+        transcript_text, token_usage = transcriber(temp_path)
+        transcript_data = TranscriptCreate(
+            meeting_id=audio_file.meeting_id,
+            content=transcript_text,
+            audio_concat_file_id=audio_file.id,
+            input_tokens=token_usage.get("input_tokens"),
+            output_tokens=token_usage.get("output_tokens"),
+            total_tokens=token_usage.get("total_tokens"),
+        )
         logger.debug(f"Transcript created: {transcript_data}")
         transcript = create_transcript(db, transcript_data, audio_file.uploaded_by)
         if transcript:
@@ -91,7 +98,11 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
                     actor_user_id=audio_file.uploaded_by,
                     target_type="transcript",
                     target_id=transcript.id,
-                    metadata={"audio_id": str(audio_id), "meeting_id": str(transcript.meeting_id)},
+                    metadata={
+                        "audio_id": str(audio_id),
+                        "meeting_id": str(transcript.meeting_id),
+                        "token_usage": token_usage,
+                    },
                 )
             )
         return transcript

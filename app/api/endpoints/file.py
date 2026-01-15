@@ -173,14 +173,11 @@ def get_file_endpoint(
         # If download requested, stream the file
         if download:
             from app.utils.minio import get_minio_client
+
             try:
                 client = get_minio_client()
                 response = client.get_object(settings.MINIO_BUCKET_NAME, str(file.id))
-                return StreamingResponse(
-                    response,
-                    media_type=file.mime_type,
-                    headers={"Content-Disposition": f"attachment; filename={file.filename}"}
-                )
+                return StreamingResponse(response, media_type=file.mime_type, headers={"Content-Disposition": f"attachment; filename={file.filename}"})
             except Exception as e:
                 logger.exception(f"File download error: {e}")
                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Download failed")

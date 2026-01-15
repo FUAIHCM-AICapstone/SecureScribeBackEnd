@@ -1033,6 +1033,7 @@ def process_meeting_analysis_task(
                 user_id=uuid.UUID(user_id),
                 meeting_note_content=analysis_result.get("meeting_note", ""),
                 task_items=analysis_result.get("task_items", []),
+                token_usage=analysis_result.get("token_usage", {}),
             )
 
             # Step 4.5: Indexing meeting note to Qdrant (95%)

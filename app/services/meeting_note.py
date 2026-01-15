@@ -54,15 +54,29 @@ def delete_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> bool:
     return False
 
 
-def save_meeting_analysis_results(db: Session, meeting_id: UUID, user_id: UUID, meeting_note_content: str, task_items: List[Dict[str, Any]]) -> Dict[str, Any]:
+def save_meeting_analysis_results(db: Session, meeting_id: UUID, user_id: UUID, meeting_note_content: str, task_items: List[Dict[str, Any]], token_usage: Dict[str, Any] = None) -> Dict[str, Any]:
     existing_note = crud_get_meeting_note(db, meeting_id)
     is_regeneration = existing_note is not None
+    token_usage = token_usage or {}
+
     if is_regeneration:
         crud_delete_meeting_tasks(db, meeting_id)
         note = crud_update_meeting_note(db, meeting_id, meeting_note_content, user_id)
-        EventManager.emit_domain_event(BaseDomainEvent(event_name="meeting_note.regenerated", actor_user_id=user_id, target_type="meeting_note", target_id=meeting_id, metadata={"content_length": len(note.content), "regenerated": True}))
+        # Update token fields
+        note.input_tokens = token_usage.get("input_tokens")
+        note.output_tokens = token_usage.get("output_tokens")
+        note.total_tokens = token_usage.get("total_tokens")
+        db.commit()
+        db.refresh(note)
+        EventManager.emit_domain_event(BaseDomainEvent(event_name="meeting_note.regenerated", actor_user_id=user_id, target_type="meeting_note", target_id=meeting_id, metadata={"content_length": len(note.content), "regenerated": True, "token_usage": token_usage}))
     else:
         note = crud_create_meeting_note(db, meeting_id, meeting_note_content, user_id)
-        EventManager.emit_domain_event(BaseDomainEvent(event_name="meeting_note.created", actor_user_id=user_id, target_type="meeting_note", target_id=meeting_id, metadata={"content_length": len(note.content)}))
+        # Set token fields
+        note.input_tokens = token_usage.get("input_tokens")
+        note.output_tokens = token_usage.get("output_tokens")
+        note.total_tokens = token_usage.get("total_tokens")
+        db.commit()
+        db.refresh(note)
+        EventManager.emit_domain_event(BaseDomainEvent(event_name="meeting_note.created", actor_user_id=user_id, target_type="meeting_note", target_id=meeting_id, metadata={"content_length": len(note.content), "token_usage": token_usage}))
     persisted_tasks = process_and_persist_task_items(db, meeting_id, user_id, task_items) if task_items else []
-    return {"note": note, "content": meeting_note_content, "task_items": persisted_tasks}
+    return {"note": note, "content": meeting_note_content, "task_items": persisted_tasks, "token_usage": token_usage}

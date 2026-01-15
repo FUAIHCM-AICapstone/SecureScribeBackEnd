@@ -52,13 +52,20 @@ class MeetingProcessor:
                 tasks_result = []  # Empty list as fallback
 
             if isinstance(note_result, Exception):
-                note_result = "Không thể tạo ghi chú cuộc họp do lỗi xử lý."  # Fallback message
+                note_result = ("Không thể tạo ghi chú cuộc họp do lỗi xử lý.", {})  # Fallback with empty tokens
+
+            # Unpack note and tokens
+            if isinstance(note_result, tuple):
+                note_text, token_usage = note_result
+            else:
+                note_text = note_result
+                token_usage = {}
 
         except Exception as exc:
             return self._format_failure(str(exc))
 
         # Step 3: Format and return success
-        return self._format_success(tasks_result, note_result)
+        return self._format_success(tasks_result, note_text, token_usage)
 
     def _simple_validation(self, transcript: str) -> bool:
         """
@@ -91,10 +98,10 @@ class MeetingProcessor:
         try:
             tasks = await self._task_extractor.extract(transcript)
             return tasks
-        except Exception as exc:
+        except Exception:
             return []  # Return empty list as fallback
 
-    async def _generate_note_with_retry(self, transcript: str, custom_prompt: Optional[str] = None) -> str:
+    async def _generate_note_with_retry(self, transcript: str, custom_prompt: Optional[str] = None) -> tuple[str, dict]:
         """
         Generate meeting note with built-in retry logic.
 
@@ -103,22 +110,23 @@ class MeetingProcessor:
             custom_prompt: Optional custom prompt
 
         Returns:
-            Generated meeting note (fallback message on failure after retries)
+            Tuple of (generated note, token_usage dict)
         """
         try:
             # Pass empty task list for now, will be updated after concurrent execution
-            note = await self._note_generator.generate(transcript, [], custom_prompt)
-            return note
-        except Exception as exc:
-            return "Không thể tạo ghi chú cuộc họp do lỗi xử lý."  # Fallback message
+            note, token_usage = await self._note_generator.generate_with_empty_fallback(transcript, [], custom_prompt)
+            return note, token_usage
+        except Exception:
+            return "Không thể tạo ghi chú cuộc họp do lỗi xử lý.", {}  # Fallback message with empty tokens
 
-    def _format_success(self, tasks: List[Task], note: str) -> Dict[str, Any]:
+    def _format_success(self, tasks: List[Task], note: str, token_usage: Dict[str, Any]) -> Dict[str, Any]:
         """
         Format successful processing result.
 
         Args:
             tasks: List of extracted tasks
             note: Generated meeting note
+            token_usage: Token usage metrics
 
         Returns:
             Formatted result dictionary
@@ -139,6 +147,7 @@ class MeetingProcessor:
 
         result = output.model_dump()
         result["task_items"] = [task.model_dump() for task in output.task_items]
+        result["token_usage"] = token_usage
 
         return result
 
