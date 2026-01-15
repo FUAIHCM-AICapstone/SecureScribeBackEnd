@@ -90,6 +90,7 @@ class Settings(BaseSettings):
     # Qdrant Configuration
     QDRANT_HOST: str = "qdrant"
     QDRANT_PORT: int = 6334  # gRPC port
+    QDRANT_API_KEY: str = ""
     QDRANT_COLLECTION_NAME: str = "documents"
 
     # Google AI Configuration
