@@ -34,13 +34,11 @@ class QdrantClientManager:
                 print(f"\033[94m[QDRANT] Attempting HTTP REST connection (attempt {attempt}/{self._max_retries})\033[0m")
 
                 # Use HTTP REST API for maximum compatibility
+                url = f"http://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}"
                 # REST API is on port 6333
                 self._client = QdrantClient(
-                    host=settings.QDRANT_HOST,
+                    url=url,
                     api_key=settings.QDRANT_API_KEY,
-                    port=6333,  # HTTP REST API port
-                    https=False,
-                    prefer_grpc=False,
                     timeout=30.0,
                 )
 
