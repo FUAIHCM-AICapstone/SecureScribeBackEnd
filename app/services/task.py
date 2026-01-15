@@ -176,7 +176,7 @@ def _emit_update_event_and_notifications(
 
 def create_task(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> Task:
     _validate_meeting_and_projects(db, task_data, creator_id)
-    task = crud_create_task(db, task_data, creator_id)
+    task = crud_create_task(db, **task_data.model_dump(), creator_id=creator_id)
     _emit_task_created_event(creator_id, task, task_data)
     _notify_assignee(db, task, creator_id)
     return task
@@ -250,7 +250,7 @@ def bulk_create_tasks(db: Session, tasks_data: List[TaskCreate], creator_id: uui
     results = []
     for task_data in tasks_data:
         try:
-            task = crud_create_task(db, task_data, creator_id)
+            task = crud_create_task(db, **task_data.model_dump(), creator_id=creator_id)
             results.append({"success": True, "id": task.id})
         except Exception as e:
             results.append({"success": False, "error": str(e)})

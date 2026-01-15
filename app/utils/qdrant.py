@@ -35,17 +35,25 @@ class QdrantClientManager:
 
                 # Build client kwargs based on whether API key is set
                 client_kwargs = {"timeout": 30.0}
-                if settings.QDRANT_API_KEY:
-                    # Cloud instance with API key
+                
+                # Check if host looks like a cloud URL (contains dots or dashes indicating domain)
+                is_cloud_url = "." in settings.QDRANT_HOST or "-" in settings.QDRANT_HOST
+                
+                if settings.QDRANT_API_KEY and is_cloud_url:
+                    # Cloud instance with API key - use HTTPS
                     client_kwargs["url"] = f"https://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}"
                     client_kwargs["api_key"] = settings.QDRANT_API_KEY
                     print("\033[94m[QDRANT] Using cloud instance with API key\033[0m")
                 else:
-                    # Local instance without API key
+                    # Local instance (with or without API key) - use HTTP
                     client_kwargs["host"] = settings.QDRANT_HOST
                     client_kwargs["port"] = 6333  # HTTP REST API port
                     client_kwargs["prefer_grpc"] = False
-                    print("\033[94m[QDRANT] Using local instance\033[0m")
+                    if settings.QDRANT_API_KEY:
+                        client_kwargs["api_key"] = settings.QDRANT_API_KEY
+                        print("\033[94m[QDRANT] Using local instance with API key\033[0m")
+                    else:
+                        print("\033[94m[QDRANT] Using local instance\033[0m")
 
                 self._client = QdrantClient(**client_kwargs)
 
