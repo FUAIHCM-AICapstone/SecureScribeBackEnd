@@ -35,15 +35,18 @@ class QdrantClientManager:
 
                 # Build client kwargs based on whether API key is set
                 client_kwargs = {"timeout": 30.0}
-                
-                # Check if host looks like a cloud URL (contains dots or dashes indicating domain)
-                is_cloud_url = "." in settings.QDRANT_HOST or "-" in settings.QDRANT_HOST
-                
+
+                # Check if host looks like a Qdrant cloud URL (qdrant.io domain)
+                is_cloud_url = "qdrant.io" in settings.QDRANT_HOST or settings.QDRANT_HOST.startswith("https://")
+
                 if settings.QDRANT_API_KEY and is_cloud_url:
                     # Cloud instance with API key - use HTTPS
-                    client_kwargs["url"] = f"https://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}"
+                    url = settings.QDRANT_HOST if settings.QDRANT_HOST.startswith("https://") else f"https://{settings.QDRANT_HOST}"
+                    if ":" not in url.split("//")[1]:  # Add port if not present
+                        url = f"{url}:{settings.QDRANT_PORT}"
+                    client_kwargs["url"] = url
                     client_kwargs["api_key"] = settings.QDRANT_API_KEY
-                    print("\033[94m[QDRANT] Using cloud instance with API key\033[0m")
+                    print(f"\033[94m[QDRANT] Using cloud instance: {url}\033[0m")
                 else:
                     # Local instance (with or without API key) - use HTTP
                     client_kwargs["host"] = settings.QDRANT_HOST
@@ -51,9 +54,9 @@ class QdrantClientManager:
                     client_kwargs["prefer_grpc"] = False
                     if settings.QDRANT_API_KEY:
                         client_kwargs["api_key"] = settings.QDRANT_API_KEY
-                        print("\033[94m[QDRANT] Using local instance with API key\033[0m")
+                        print(f"\033[94m[QDRANT] Using local instance with API key: {settings.QDRANT_HOST}:6333\033[0m")
                     else:
-                        print("\033[94m[QDRANT] Using local instance\033[0m")
+                        print(f"\033[94m[QDRANT] Using local instance: {settings.QDRANT_HOST}:6333\033[0m")
 
                 self._client = QdrantClient(**client_kwargs)
 
