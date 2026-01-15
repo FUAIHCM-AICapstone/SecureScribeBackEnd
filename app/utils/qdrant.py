@@ -39,8 +39,8 @@ class QdrantClientManager:
                     host=settings.QDRANT_HOST,
                     api_key=settings.QDRANT_API_KEY,
                     port=6333,  # HTTP REST API port
-                    https=True,
-                    prefer_grpc=True,
+                    https=False,
+                    prefer_grpc=False,
                     timeout=30.0,
                 )
 
