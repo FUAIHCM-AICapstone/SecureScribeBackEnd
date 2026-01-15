@@ -66,36 +66,12 @@ class FileFilter(BaseModel):
     uploaded_by: Optional[uuid.UUID] = None
 
 
-class BulkFileOperation(BaseModel):
-    file_ids: List[uuid.UUID]
-    operation: str  # "delete" or "move"
-    target_project_id: Optional[uuid.UUID] = None
-    target_meeting_id: Optional[uuid.UUID] = None
-
-
-class BulkFileResponse(BaseModel):
-    success: bool
-    message: str
-    data: List[dict]
-    total_processed: int
-    total_success: int
-    total_failed: int
-
-
 class FileMoveRequest(BaseModel):
     project_id: Optional[uuid.UUID] = None
     meeting_id: Optional[uuid.UUID] = None
 
 
 class FileApiResponse(ApiResponse[FileResponse]):
-    pass
-
-
-class FileWithProjectApiResponse(ApiResponse[FileWithProject]):
-    pass
-
-
-class FileWithMeetingApiResponse(ApiResponse[FileWithMeeting]):
     pass
 
 

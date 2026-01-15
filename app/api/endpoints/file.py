@@ -2,6 +2,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.constants.messages import MessageConstants
@@ -11,8 +12,6 @@ from app.jobs.tasks import index_file_task
 from app.models.user import User
 from app.schemas.common import ApiResponse, PaginatedResponse, create_pagination_meta
 from app.schemas.file import (
-    BulkFileOperation,
-    BulkFileResponse,
     FileApiResponse,
     FileCreate,
     FileFilter,
@@ -22,20 +21,14 @@ from app.schemas.file import (
     FilesWithProjectPaginatedResponse,
     FileUpdate,
     FileWithMeeting,
-    FileWithMeetingApiResponse,
     FileWithProject,
-    FileWithProjectApiResponse,
 )
 from app.services.file import (
-    bulk_delete_files,
-    bulk_move_files,
     check_delete_permissions,
     check_file_access,
     create_file,
     delete_file,
     get_file,
-    get_file_with_meeting_info,
-    get_file_with_project_info,
     get_files,
     get_meeting_files_with_info,
     get_project_files_with_info,
@@ -165,6 +158,7 @@ def get_files_endpoint(
 @router.get("/files/{file_id}", response_model=FileApiResponse)
 def get_file_endpoint(
     file_id: uuid.UUID,
+    download: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -175,6 +169,21 @@ def get_file_endpoint(
 
         if not check_file_access(db, file, current_user.id):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=MessageConstants.ACCESS_DENIED)
+
+        # If download requested, stream the file
+        if download:
+            from app.utils.minio import get_minio_client
+            try:
+                client = get_minio_client()
+                response = client.get_object(settings.MINIO_BUCKET_NAME, str(file.id))
+                return StreamingResponse(
+                    response,
+                    media_type=file.mime_type,
+                    headers={"Content-Disposition": f"attachment; filename={file.filename}"}
+                )
+            except Exception as e:
+                logger.exception(f"File download error: {e}")
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Download failed")
 
         return ApiResponse(
             success=True,
@@ -320,46 +329,6 @@ def delete_file_endpoint(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
 
 
-@router.post("/files/bulk", response_model=BulkFileResponse)
-async def bulk_files_endpoint(
-    operation: BulkFileOperation,
-    db: Session = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
-):
-    try:
-        # Execute bulk operation
-        if operation.operation == "delete":
-            results = bulk_delete_files(db, operation.file_ids, _current_user.id)
-        elif operation.operation == "move":
-            results = await bulk_move_files(
-                db,
-                operation.file_ids,
-                operation.target_project_id,
-                operation.target_meeting_id,
-                _current_user.id,
-            )
-        else:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.INVALID_REQUEST)
-
-        # Calculate statistics
-        total_processed = len(results)
-        total_success = sum(1 for r in results if r["success"])
-        total_failed = total_processed - total_success
-
-        return BulkFileResponse(
-            success=total_failed == 0,
-            message=MessageConstants.OPERATION_SUCCESSFUL if total_failed == 0 else MessageConstants.OPERATION_FAILED,
-            data=results,
-            total_processed=total_processed,
-            total_success=total_success,
-            total_failed=total_failed,
-        )
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
-
-
 @router.get("/projects/{project_id}/files", response_model=FilesWithProjectPaginatedResponse)
 def get_project_files_endpoint(
     project_id: uuid.UUID,
@@ -426,62 +395,6 @@ def get_meeting_files_endpoint(
                 for file in files
             ],
             pagination=pagination_meta,
-        )
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
-
-
-@router.get("/files/{file_id}/with-project", response_model=FileWithProjectApiResponse)
-def get_file_with_project_endpoint(
-    file_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Get a file with project information"""
-    try:
-        file, project_name = get_file_with_project_info(db, file_id, current_user.id)
-
-        if not file:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.FILE_NOT_FOUND)
-
-        return ApiResponse(
-            success=True,
-            message=MessageConstants.FILE_RETRIEVED_SUCCESS,
-            data=FileWithProject(
-                **file.__dict__,
-                project_name=project_name,
-                can_access=True,
-            ),
-        )
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.OPERATION_FAILED)
-
-
-@router.get("/files/{file_id}/with-meeting", response_model=FileWithMeetingApiResponse)
-def get_file_with_meeting_endpoint(
-    file_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Get a file with meeting information"""
-    try:
-        file, meeting_title = get_file_with_meeting_info(db, file_id, current_user.id)
-
-        if not file:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.FILE_NOT_FOUND)
-
-        return ApiResponse(
-            success=True,
-            message=MessageConstants.FILE_RETRIEVED_SUCCESS,
-            data=FileWithMeeting(
-                **file.__dict__,
-                meeting_title=meeting_title,
-                can_access=True,
-            ),
         )
     except HTTPException:
         raise

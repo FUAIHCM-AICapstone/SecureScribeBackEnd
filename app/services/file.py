@@ -12,7 +12,6 @@ from app.crud.file import (
     crud_get_file,
     crud_get_files,
     crud_get_project_ids_for_meeting,
-    crud_move_file,
     crud_update_file,
 )
 from app.events.domain_events import BaseDomainEvent, build_diff
@@ -132,36 +131,6 @@ def delete_file(db: Session, file_id: uuid.UUID, actor_user_id: uuid.UUID | None
     return True
 
 
-def bulk_delete_files(db: Session, file_ids: List[uuid.UUID], user_id: Optional[uuid.UUID] = None) -> List[dict]:
-    results = []
-    for file_id in file_ids:
-        success = delete_file(db, file_id, user_id)
-        results.append({"success": success, "file_id": str(file_id)})
-    return results
-
-
-async def bulk_move_files(db: Session, file_ids: List[uuid.UUID], target_project_id: Optional[uuid.UUID] = None, target_meeting_id: Optional[uuid.UUID] = None, user_id: Optional[uuid.UUID] = None) -> List[dict]:
-    # Lazy import to avoid circular import
-    from app.services.event_manager import EventManager
-    from app.services.qdrant_service import update_file_vectors_metadata
-
-    results = []
-    for file_id in file_ids:
-        file = crud_get_file(db, file_id)
-        if not file:
-            results.append({"success": False, "file_id": str(file_id), "error": "File not found"})
-            continue
-        old_project_id, old_meeting_id = file.project_id, file.meeting_id
-        file = crud_move_file(db, file_id, target_project_id, target_meeting_id)
-        vector_update_success = await update_file_vectors_metadata(file_id=str(file_id), project_id=str(target_project_id) if target_project_id else None, meeting_id=str(target_meeting_id) if target_meeting_id else None, owner_user_id=str(user_id) if user_id else None)
-        if vector_update_success:
-            results.append({"success": True, "file_id": str(file_id)})
-            EventManager.emit_domain_event(BaseDomainEvent(event_name="file.moved", actor_user_id=user_id, target_type="file", target_id=file_id, metadata={"old_project_id": str(old_project_id) if old_project_id else None, "new_project_id": str(target_project_id) if target_project_id else None, "old_meeting_id": str(old_meeting_id) if old_meeting_id else None, "new_meeting_id": str(target_meeting_id) if target_meeting_id else None}))
-        else:
-            results.append({"success": False, "file_id": str(file_id), "error": "Failed to update vector metadata"})
-    return results
-
-
 def check_file_access(db: Session, file: File, user_id: uuid.UUID) -> bool:
     return crud_check_file_access(db, file, user_id)
 
@@ -229,31 +198,6 @@ def get_meeting_files_with_info(
     filters = FileFilter(meeting_id=meeting_id)
     files, total = get_files(db, filters, page, limit, user_id)
     return files, meeting_title, total
-
-
-def get_file_with_project_info(db: Session, file_id: uuid.UUID, user_id: uuid.UUID) -> Tuple[Optional[File], Optional[str]]:
-    """Get a file with its project information"""
-    file = get_file(db, file_id)
-    if not file or not check_file_access(db, file, user_id):
-        return None, None
-    project_name = None
-    if file.project_id:
-        project = get_project(db, file.project_id)
-        project_name = project.name if project else None
-    return file, project_name
-
-
-def get_file_with_meeting_info(db: Session, file_id: uuid.UUID, user_id: uuid.UUID) -> Tuple[Optional[File], Optional[str]]:
-    """Get a file with its meeting information"""
-    file = get_file(db, file_id)
-    if not file or not check_file_access(db, file, user_id):
-        return None, None
-    meeting_title = None
-    if file.meeting_id:
-        meeting = get_meeting(db, file.meeting_id, user_id)
-        meeting_title = meeting.title if meeting else None
-    return file, meeting_title
-
 
 async def move_file(db: Session, file: File, project_id: Optional[uuid.UUID], meeting_id: Optional[uuid.UUID], user_id: uuid.UUID) -> Optional[File]:
     """Move file to a project or meeting"""

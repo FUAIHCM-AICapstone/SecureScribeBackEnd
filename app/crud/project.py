@@ -37,7 +37,7 @@ def crud_get_project(db: Session, project_id: uuid.UUID, include_members: bool =
 def crud_get_projects(db: Session, filters: Dict[str, Any] = None, **kwargs) -> Tuple[List[Project], int]:
     query = db.query(Project).options(
         joinedload(Project.created_by_user),
-        joinedload(Project.members).joinedload(UserProject.user),
+        joinedload(Project.users).joinedload(UserProject.user),
     )
 
     if filters:

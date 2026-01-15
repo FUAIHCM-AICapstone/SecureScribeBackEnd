@@ -68,19 +68,6 @@ def crud_delete_file(db: Session, file_id: uuid.UUID) -> bool:
     return True
 
 
-def crud_move_file(db: Session, file_id: uuid.UUID, target_project_id: Optional[uuid.UUID] = None, target_meeting_id: Optional[uuid.UUID] = None) -> Optional[File]:
-    file = crud_get_file(db, file_id)
-    if not file:
-        return None
-    if target_project_id is not None:
-        file.project_id = target_project_id
-    if target_meeting_id is not None:
-        file.meeting_id = target_meeting_id
-    db.commit()
-    db.refresh(file)
-    return file
-
-
 def crud_check_file_access(db: Session, file: File, user_id: uuid.UUID) -> bool:
     if file.uploaded_by == user_id:
         return True
