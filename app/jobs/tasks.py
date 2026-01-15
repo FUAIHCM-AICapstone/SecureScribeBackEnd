@@ -1099,7 +1099,10 @@ def process_meeting_analysis_task(
                 if meeting_obj and hasattr(meeting_obj, "projects") and meeting_obj.projects:
                     project_ids = [str(project_meeting.project_id) for project_meeting in meeting_obj.projects if project_meeting.project]
 
-                asyncio.run(update_meeting_vectors_with_project_id(meeting_id, project_ids[0], _settings.QDRANT_COLLECTION_NAME))
+                if project_ids:
+                    asyncio.run(update_meeting_vectors_with_project_id(meeting_id, project_ids[0], _settings.QDRANT_COLLECTION_NAME))
+                else:
+                    logger.warning(f"[MEETING_ANALYSIS] No project associated with meeting {meeting_id}, skipping vector project_id update")
 
             except Exception as update_vector_error:
                 logger.error(f"Failed to update meeting vectors with project_id: {update_vector_error}")
