@@ -37,9 +37,10 @@ class QdrantClientManager:
                 # REST API is on port 6333
                 self._client = QdrantClient(
                     host=settings.QDRANT_HOST,
-                    api_key=settings.QDRANT_API_KEY or None,
+                    api_key=settings.QDRANT_API_KEY,
                     port=6333,  # HTTP REST API port
-                    prefer_grpc=False,
+                    https=True,
+                    prefer_grpc=True,
                     timeout=30.0,
                 )
 
