@@ -1,14 +1,16 @@
 """
-Logging Utility for URL Shortener Backend using Loguru
+Logging Utility for SecureScribe Backend using Loguru
 
-This module provides simple, powerful logging using loguru.
+This module provides simple, powerful logging using loguru with Loki integration.
 Features include:
 
 - Beautiful colorful console output by default
 - Automatic log rotation and retention
 - Minimal configuration needed
 - FastAPI middleware integration
-- Exception tracking and formatting
+- Exception tracking and formatting with full traceback capture
+- Loki HTTP streaming with complete exception information
+- Global exception handler for uncaught exceptions
 
 Usage:
     from app.utils.logging import logger, setup_logging
@@ -22,11 +24,19 @@ Usage:
     logger.error("An error occurred")
     logger.debug("Detailed debug information")
     logger.success("Operation completed successfully")
+
+    # For exceptions, use logger.exception() to include traceback
+    try:
+        risky_operation()
+    except Exception:
+        logger.exception("Something went wrong")
 """
 
 import os
 import sys
 import time
+import threading
+import traceback
 
 from loguru import logger as loguru_logger
 from loki_logger_handler.formatters.loguru_formatter import LoguruFormatter
@@ -36,20 +46,50 @@ from loki_logger_handler.loki_logger_handler import LokiLoggerHandler
 logger = loguru_logger
 
 
+def _global_exception_handler(exc_type, exc_value, exc_traceback):
+    """
+    Global exception handler to catch uncaught exceptions and log them with full traceback to Loki.
+    """
+    if issubclass(exc_type, KeyboardInterrupt):
+        # Don't log keyboard interrupts
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    # Format the full traceback
+    tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+    tb_text = ''.join(tb_lines)
+
+    # Log with full traceback - this will be sent to both console and Loki
+    logger.critical(
+        f"Uncaught exception in thread {threading.current_thread().name}: {exc_value}",
+        extra={"traceback": tb_text}
+    )
+
+    # Call the default exception handler
+    sys.__excepthook__(exc_type, exc_value, exc_traceback)
+
+
 def setup_logging(level: str = "INFO") -> None:
     """
     Setup logging configuration using loguru with console and Loki HTTP streaming.
 
+    Features:
+    - Console logging with colors and formatting
+    - Loki HTTP streaming with full traceback capture
+    - Global exception handler for uncaught exceptions
+    - Async logging to prevent blocking
+    - Backtrace and diagnostic information included
+
     Args:
         level: Log level ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-        log_dir: Directory to store log files
 
     Environment Variables:
         LOKI_URL: Loki HTTP API endpoint (e.g., https://loki.wc504.io.vn/loki/api/v1/push)
                  If not set, only console logging is enabled.
+        PYTHON_ENVIRONMENT: Environment name for Loki labels (default: "development")
 
     Example:
-        setup_logging("DEBUG")  # Enable debug logging
+        setup_logging("DEBUG")  # Enable debug logging with full tracebacks
     """
     # Remove default handler
     loguru_logger.remove()
@@ -73,12 +113,26 @@ def setup_logging(level: str = "INFO") -> None:
                 label_keys={},
                 default_formatter=LoguruFormatter(),
             )
-            loguru_logger.add(loki_handler, serialize=True, level=level)
+            # Configure Loki handler to capture full exception information
+            loguru_logger.add(
+                loki_handler,
+                serialize=True,
+                level=level,
+                backtrace=True,  # Include backtrace in serialized logs
+                diagnose=True,   # Include diagnostic information
+                enqueue=True     # Async logging to avoid blocking
+            )
             loguru_logger.info(f"Loki HTTP logging configured: {loki_url}")
         except Exception as e:
             loguru_logger.warning(f"Failed to configure Loki logging: {e}")
     else:
         loguru_logger.debug("LOKI_URL not set, Loki HTTP logging disabled")
+
+    # Install global exception handler to catch uncaught exceptions
+    sys.excepthook = _global_exception_handler
+
+    # Log successful setup
+    loguru_logger.info("Logging setup completed with traceback capture enabled")
 
 
 # FastAPI middleware for request/response logging
@@ -131,7 +185,6 @@ class FastAPILoggingMiddleware:
             else:
                 logger.warning(f"← {method} {path} | {response_status} | {duration:.3f}s | {response_length} bytes")
         except Exception as e:
-            logger.error(f"Error processing request {method} {path}: {e}")
             duration = time.time() - start_time
-            logger.error(f"← {method} {path} | ERROR | {duration:.3f}s", exc_info=True)
+            logger.exception(f"Error processing request {method} {path} | ERROR | {duration:.3f}s")
             raise
