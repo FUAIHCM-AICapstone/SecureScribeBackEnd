@@ -6,6 +6,7 @@ from app.api.endpoints.chat import router as chat_router
 from app.api.endpoints.conversation import router as conversation_router
 from app.api.endpoints.file import router as file_router
 from app.api.endpoints.meeting import router as meeting_router
+from app.api.endpoints.meeting_agenda import router as meeting_agenda_router
 from app.api.endpoints.meeting_bot import router as meeting_bot_router
 from app.api.endpoints.meeting_note import router as meeting_note_router
 from app.api.endpoints.notification import router as notification_router
@@ -24,6 +25,7 @@ api_router.include_router(chat_router)
 api_router.include_router(project_router)
 api_router.include_router(meeting_router)
 api_router.include_router(meeting_note_router)
+api_router.include_router(meeting_agenda_router)
 api_router.include_router(meeting_bot_router)
 api_router.include_router(file_router)
 api_router.include_router(audio_file_router)

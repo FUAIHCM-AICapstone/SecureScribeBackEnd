@@ -28,6 +28,7 @@ if TYPE_CHECKING:
         AudioFile,
         File,
         Meeting,
+        MeetingAgenda,
         MeetingBot,
         MeetingBotLog,
         MeetingNote,
@@ -73,6 +74,7 @@ class Meeting(SQLModel, table=True):
     audio_files: list["AudioFile"] = Relationship(back_populates="meeting")
     transcript: Optional["Transcript"] = Relationship(back_populates="meeting")
     notes: Optional["MeetingNote"] = Relationship(back_populates="meeting")
+    agenda: Optional["MeetingAgenda"] = Relationship(back_populates="meeting")
     files: list["File"] = Relationship(back_populates="meeting")  # type: ignore
     tags: list["MeetingTag"] = Relationship(back_populates="meeting")  # type: ignore
     tasks: list["Task"] = Relationship(back_populates="meeting")  # type: ignore
@@ -193,6 +195,37 @@ class MeetingNote(SQLModel, table=True):
     last_editor: Optional["User"] = Relationship(
         back_populates="edited_notes",
         sa_relationship_kwargs={"foreign_keys": "MeetingNote.last_editor_id"},
+    )  # type: ignore
+
+
+class MeetingAgenda(SQLModel, table=True):
+    """Meeting agenda model"""
+
+    __tablename__ = "meeting_agendas"
+
+    id: uuid.UUID = Field(
+        default_factory=uuid.uuid4,
+        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+    )
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
+
+    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", unique=True, nullable=False)
+    content: Optional[str] = Field(default=None, sa_column=Column(Text))
+    last_editor_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    last_edited_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    input_tokens: Optional[int] = Field(default=None, description="Input tokens used")
+    output_tokens: Optional[int] = Field(default=None, description="Output tokens used")
+    total_tokens: Optional[int] = Field(default=None, description="Total tokens used")
+
+    # Relationships
+    meeting: Meeting = Relationship(back_populates="agenda")
+    last_editor: Optional["User"] = Relationship(
+        back_populates="edited_agendas",
+        sa_relationship_kwargs={"foreign_keys": "MeetingAgenda.last_editor_id"},
     )  # type: ignore
 
 

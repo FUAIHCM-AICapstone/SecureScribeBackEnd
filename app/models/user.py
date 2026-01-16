@@ -12,6 +12,7 @@ if TYPE_CHECKING:
         AuditLog,
         File,
         Meeting,
+        MeetingAgenda,
         MeetingBot,
         MeetingNote,
         Notification,
@@ -78,6 +79,10 @@ class User(SQLModel, table=True):
     edited_notes: list["MeetingNote"] = Relationship(
         back_populates="last_editor",
         sa_relationship_kwargs={"foreign_keys": "MeetingNote.last_editor_id"},
+    )  # type: ignore
+    edited_agendas: list["MeetingAgenda"] = Relationship(
+        back_populates="last_editor",
+        sa_relationship_kwargs={"foreign_keys": "MeetingAgenda.last_editor_id"},
     )  # type: ignore
     created_bots: list["MeetingBot"] = Relationship(
         back_populates="created_by_user",

@@ -6,6 +6,7 @@ from .file import File
 from .meeting import (
     AudioFile,
     Meeting,
+    MeetingAgenda,
     MeetingBot,
     MeetingBotLog,
     MeetingNote,
@@ -32,6 +33,7 @@ __all__ = [
     "AudioFile",
     "Transcript",
     "MeetingNote",
+    "MeetingAgenda",
     "MeetingBot",
     "MeetingBotLog",
     "File",
