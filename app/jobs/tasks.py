@@ -1114,7 +1114,6 @@ def process_meeting_analysis_task(
         update_task_progress(task_id, user_id, 100, "completed", task_type="meeting_analysis")
         publish_task_progress_sync(user_id, 100, "completed", "0s", "meeting_analysis", task_id)
 
-        # Create notification for task completion
         notification_data = NotificationCreate(
             user_ids=[uuid.UUID(user_id)],
             type="task.meeting_analysis.completed",
