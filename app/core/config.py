@@ -116,7 +116,6 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = "Chang <noreply@meobeo.ai>"
-    SMTP_USE_TLS: bool = True
     SMTP_RETRY_ATTEMPTS: int = 3
     SMTP_RETRY_DELAY_SECONDS: int = 5
 
