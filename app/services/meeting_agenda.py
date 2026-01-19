@@ -117,19 +117,33 @@ def save_meeting_agenda_results(db: Session, meeting_id: UUID, user_id: UUID, ag
 
 def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID, custom_prompt: Optional[str] = None, meeting_type_hint: Optional[str] = None) -> MeetingAgendaGenerateResponse:
     """
-    Generate meeting agenda using AI based on indexed documents and optional transcript.
+    Generate meeting agenda using AI based on indexed documents only.
 
     Flow:
     1. Verify user has access to meeting
     2. Query indexed documents from Qdrant by meeting_id
     3. Query indexed documents from Qdrant by project_id(s)
-    4. Get transcript if available
-    5. Call agenda generator with documents and transcript
-    6. Save result to database with token tracking
+    4. Call agenda generator with documents
+    5. Save result to database with token tracking
+    
+    Note: Only uses documents from indexed files, not transcript or meeting notes.
+    
+    Args:
+        db: Database session
+        meeting_id: Meeting ID
+        user_id: User ID
+        custom_prompt: Custom prompt to override default agenda generation prompt
+        meeting_type_hint: Type hint for meeting (business, technical, brainstorming, etc.)
+    
+    Returns:
+        MeetingAgendaGenerateResponse with generated agenda and token usage
     """
     import asyncio
 
     meeting = get_meeting(db, meeting_id, user_id, raise_404=True)
+    
+    # Log request parameters
+    logger.info(f"[AGENDA GEN] Request for meeting {meeting_id}: meeting_type={meeting_type_hint}, custom_prompt={'Yes (len=' + str(len(custom_prompt)) + ')' if custom_prompt else 'No'}")
 
     try:
         # Step 1: Query documents from Qdrant by meeting_id
@@ -145,10 +159,12 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
                     content = doc["content"]
                     preview = content[:150].replace("\n", " ") + ("..." if len(content) > 150 else "")
                     logger.debug(f"[AGENDA GEN] Meeting doc {idx}: {preview}")
+                    logger.debug(f"[AGENDA GEN] Meeting doc {idx} full content:\n{content}")
                     documents.append(content)
                 elif isinstance(doc, str):
                     preview = doc[:150].replace("\n", " ") + ("..." if len(doc) > 150 else "")
                     logger.debug(f"[AGENDA GEN] Meeting doc {idx}: {preview}")
+                    logger.debug(f"[AGENDA GEN] Meeting doc {idx} full content:\n{doc}")
                     documents.append(doc)
         else:
             logger.warning(f"[AGENDA GEN] No documents found from meeting {meeting_id}")
@@ -168,10 +184,12 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
                                 content = doc["content"]
                                 preview = content[:150].replace("\n", " ") + ("..." if len(content) > 150 else "")
                                 logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx}: {preview}")
+                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} full content:\n{content}")
                                 documents.append(content)
                             elif isinstance(doc, str):
                                 preview = doc[:150].replace("\n", " ") + ("..." if len(doc) > 150 else "")
                                 logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx}: {preview}")
+                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} full content:\n{doc}")
                                 documents.append(doc)
                     else:
                         logger.warning(f"[AGENDA GEN] No documents found from project {project_id}")
@@ -180,24 +198,15 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
         except Exception as e:
             logger.warning(f"[AGENDA GEN] Could not retrieve project documents for meeting {meeting_id}: {e}")
 
-        # Step 3: Get transcript if available
-        transcript_text = None
-        try:
-            transcript = get_transcript_by_meeting(db, meeting_id, user_id)
-            if transcript and transcript.content:
-                transcript_text = transcript.content
-        except Exception as e:
-            logger.warning(f"Could not retrieve transcript for meeting {meeting_id}: {e}")
-
-        # Step 4: Validate we have content
-        if not documents and not transcript_text:
-            logger.warning(f"No documents or transcript found for meeting {meeting_id}")
+        # Step 3: Validate we have content (documents only)
+        if not documents:
+            logger.warning(f"No documents found for meeting {meeting_id}")
             from fastapi import HTTPException
-            raise HTTPException(status_code=400, detail="No documents or transcript available to generate agenda. Please upload files or provide transcript.")
+            raise HTTPException(status_code=400, detail="No documents available to generate agenda. Please upload files.")
 
-        # Step 5: Call agenda generator
+        # Step 4: Call agenda generator with documents only
         total_chars = sum(len(doc) for doc in documents)
-        logger.info(f"[AGENDA GEN] Context ready for meeting {meeting_id}: {len(documents)} documents ({total_chars} total chars), transcript={'Yes' if transcript_text else 'No'}")
+        logger.info(f"[AGENDA GEN] Context ready for meeting {meeting_id}: {len(documents)} documents ({total_chars} total chars)")
         logger.info(f"[AGENDA GEN] Starting LLM agenda generation for meeting {meeting_id}")
         model = _get_model()
 
@@ -207,11 +216,10 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
                 model=model,
                 meeting_type_hint=meeting_type_hint,
                 custom_prompt=custom_prompt,
-                transcript=transcript_text,
             )
         )
 
-        # Step 6: Save to database using helper function
+        # Step 5: Save to database using helper function
         result = save_meeting_agenda_results(
             db=db,
             meeting_id=meeting_id,

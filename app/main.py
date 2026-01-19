@@ -21,7 +21,7 @@ from app.utils.logging import FastAPILoggingMiddleware, logger, setup_logging
 from app.utils.throttling import ThrottlingMiddleware
 
 load_config_from_api_v2()
-setup_logging(settings.LOG_LEVEL)
+setup_logging("DEBUG")
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:

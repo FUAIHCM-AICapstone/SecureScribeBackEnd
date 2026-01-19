@@ -71,18 +71,29 @@ def update_meeting_agenda_endpoint(
 @router.post("/meetings/{meeting_id}/agenda/generate", response_model=ApiResponse[MeetingAgendaGenerateResponse])
 def generate_meeting_agenda_endpoint(
     meeting_id: UUID,
-    custom_prompt: Optional[str] = Query(None, description="Optional custom prompt for AI generation", max_length=1000),
+    custom_prompt: Optional[str] = Query(None, description="Optional custom prompt for AI generation", max_length=2000),
     meeting_type_hint: Optional[str] = Query(None, description="Optional hint for meeting type: business, technical, brainstorming, review, planning, training"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Generate meeting agenda using AI."""
+    """Generate meeting agenda using AI.
+    
+    Query Parameters:
+        custom_prompt: Custom instructions to override default prompt (max 2000 chars)
+        meeting_type_hint: Meeting type (business, technical, brainstorming, review, planning, training)
+    """
     # Validate meeting_type_hint if provided
     valid_types = {"business", "technical", "brainstorming", "review", "planning", "training"}
     if meeting_type_hint and meeting_type_hint not in valid_types:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid meeting_type_hint. Must be one of: {', '.join(valid_types)}")
 
-    result = generate_meeting_agenda_with_ai(db, meeting_id, current_user.id, custom_prompt, meeting_type_hint)
+    result = generate_meeting_agenda_with_ai(
+        db=db,
+        meeting_id=meeting_id,
+        user_id=current_user.id,
+        custom_prompt=custom_prompt,
+        meeting_type_hint=meeting_type_hint,
+    )
 
     return ApiResponse(
         success=True,
