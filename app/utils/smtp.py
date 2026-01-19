@@ -21,7 +21,8 @@ class SMTPClient:
                     user=settings.SMTP_USER,
                     password=settings.SMTP_PASSWORD,
                     host=settings.SMTP_HOST,
-                    port=settings.SMTP_PORT
+                    port=465,
+                    smtp_ssl=True
                 )
                 logger.info("SMTP client initialized successfully")
             except Exception as e:
