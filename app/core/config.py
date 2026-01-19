@@ -110,6 +110,16 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 200
     MAX_CHUNKS_PER_FILE: int = 50
 
+    # SMTP Configuration
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "Chang <noreply@meobeo.ai>"
+    SMTP_USE_TLS: bool = True
+    SMTP_RETRY_ATTEMPTS: int = 3
+    SMTP_RETRY_DELAY_SECONDS: int = 5
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def CELERY_BROKER_URL(self) -> str:

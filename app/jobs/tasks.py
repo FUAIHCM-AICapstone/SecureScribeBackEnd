@@ -15,6 +15,7 @@ from app.jobs.celery_worker import celery_app
 from app.models.chat import ChatMessage, ChatMessageType
 from app.models.file import File
 from app.models.meeting import AudioFile, Meeting, Transcript
+from app.models.user import User
 from app.schemas.chat import Mention
 from app.schemas.notification import NotificationCreate
 from app.services import chat as chat_service
@@ -1109,6 +1110,37 @@ def process_meeting_analysis_task(
 
         finally:
             db.close()
+
+        # Step 4.7: Send meeting note email with PDF (optional test function)
+        try:
+            db = SessionLocal()
+            try:
+                meeting_obj = db.query(Meeting).filter(Meeting.id == uuid.UUID(meeting_id)).first()
+                user_obj = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
+
+                if meeting_obj and user_obj and user_obj.email:
+                    from app.utils.email import send_meeting_note_email
+                    from app.utils.pdf import generate_pdf_from_html
+
+                    meeting_date = meeting_obj.start_time.strftime("%Y-%m-%d") if meeting_obj.start_time else "Unknown Date"
+                    note_content = analysis_result.get("meeting_note", "")
+
+                    if note_content:
+                        try:
+                            pdf_path = generate_pdf_from_html(note_content, f"meeting_note_{meeting_id}.pdf")
+                            send_meeting_note_email(
+                                to_email=user_obj.email,
+                                meeting_title=meeting_obj.title or "Untitled Meeting",
+                                meeting_date=meeting_date,
+                                pdf_attachment_path=pdf_path,
+                            )
+                            logger.info(f"[MEETING_ANALYSIS] Meeting note email sent to {user_obj.email}")
+                        except Exception as email_error:
+                            logger.warning(f"[MEETING_ANALYSIS] Failed to send meeting note email: {str(email_error)}")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.warning(f"[MEETING_ANALYSIS] Skipping email notification: {str(e)}")
 
         # Step 5: Completed (100%)
         update_task_progress(task_id, user_id, 100, "completed", task_type="meeting_analysis")
