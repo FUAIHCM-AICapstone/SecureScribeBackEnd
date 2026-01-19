@@ -150,22 +150,36 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
         logger.info(f"[AGENDA GEN] Starting document retrieval for meeting {meeting_id}")
         documents_data = asyncio.run(query_documents_by_meeting_id(str(meeting_id), top_k=10, db=db, user_id=str(user_id)))
 
-        # Extract text content from document results
+        # Extract text content from document results (Qdrant format: payload.text)
         documents = []
         if documents_data:
             logger.info(f"[AGENDA GEN] Found {len(documents_data)} documents from meeting {meeting_id}")
             for idx, doc in enumerate(documents_data, 1):
-                if isinstance(doc, dict) and "content" in doc:
-                    content = doc["content"]
-                    preview = content[:150].replace("\n", " ") + ("..." if len(content) > 150 else "")
-                    logger.debug(f"[AGENDA GEN] Meeting doc {idx}: {preview}")
-                    logger.debug(f"[AGENDA GEN] Meeting doc {idx} full content:\n{content}")
-                    documents.append(content)
+                content = None
+                if isinstance(doc, dict):
+                    payload = doc.get("payload") or {}
+                    if isinstance(payload, dict):
+                        content = payload.get("text")
+                    if not content:
+                        content = doc.get("content")
+                    logger.debug(f"[AGENDA GEN] Meeting doc {idx} structure: id={doc.get('id')}, score={doc.get('score'):.4f}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
                 elif isinstance(doc, str):
-                    preview = doc[:150].replace("\n", " ") + ("..." if len(doc) > 150 else "")
-                    logger.debug(f"[AGENDA GEN] Meeting doc {idx}: {preview}")
-                    logger.debug(f"[AGENDA GEN] Meeting doc {idx} full content:\n{doc}")
-                    documents.append(doc)
+                    content = doc
+                else:
+                    payload = getattr(doc, "payload", None) or {}
+                    if isinstance(payload, dict):
+                        content = payload.get("text")
+                    if not content:
+                        content = getattr(doc, "content", None)
+                    logger.debug(f"[AGENDA GEN] Meeting doc {idx} type={type(doc).__name__}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
+                
+                if content:
+                    preview = content[:150].replace("\n", " ") + ("..." if len(content) > 150 else "")
+                    logger.debug(f"[AGENDA GEN] Meeting doc {idx} preview: {preview}")
+                    logger.debug(f"[AGENDA GEN] Meeting doc {idx} FULL CONTENT:\n{content}")
+                    documents.append(content)
+                else:
+                    logger.warning(f"[AGENDA GEN] Meeting doc {idx} has no extractable text content")
         else:
             logger.warning(f"[AGENDA GEN] No documents found from meeting {meeting_id}")
 
@@ -180,17 +194,31 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
                     if project_docs:
                         logger.info(f"[AGENDA GEN] Found {len(project_docs)} documents from project {project_id}")
                         for idx, doc in enumerate(project_docs, 1):
-                            if isinstance(doc, dict) and "content" in doc:
-                                content = doc["content"]
-                                preview = content[:150].replace("\n", " ") + ("..." if len(content) > 150 else "")
-                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx}: {preview}")
-                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} full content:\n{content}")
-                                documents.append(content)
+                            content = None
+                            if isinstance(doc, dict):
+                                payload = doc.get("payload") or {}
+                                if isinstance(payload, dict):
+                                    content = payload.get("text")
+                                if not content:
+                                    content = doc.get("content")
+                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} structure: id={doc.get('id')}, score={doc.get('score'):.4f}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
                             elif isinstance(doc, str):
-                                preview = doc[:150].replace("\n", " ") + ("..." if len(doc) > 150 else "")
-                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx}: {preview}")
-                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} full content:\n{doc}")
-                                documents.append(doc)
+                                content = doc
+                            else:
+                                payload = getattr(doc, "payload", None) or {}
+                                if isinstance(payload, dict):
+                                    content = payload.get("text")
+                                if not content:
+                                    content = getattr(doc, "content", None)
+                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} type={type(doc).__name__}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
+                            
+                            if content:
+                                preview = content[:150].replace("\n", " ") + ("..." if len(content) > 150 else "")
+                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} preview: {preview}")
+                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} FULL CONTENT:\n{content}")
+                                documents.append(content)
+                            else:
+                                logger.warning(f"[AGENDA GEN] Project {project_id} doc {idx} has no extractable text content")
                     else:
                         logger.warning(f"[AGENDA GEN] No documents found from project {project_id}")
             else:
