@@ -36,6 +36,7 @@ class AgendaGenerator(Agent):
         documents: List[str],
         meeting_type_hint: Optional[str] = None,
         custom_prompt: Optional[str] = None,
+        meeting_metadata: Optional[dict] = None,
     ) -> str:
         """
         Generate meeting agenda from documents.
@@ -44,6 +45,7 @@ class AgendaGenerator(Agent):
             documents: List of document texts from indexed files
             meeting_type_hint: Type hint for meeting (business, technical, brainstorming, etc.)
             custom_prompt: Custom instructions for agenda generation
+            meeting_metadata: Meeting context (title, date, creator, status, projects, etc.)
 
         Returns:
             Generated agenda in Markdown format
@@ -73,8 +75,26 @@ class AgendaGenerator(Agent):
         else:
             print(f"[AgendaGenerator] Using default prompt for meeting type: {meeting_type_hint or 'general'}")
 
-        # Create full prompt with context
-        full_prompt = f"{prompt}\n\n--- CONTEXT FROM DOCUMENTS ---\n\n{combined_context}"
+        # Build metadata section
+        metadata_section = ""
+        if meeting_metadata:
+            metadata_lines = ["--- METADATA HỌP ---"]
+            if meeting_metadata.get("title"):
+                metadata_lines.append(f"Tiêu đề: {meeting_metadata['title']}")
+            if meeting_metadata.get("start_time"):
+                metadata_lines.append(f"Thời gian: {meeting_metadata['start_time']}")
+            if meeting_metadata.get("created_by_name"):
+                metadata_lines.append(f"Người tạo: {meeting_metadata['created_by_name']}")
+            if meeting_metadata.get("projects"):
+                projects_str = ", ".join(meeting_metadata["projects"])
+                metadata_lines.append(f"Dự án: {projects_str}")
+            if meeting_metadata.get("status"):
+                metadata_lines.append(f"Trạng thái: {meeting_metadata['status']}")
+            if metadata_lines:
+                metadata_section = "\n".join(metadata_lines) + "\n\n"
+
+        # Create full prompt with metadata and context
+        full_prompt = f"{prompt}\n\n{metadata_section}--- CONTEXT FROM DOCUMENTS ---\n\n{combined_context}"
 
         try:
             # Call LLM to generate agenda
@@ -106,6 +126,7 @@ async def generate_agenda_from_documents(
     model: Any,
     meeting_type_hint: Optional[str] = None,
     custom_prompt: Optional[str] = None,
+    meeting_metadata: Optional[dict] = None,
 ) -> tuple[str, dict]:
     """
     Generate meeting agenda from documents.
@@ -115,6 +136,7 @@ async def generate_agenda_from_documents(
         model: LLM model instance
         meeting_type_hint: Type hint for meeting
         custom_prompt: Custom instructions
+        meeting_metadata: Meeting context (title, date, creator, status, projects, etc.)
 
     Returns:
         Tuple of (agenda_content, token_usage)
@@ -125,6 +147,7 @@ async def generate_agenda_from_documents(
         documents=documents,
         meeting_type_hint=meeting_type_hint,
         custom_prompt=custom_prompt,
+        meeting_metadata=meeting_metadata,
     )
 
     # Token usage from model (if available)

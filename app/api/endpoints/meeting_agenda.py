@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.constants.messages import MessageConstants
@@ -12,6 +12,7 @@ from app.schemas.common import ApiResponse
 from app.schemas.meeting_agenda import MeetingAgendaGenerateResponse, MeetingAgendaRequest, MeetingAgendaResponse
 from app.services.meeting_agenda import delete_meeting_agenda, generate_meeting_agenda_with_ai, get_meeting_agenda, update_meeting_agenda
 from app.utils.auth import get_current_user
+from app.utils.pdf import MDToPDFConverter
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting Agenda"])
 
@@ -113,3 +114,26 @@ def delete_meeting_agenda_endpoint(
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.MEETING_AGENDA_NOT_FOUND)
     return ApiResponse(success=True, message=MessageConstants.MEETING_AGENDA_DELETED_SUCCESS)
+
+
+@router.get("/meetings/{meeting_id}/agenda/download")
+def download_meeting_agenda_pdf_endpoint(
+    meeting_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Download meeting agenda as PDF."""
+    agenda = get_meeting_agenda(db, meeting_id, current_user.id)
+    if agenda is None or not agenda.content:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.MEETING_AGENDA_NOT_FOUND)
+    converter = MDToPDFConverter(agenda.content)
+    pdf_data = converter.convert()
+
+    filename = f"meeting-agenda-{meeting_id}.pdf"
+    content_disposition = f'attachment; filename="{filename}"'
+
+    return Response(
+        content=pdf_data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": content_disposition},
+    )

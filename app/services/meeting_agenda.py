@@ -9,7 +9,6 @@ from app.schemas.meeting_agenda import MeetingAgendaGenerateResponse
 from app.services.event_manager import EventManager
 from app.services.meeting import get_meeting
 from app.services.qdrant_service import query_documents_by_meeting_id, query_documents_by_project_id
-from app.services.transcript import get_transcript_by_meeting
 from app.utils.llm import _get_model
 from app.utils.logging import logger
 from app.utils.meeting_agent.agenda_generator import generate_agenda_from_documents
@@ -232,7 +231,17 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
             from fastapi import HTTPException
             raise HTTPException(status_code=400, detail="No documents available to generate agenda. Please upload files.")
 
-        # Step 4: Call agenda generator with documents only
+        # Step 4: Build meeting metadata for context
+        meeting_metadata = {
+            "title": meeting.title or "Không có tiêu đề",
+            "start_time": meeting.start_time.strftime("%Y-%m-%d %H:%M") if meeting.start_time else "Chưa xác định",
+            "created_by_name": meeting.created_by_user.name if meeting.created_by_user else "Không xác định",
+            "status": meeting.status,
+            "projects": [pm.project.name for pm in meeting.projects] if meeting.projects else [],
+        }
+        logger.debug(f"[AGENDA GEN] Meeting metadata: title={meeting_metadata['title']}, start_time={meeting_metadata['start_time']}, created_by={meeting_metadata['created_by_name']}, projects={meeting_metadata['projects']}")
+
+        # Step 5: Call agenda generator with documents and metadata
         total_chars = sum(len(doc) for doc in documents)
         logger.info(f"[AGENDA GEN] Context ready for meeting {meeting_id}: {len(documents)} documents ({total_chars} total chars)")
         logger.info(f"[AGENDA GEN] Starting LLM agenda generation for meeting {meeting_id}")
@@ -244,10 +253,11 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
                 model=model,
                 meeting_type_hint=meeting_type_hint,
                 custom_prompt=custom_prompt,
+                meeting_metadata=meeting_metadata,
             )
         )
 
-        # Step 5: Save to database using helper function
+        # Step 6: Save to database using helper function
         result = save_meeting_agenda_results(
             db=db,
             meeting_id=meeting_id,
