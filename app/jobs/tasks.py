@@ -1130,17 +1130,18 @@ def process_meeting_analysis_task(
                             converter = MDToPDFConverter(note_content)
                             pdf_data = converter.convert()
                             # Save PDF to temporary file
-                            import tempfile
                             import os
+                            import tempfile
                             with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
                                 temp_file.write(pdf_data)
                                 pdf_path = temp_file.name
-                            
+
                             send_meeting_note_email(
                                 to_email=user_obj.email,
                                 meeting_title=meeting_obj.title or "Untitled Meeting",
                                 meeting_date=meeting_date,
                                 pdf_attachment_path=pdf_path,
+                                meeting_id=str(meeting_obj.id),
                             )
                             # Clean up temp file
                             os.unlink(pdf_path)

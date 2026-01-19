@@ -34,60 +34,17 @@ def get_notification_template(context: Dict[str, Any]) -> str:
     <html>
     <head>
         <meta charset="UTF-8">
-        <style>
-            body {{
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                line-height: 1.6;
-                color: #333;
-            }}
-            .container {{
-                max-width: 500px;
-                margin: 0 auto;
-                padding: 20px;
-                background-color: #f9f9f9;
-            }}
-            .notification-card {{
-                background-color: white;
-                border-left: 4px solid #007bff;
-                border-radius: 8px;
-                padding: 30px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            }}
-            .notification-icon {{
-                font-size: 40px;
-                margin-bottom: 15px;
-                text-align: center;
-            }}
-            .notification-title {{
-                font-size: 20px;
-                font-weight: bold;
-                color: #2c3e50;
-                margin-bottom: 15px;
-                text-align: center;
-            }}
-            .notification-message {{
-                color: #555;
-                line-height: 1.8;
-                margin-bottom: 20px;
-            }}
-            .footer {{
-                text-align: center;
-                font-size: 12px;
-                color: #999;
-                margin-top: 20px;
-                padding-top: 15px;
-                border-top: 1px solid #ddd;
-            }}
-        </style>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{context.get("title", "Notification")}</title>
     </head>
-    <body>
-        <div class="container">
-            <div class="notification-card">
-                <div class="notification-icon">{icon}</div>
-                <div class="notification-title">{context.get("title", "Notification")}</div>
-                <div class="notification-message">{context.get("message", "You have a new notification")}</div>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f9f9f9;">
+        <div style="max-width: 500px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+            <div style="background-color: white; border-left: 4px solid #007bff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+                <div style="font-size: 40px; margin-bottom: 15px; text-align: center;">{icon}</div>
+                <div style="font-size: 20px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; text-align: center;">{context.get("title", "Notification")}</div>
+                <div style="color: #555; line-height: 1.8; margin-bottom: 20px;">{context.get("message", "You have a new notification")}</div>
                 {action_button_html}
-                <div class="footer">
+                <div style="text-align: center; font-size: 12px; color: #999; margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
                     <p>This is an automated email from SecureScribe Meeting Management System.</p>
                 </div>
             </div>
