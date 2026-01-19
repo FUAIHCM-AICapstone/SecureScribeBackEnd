@@ -1120,20 +1120,30 @@ def process_meeting_analysis_task(
 
                 if meeting_obj and user_obj and user_obj.email:
                     from app.utils.email import send_meeting_note_email
-                    from app.utils.pdf import generate_pdf_from_html
+                    from app.utils.pdf import MDToPDFConverter
 
                     meeting_date = meeting_obj.start_time.strftime("%Y-%m-%d") if meeting_obj.start_time else "Unknown Date"
                     note_content = analysis_result.get("meeting_note", "")
 
                     if note_content:
                         try:
-                            pdf_path = generate_pdf_from_html(note_content, f"meeting_note_{meeting_id}.pdf")
+                            converter = MDToPDFConverter(note_content)
+                            pdf_data = converter.convert()
+                            # Save PDF to temporary file
+                            import tempfile
+                            import os
+                            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+                                temp_file.write(pdf_data)
+                                pdf_path = temp_file.name
+                            
                             send_meeting_note_email(
                                 to_email=user_obj.email,
                                 meeting_title=meeting_obj.title or "Untitled Meeting",
                                 meeting_date=meeting_date,
                                 pdf_attachment_path=pdf_path,
                             )
+                            # Clean up temp file
+                            os.unlink(pdf_path)
                             logger.info(f"[MEETING_ANALYSIS] Meeting note email sent to {user_obj.email}")
                         except Exception as email_error:
                             logger.warning(f"[MEETING_ANALYSIS] Failed to send meeting note email: {str(email_error)}")
