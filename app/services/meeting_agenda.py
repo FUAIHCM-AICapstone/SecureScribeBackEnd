@@ -10,7 +10,7 @@ from app.services.event_manager import EventManager
 from app.services.meeting import get_meeting
 from app.services.qdrant_service import query_documents_by_meeting_id, query_documents_by_project_id
 from app.services.transcript import get_transcript_by_meeting
-from app.utils.llm import get_chat_model
+from app.utils.llm import _get_model
 from app.utils.logging import logger
 from app.utils.meeting_agent.agenda_generator import generate_agenda_from_documents
 
@@ -135,7 +135,7 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
         total_chars = sum(len(doc) for doc in documents)
         logger.info(f"[AGENDA GEN] Context ready for meeting {meeting_id}: {len(documents)} documents ({total_chars} total chars), transcript={'Yes' if transcript_text else 'No'}")
         logger.info(f"[AGENDA GEN] Starting LLM agenda generation for meeting {meeting_id}")
-        model = get_chat_model()
+        model = _get_model()
 
         agenda_content, token_usage = asyncio.run(
             generate_agenda_from_documents(
