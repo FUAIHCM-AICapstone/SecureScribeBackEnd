@@ -101,19 +101,19 @@ class AgendaGenerator(Agent):
             run_output = await self.arun(full_prompt)
 
             # Extract agenda markdown from RunOutput
-            if run_output and hasattr(run_output, 'messages') and len(run_output.messages) > 0:
+            if run_output and hasattr(run_output, "messages") and len(run_output.messages) > 0:
                 # Get the last message which contains the response
                 last_message = run_output.messages[-1]
-                if hasattr(last_message, 'content'):
+                if hasattr(last_message, "content"):
                     content = last_message.content
                     # Extract markdown content (string)
                     if isinstance(content, str) and content.strip():
                         return content.strip()
                     # If content is a dict (shouldn't happen without structured output), try to get agenda
-                    elif isinstance(content, dict) and 'agenda' in content:
-                        agenda_text = content['agenda']
+                    elif isinstance(content, dict) and "agenda" in content:
+                        agenda_text = content["agenda"]
                         return agenda_text if isinstance(agenda_text, str) else str(agenda_text)
-            
+
             return "Không thể tạo chương trình họp từ tài liệu được cung cấp."
 
         except Exception as e:

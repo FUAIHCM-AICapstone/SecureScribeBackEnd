@@ -1132,7 +1132,8 @@ def process_meeting_analysis_task(
                             # Save PDF to temporary file
                             import os
                             import tempfile
-                            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
                                 temp_file.write(pdf_data)
                                 pdf_path = temp_file.name
 

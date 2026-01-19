@@ -17,13 +17,7 @@ class SMTPClient:
             self.client = None
         else:
             try:
-                self.client = yagmail.SMTP(
-                    user=settings.SMTP_USER,
-                    password=settings.SMTP_PASSWORD,
-                    host=settings.SMTP_HOST,
-                    port=465,
-                    smtp_ssl=True
-                )
+                self.client = yagmail.SMTP(user=settings.SMTP_USER, password=settings.SMTP_PASSWORD, host=settings.SMTP_HOST, port=465, smtp_ssl=True)
                 logger.info("SMTP client initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to initialize SMTP client: {str(e)}")

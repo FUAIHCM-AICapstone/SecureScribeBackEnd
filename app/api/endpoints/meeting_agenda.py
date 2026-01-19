@@ -80,7 +80,7 @@ def generate_meeting_agenda_endpoint(
     current_user: User = Depends(get_current_user),
 ):
     """Generate meeting agenda using AI.
-    
+
     Query Parameters:
         custom_prompt: Custom instructions to override default prompt (max 2000 chars)
         meeting_type_hint: Meeting type (business, technical, brainstorming, review, planning, training)

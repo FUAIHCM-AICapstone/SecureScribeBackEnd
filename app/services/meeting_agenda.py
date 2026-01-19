@@ -124,23 +124,23 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
     3. Query indexed documents from Qdrant by project_id(s)
     4. Call agenda generator with documents
     5. Save result to database with token tracking
-    
+
     Note: Only uses documents from indexed files, not transcript or meeting notes.
-    
+
     Args:
         db: Database session
         meeting_id: Meeting ID
         user_id: User ID
         custom_prompt: Custom prompt to override default agenda generation prompt
         meeting_type_hint: Type hint for meeting (business, technical, brainstorming, etc.)
-    
+
     Returns:
         MeetingAgendaGenerateResponse with generated agenda and token usage
     """
     import asyncio
 
     meeting = get_meeting(db, meeting_id, user_id, raise_404=True)
-    
+
     # Log request parameters
     logger.info(f"[AGENDA GEN] Request for meeting {meeting_id}: meeting_type={meeting_type_hint}, custom_prompt={'Yes (len=' + str(len(custom_prompt)) + ')' if custom_prompt else 'No'}")
 
@@ -171,7 +171,7 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
                     if not content:
                         content = getattr(doc, "content", None)
                     logger.debug(f"[AGENDA GEN] Meeting doc {idx} type={type(doc).__name__}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
-                
+
                 if content:
                     preview = content[:150].replace("\n", " ") + ("..." if len(content) > 150 else "")
                     logger.debug(f"[AGENDA GEN] Meeting doc {idx} preview: {preview}")
@@ -210,7 +210,7 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
                                 if not content:
                                     content = getattr(doc, "content", None)
                                 logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} type={type(doc).__name__}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
-                            
+
                             if content:
                                 preview = content[:150].replace("\n", " ") + ("..." if len(content) > 150 else "")
                                 logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} preview: {preview}")
@@ -229,6 +229,7 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
         if not documents:
             logger.warning(f"No documents found for meeting {meeting_id}")
             from fastapi import HTTPException
+
             raise HTTPException(status_code=400, detail="No documents available to generate agenda. Please upload files.")
 
         # Step 4: Build meeting metadata for context
@@ -286,4 +287,5 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
     except Exception as e:
         logger.error(f"Error generating agenda for meeting {meeting_id}: {e}")
         from fastapi import HTTPException
+
         raise HTTPException(status_code=500, detail="Failed to generate agenda. Please try again.")
