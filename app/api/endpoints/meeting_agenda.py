@@ -1,7 +1,9 @@
+from io import BytesIO
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.constants.messages import MessageConstants
@@ -122,7 +124,7 @@ def download_meeting_agenda_pdf_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Download meeting agenda as PDF."""
+    """Download meeting agenda as PDF (streaming response)."""
     agenda = get_meeting_agenda(db, meeting_id, current_user.id)
     if agenda is None or not agenda.content:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.MEETING_AGENDA_NOT_FOUND)
@@ -132,8 +134,11 @@ def download_meeting_agenda_pdf_endpoint(
     filename = f"meeting-agenda-{meeting_id}.pdf"
     content_disposition = f'attachment; filename="{filename}"'
 
-    return Response(
-        content=pdf_data,
+    # Create BytesIO stream for efficient memory usage
+    pdf_stream = BytesIO(pdf_data)
+
+    return StreamingResponse(
+        iter([pdf_stream.getvalue()]),
         media_type="application/pdf",
         headers={"Content-Disposition": content_disposition},
     )
