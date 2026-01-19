@@ -89,12 +89,22 @@ class AgendaGenerator(Agent):
 
         try:
             # Call LLM to generate agenda
-            response: AgendaResult = await self.arun(full_prompt)
+            run_output = await self.arun(full_prompt)
 
-            if response and response.agenda:
-                return response.agenda
-            else:
-                return "Không thể tạo chương trình họp từ tài liệu được cung cấp."
+            # Extract agenda from RunOutput
+            if run_output and hasattr(run_output, 'messages') and len(run_output.messages) > 0:
+                # Get the last message which contains the response
+                last_message = run_output.messages[-1]
+                if hasattr(last_message, 'content'):
+                    content = last_message.content
+                    # If content is a dict (parsed as AgendaResult), extract agenda
+                    if isinstance(content, dict) and 'agenda' in content:
+                        return content['agenda']
+                    # If content is a string, assume it's the agenda
+                    elif isinstance(content, str):
+                        return content
+            
+            return "Không thể tạo chương trình họp từ tài liệu được cung cấp."
 
         except ValidationError as ve:
             print(f"[AgendaGenerator] Validation error: {ve}")

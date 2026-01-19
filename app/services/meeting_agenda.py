@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -49,6 +49,70 @@ def delete_meeting_agenda(db: Session, meeting_id: UUID, user_id: UUID) -> bool:
         EventManager.emit_domain_event(BaseDomainEvent(event_name="meeting_agenda.deleted", actor_user_id=user_id, target_type="meeting_agenda", target_id=meeting_id, metadata={}))
         return True
     return False
+
+
+def save_meeting_agenda_results(db: Session, meeting_id: UUID, user_id: UUID, agenda_content: str, token_usage: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Save meeting agenda results with token tracking and event emission.
+    Handles both create and regenerate cases consistently.
+
+    Args:
+        db: Database session
+        meeting_id: Meeting ID
+        user_id: User ID
+        agenda_content: Generated agenda content
+        token_usage: Token usage dict from LLM
+
+    Returns:
+        Dictionary with agenda, content, and token_usage
+    """
+    existing_agenda = crud_get_meeting_agenda(db, meeting_id)
+    is_regeneration = existing_agenda is not None
+    token_usage = token_usage or {}
+
+    if is_regeneration:
+        # Update existing agenda
+        agenda = crud_update_meeting_agenda(db, meeting_id, agenda_content, user_id)
+        agenda.input_tokens = token_usage.get("prompt_tokens")
+        agenda.output_tokens = token_usage.get("completion_tokens")
+        agenda.total_tokens = token_usage.get("total_tokens")
+        db.commit()
+        db.refresh(agenda)
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting_agenda.regenerated",
+                actor_user_id=user_id,
+                target_type="meeting_agenda",
+                target_id=meeting_id,
+                metadata={
+                    "content_length": len(agenda.content) if agenda.content else 0,
+                    "regenerated": True,
+                    "token_usage": token_usage,
+                },
+            )
+        )
+    else:
+        # Create new agenda
+        agenda = crud_create_meeting_agenda(db, meeting_id, agenda_content, user_id)
+        agenda.input_tokens = token_usage.get("prompt_tokens")
+        agenda.output_tokens = token_usage.get("completion_tokens")
+        agenda.total_tokens = token_usage.get("total_tokens")
+        db.commit()
+        db.refresh(agenda)
+        EventManager.emit_domain_event(
+            BaseDomainEvent(
+                event_name="meeting_agenda.generated",
+                actor_user_id=user_id,
+                target_type="meeting_agenda",
+                target_id=meeting_id,
+                metadata={
+                    "content_length": len(agenda.content) if agenda.content else 0,
+                    "token_usage": token_usage,
+                },
+            )
+        )
+
+    return {"agenda": agenda, "content": agenda_content, "token_usage": token_usage}
 
 
 def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID, custom_prompt: Optional[str] = None, meeting_type_hint: Optional[str] = None) -> MeetingAgendaGenerateResponse:
@@ -147,52 +211,18 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
             )
         )
 
-        # Step 6: Save to database
-        existing_agenda = crud_get_meeting_agenda(db, meeting_id)
-        if existing_agenda:
-            agenda = crud_update_meeting_agenda(db, meeting_id, agenda_content, user_id)
-            agenda.input_tokens = token_usage.get("prompt_tokens") if isinstance(token_usage, dict) else None
-            agenda.output_tokens = token_usage.get("completion_tokens") if isinstance(token_usage, dict) else None
-            agenda.total_tokens = token_usage.get("total_tokens") if isinstance(token_usage, dict) else None
-            db.commit()
-            db.refresh(agenda)
-            EventManager.emit_domain_event(
-                BaseDomainEvent(
-                    event_name="meeting_agenda.regenerated",
-                    actor_user_id=user_id,
-                    target_type="meeting_agenda",
-                    target_id=meeting_id,
-                    metadata={
-                        "content_length": len(agenda.content) if agenda.content else 0,
-                        "regenerated": True,
-                        "token_usage": token_usage,
-                        "documents_count": len(documents),
-                    },
-                )
-            )
-        else:
-            agenda = crud_create_meeting_agenda(db, meeting_id, agenda_content, user_id)
-            agenda.input_tokens = token_usage.get("prompt_tokens") if isinstance(token_usage, dict) else None
-            agenda.output_tokens = token_usage.get("completion_tokens") if isinstance(token_usage, dict) else None
-            agenda.total_tokens = token_usage.get("total_tokens") if isinstance(token_usage, dict) else None
-            db.commit()
-            db.refresh(agenda)
-            EventManager.emit_domain_event(
-                BaseDomainEvent(
-                    event_name="meeting_agenda.generated",
-                    actor_user_id=user_id,
-                    target_type="meeting_agenda",
-                    target_id=meeting_id,
-                    metadata={
-                        "content_length": len(agenda.content) if agenda.content else 0,
-                        "token_usage": token_usage,
-                        "documents_count": len(documents),
-                    },
-                )
-            )
+        # Step 6: Save to database using helper function
+        result = save_meeting_agenda_results(
+            db=db,
+            meeting_id=meeting_id,
+            user_id=user_id,
+            agenda_content=agenda_content,
+            token_usage=token_usage,
+        )
 
         from app.schemas.meeting_agenda import MeetingAgendaResponse
 
+        agenda = result["agenda"]
         agenda_response = MeetingAgendaResponse(
             id=str(agenda.id),
             content=agenda.content,
