@@ -8,6 +8,11 @@ from app.events.domain_events import BaseDomainEvent
 from app.schemas.meeting_agenda import MeetingAgendaGenerateResponse
 from app.services.event_manager import EventManager
 from app.services.meeting import get_meeting
+from app.services.qdrant_service import query_documents_by_meeting_id, query_documents_by_project_id
+from app.services.transcript import get_transcript_by_meeting
+from app.utils.llm import get_chat_model
+from app.utils.logging import logger
+from app.utils.meeting_agent.agenda_generator import generate_agenda_from_documents
 
 
 def get_meeting_agenda(db: Session, meeting_id: UUID, user_id: UUID) -> Optional[Any]:
@@ -48,81 +53,161 @@ def delete_meeting_agenda(db: Session, meeting_id: UUID, user_id: UUID) -> bool:
 
 def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID, custom_prompt: Optional[str] = None, meeting_type_hint: Optional[str] = None) -> MeetingAgendaGenerateResponse:
     """
-    Generate meeting agenda using AI.
-    For now, returns mock response. Will integrate with actual AI service later.
+    Generate meeting agenda using AI based on indexed documents and optional transcript.
+
+    Flow:
+    1. Verify user has access to meeting
+    2. Query indexed documents from Qdrant by meeting_id
+    3. Query indexed documents from Qdrant by project_id(s)
+    4. Get transcript if available
+    5. Call agenda generator with documents and transcript
+    6. Save result to database with token tracking
     """
-    get_meeting(db, meeting_id, user_id, raise_404=True)
+    import asyncio
 
-    # Mock AI response
-    mock_agenda_content = """# Chương Trình Họp
+    meeting = get_meeting(db, meeting_id, user_id, raise_404=True)
 
-## Mục Đích
-Thảo luận và đưa ra quyết định chiến lược cho dự án.
+    try:
+        # Step 1: Query documents from Qdrant by meeting_id
+        logger.info(f"[AGENDA GEN] Starting document retrieval for meeting {meeting_id}")
+        documents_data = asyncio.run(query_documents_by_meeting_id(str(meeting_id), top_k=10, db=db, user_id=str(user_id)))
 
-## Thứ Tự Chương Trình
-1. **Mở Đầu & Báo Cáo Tiến Độ** (5 phút)
-   - Tóm tắt tiến độ hiện tại
-   - Các vấn đề cần giải quyết
+        # Extract text content from document results
+        documents = []
+        if documents_data:
+            logger.info(f"[AGENDA GEN] Found {len(documents_data)} documents from meeting {meeting_id}")
+            for idx, doc in enumerate(documents_data, 1):
+                if isinstance(doc, dict) and "content" in doc:
+                    content = doc["content"]
+                    preview = content[:150].replace("\n", " ") + ("..." if len(content) > 150 else "")
+                    logger.debug(f"[AGENDA GEN] Meeting doc {idx}: {preview}")
+                    documents.append(content)
+                elif isinstance(doc, str):
+                    preview = doc[:150].replace("\n", " ") + ("..." if len(doc) > 150 else "")
+                    logger.debug(f"[AGENDA GEN] Meeting doc {idx}: {preview}")
+                    documents.append(doc)
+        else:
+            logger.warning(f"[AGENDA GEN] No documents found from meeting {meeting_id}")
 
-2. **Thảo Luận Chính** (20 phút)
-   - Phân tích hiện trạng
-   - Xác định các rủi ro tiềm ẩn
-   - Brainstorm các giải pháp
+        # Step 2: Query documents from projects that meeting belongs to
+        try:
+            if meeting.projects:
+                logger.info(f"[AGENDA GEN] Meeting {meeting_id} belongs to {len(meeting.projects)} project(s)")
+                for pm in meeting.projects:
+                    project_id = pm.project_id
+                    logger.info(f"[AGENDA GEN] Querying documents from project {project_id}")
+                    project_docs = asyncio.run(query_documents_by_project_id(str(project_id), top_k=5, db=db, user_id=str(user_id)))
+                    if project_docs:
+                        logger.info(f"[AGENDA GEN] Found {len(project_docs)} documents from project {project_id}")
+                        for idx, doc in enumerate(project_docs, 1):
+                            if isinstance(doc, dict) and "content" in doc:
+                                content = doc["content"]
+                                preview = content[:150].replace("\n", " ") + ("..." if len(content) > 150 else "")
+                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx}: {preview}")
+                                documents.append(content)
+                            elif isinstance(doc, str):
+                                preview = doc[:150].replace("\n", " ") + ("..." if len(doc) > 150 else "")
+                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx}: {preview}")
+                                documents.append(doc)
+                    else:
+                        logger.warning(f"[AGENDA GEN] No documents found from project {project_id}")
+            else:
+                logger.info(f"[AGENDA GEN] Meeting {meeting_id} has no associated projects")
+        except Exception as e:
+            logger.warning(f"[AGENDA GEN] Could not retrieve project documents for meeting {meeting_id}: {e}")
 
-3. **Đưa Ra Quyết Định** (10 phút)
-   - Thống nhất hướng đi
-   - Phân công nhiệm vụ
+        # Step 3: Get transcript if available
+        transcript_text = None
+        try:
+            transcript = get_transcript_by_meeting(db, meeting_id, user_id)
+            if transcript and transcript.content:
+                transcript_text = transcript.content
+        except Exception as e:
+            logger.warning(f"Could not retrieve transcript for meeting {meeting_id}: {e}")
 
-4. **Tổng Kết & Hành Động Tiếp Theo** (5 phút)
-   - Xác nhận các quyết định
-   - Thiết lập lịch follow-up
+        # Step 4: Validate we have content
+        if not documents and not transcript_text:
+            logger.warning(f"No documents or transcript found for meeting {meeting_id}")
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail="No documents or transcript available to generate agenda. Please upload files or provide transcript.")
 
-## Những Người Tham Gia
-- Người chủ trì
-- Các stakeholder chính
-- Nhóm thực hiện
+        # Step 5: Call agenda generator
+        total_chars = sum(len(doc) for doc in documents)
+        logger.info(f"[AGENDA GEN] Context ready for meeting {meeting_id}: {len(documents)} documents ({total_chars} total chars), transcript={'Yes' if transcript_text else 'No'}")
+        logger.info(f"[AGENDA GEN] Starting LLM agenda generation for meeting {meeting_id}")
+        model = get_chat_model()
 
-## Tài Liệu Tham Khảo
-- Báo cáo tiến độ
-- Dữ liệu phân tích"""
+        agenda_content, token_usage = asyncio.run(
+            generate_agenda_from_documents(
+                documents=documents,
+                model=model,
+                meeting_type_hint=meeting_type_hint,
+                custom_prompt=custom_prompt,
+                transcript=transcript_text,
+            )
+        )
 
-    mock_token_usage = {
-        "prompt_tokens": 150,
-        "completion_tokens": 500,
-        "total_tokens": 650,
-    }
+        # Step 6: Save to database
+        existing_agenda = crud_get_meeting_agenda(db, meeting_id)
+        if existing_agenda:
+            agenda = crud_update_meeting_agenda(db, meeting_id, agenda_content, user_id)
+            agenda.input_tokens = token_usage.get("prompt_tokens") if isinstance(token_usage, dict) else None
+            agenda.output_tokens = token_usage.get("completion_tokens") if isinstance(token_usage, dict) else None
+            agenda.total_tokens = token_usage.get("total_tokens") if isinstance(token_usage, dict) else None
+            db.commit()
+            db.refresh(agenda)
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="meeting_agenda.regenerated",
+                    actor_user_id=user_id,
+                    target_type="meeting_agenda",
+                    target_id=meeting_id,
+                    metadata={
+                        "content_length": len(agenda.content) if agenda.content else 0,
+                        "regenerated": True,
+                        "token_usage": token_usage,
+                        "documents_count": len(documents),
+                    },
+                )
+            )
+        else:
+            agenda = crud_create_meeting_agenda(db, meeting_id, agenda_content, user_id)
+            agenda.input_tokens = token_usage.get("prompt_tokens") if isinstance(token_usage, dict) else None
+            agenda.output_tokens = token_usage.get("completion_tokens") if isinstance(token_usage, dict) else None
+            agenda.total_tokens = token_usage.get("total_tokens") if isinstance(token_usage, dict) else None
+            db.commit()
+            db.refresh(agenda)
+            EventManager.emit_domain_event(
+                BaseDomainEvent(
+                    event_name="meeting_agenda.generated",
+                    actor_user_id=user_id,
+                    target_type="meeting_agenda",
+                    target_id=meeting_id,
+                    metadata={
+                        "content_length": len(agenda.content) if agenda.content else 0,
+                        "token_usage": token_usage,
+                        "documents_count": len(documents),
+                    },
+                )
+            )
 
-    # Save or update agenda in DB
-    existing_agenda = crud_get_meeting_agenda(db, meeting_id)
-    if existing_agenda:
-        agenda = crud_update_meeting_agenda(db, meeting_id, mock_agenda_content, user_id)
-        agenda.input_tokens = mock_token_usage.get("prompt_tokens")
-        agenda.output_tokens = mock_token_usage.get("completion_tokens")
-        agenda.total_tokens = mock_token_usage.get("total_tokens")
-        db.commit()
-        db.refresh(agenda)
-        EventManager.emit_domain_event(BaseDomainEvent(event_name="meeting_agenda.regenerated", actor_user_id=user_id, target_type="meeting_agenda", target_id=meeting_id, metadata={"content_length": len(agenda.content), "regenerated": True, "token_usage": mock_token_usage}))
-    else:
-        agenda = crud_create_meeting_agenda(db, meeting_id, mock_agenda_content, user_id)
-        agenda.input_tokens = mock_token_usage.get("prompt_tokens")
-        agenda.output_tokens = mock_token_usage.get("completion_tokens")
-        agenda.total_tokens = mock_token_usage.get("total_tokens")
-        db.commit()
-        db.refresh(agenda)
-        EventManager.emit_domain_event(BaseDomainEvent(event_name="meeting_agenda.generated", actor_user_id=user_id, target_type="meeting_agenda", target_id=meeting_id, metadata={"content_length": len(agenda.content), "token_usage": mock_token_usage}))
+        from app.schemas.meeting_agenda import MeetingAgendaResponse
 
-    from app.schemas.meeting_agenda import MeetingAgendaResponse
+        agenda_response = MeetingAgendaResponse(
+            id=str(agenda.id),
+            content=agenda.content,
+            last_edited_at=agenda.last_edited_at.isoformat() if agenda.last_edited_at else None,
+            created_at=agenda.created_at.isoformat(),
+            updated_at=agenda.updated_at.isoformat() if agenda.updated_at else None,
+        )
 
-    agenda_response = MeetingAgendaResponse(
-        id=str(agenda.id),
-        content=agenda.content,
-        last_edited_at=agenda.last_edited_at.isoformat() if agenda.last_edited_at else None,
-        created_at=agenda.created_at.isoformat(),
-        updated_at=agenda.updated_at.isoformat() if agenda.updated_at else None,
-    )
+        return MeetingAgendaGenerateResponse(
+            agenda=agenda_response,
+            content=agenda.content,
+            token_usage=token_usage if isinstance(token_usage, dict) else None,
+        )
 
-    return MeetingAgendaGenerateResponse(
-        agenda=agenda_response,
-        content=mock_agenda_content,
-        token_usage=mock_token_usage,
-    )
+    except Exception as e:
+        logger.error(f"Error generating agenda for meeting {meeting_id}: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="Failed to generate agenda. Please try again.")
