@@ -71,11 +71,20 @@ def update_meeting_agenda_endpoint(
     )
 
 
-@router.post("/meetings/{meeting_id}/agenda/generate", response_model=ApiResponse[MeetingAgendaGenerateResponse])
-def generate_meeting_agenda_endpoint(
+@router.post(
+    "/meetings/{meeting_id}/agenda/generate", response_model=ApiResponse[MeetingAgendaGenerateResponse]
+)
+async def generate_meeting_agenda_endpoint(
     meeting_id: UUID,
-    custom_prompt: Optional[str] = Query(None, description="Optional custom prompt for AI generation", max_length=2000),
-    meeting_type_hint: Optional[str] = Query(None, description="Optional hint for meeting type: business, technical, brainstorming, review, planning, training"),
+    custom_prompt: Optional[str] = Query(
+        None,
+        description="Optional custom prompt for AI generation",
+        max_length=2000,
+    ),
+    meeting_type_hint: Optional[str] = Query(
+        None,
+        description="Optional hint for meeting type: business, technical, brainstorming, review, planning, training",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -86,11 +95,21 @@ def generate_meeting_agenda_endpoint(
         meeting_type_hint: Meeting type (business, technical, brainstorming, review, planning, training)
     """
     # Validate meeting_type_hint if provided
-    valid_types = {"business", "technical", "brainstorming", "review", "planning", "training"}
+    valid_types = {
+        "business",
+        "technical",
+        "brainstorming",
+        "review",
+        "planning",
+        "training",
+    }
     if meeting_type_hint and meeting_type_hint not in valid_types:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid meeting_type_hint. Must be one of: {', '.join(valid_types)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid meeting_type_hint. Must be one of: {', '.join(valid_types)}",
+        )
 
-    result = generate_meeting_agenda_with_ai(
+    result = await generate_meeting_agenda_with_ai(
         db=db,
         meeting_id=meeting_id,
         user_id=current_user.id,

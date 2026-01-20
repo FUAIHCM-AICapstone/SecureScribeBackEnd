@@ -37,31 +37,34 @@ class AgendaGenerator(Agent):
         meeting_type_hint: Optional[str] = None,
         custom_prompt: Optional[str] = None,
         meeting_metadata: Optional[dict] = None,
-    ) -> str:
+    ) -> tuple[str, dict]:
         """
-        Generate meeting agenda from documents.
+        Generate meeting agenda from documents (typically important notes from sliding window extraction).
 
         Args:
-            documents: List of document texts from indexed files
+            documents: List of important note strings (extracted via sliding window or other means)
             meeting_type_hint: Type hint for meeting (business, technical, brainstorming, etc.)
             custom_prompt: Custom instructions for agenda generation
             meeting_metadata: Meeting context (title, date, creator, status, projects, etc.)
 
         Returns:
-            Generated agenda in Markdown format
+            Tuple of (generated agenda in Markdown format, token_usage dict)
         """
         # Validate inputs
         if not documents:
             documents = []
 
-        # Combine documents into context
-        combined_context = "\n\n---\n\n".join([doc for doc in documents if doc and doc.strip()])
+        # Join notes with clear separators (already extracted, just format for LLM)
+        combined_context = "\n• ".join([doc for doc in documents if doc and doc.strip()])
+
+        if combined_context and not combined_context.startswith("• "):
+            combined_context = "• " + combined_context
 
         if not combined_context or not combined_context.strip():
-            return "Không đủ thông tin để tạo chương trình họp. Vui lòng cung cấp tài liệu."
+            return "Không đủ thông tin để tạo chương trình họp. Vui lòng cung cấp tài liệu.", {}
 
         if len(combined_context) < 50:
-            return "Không đủ thông tin để tạo chương trình họp. Tài liệu quá ngắn."
+            return "Không đủ thông tin để tạo chương trình họp. Tài liệu quá ngắn.", {}
 
         # Get prompt template for agenda
         prompt = get_prompt_for_meeting_agenda(
@@ -93,12 +96,21 @@ class AgendaGenerator(Agent):
             if metadata_lines:
                 metadata_section = "\n".join(metadata_lines) + "\n\n"
 
-        # Create full prompt with metadata and context
-        full_prompt = f"{prompt}\n\n{metadata_section}--- CONTEXT FROM DOCUMENTS ---\n\n{combined_context}"
+        # Create full prompt with metadata and important notes
+        full_prompt = f"{prompt}\n\n{metadata_section}--- EXTRACTED IMPORTANT NOTES ---\n\n{combined_context}"
 
         try:
             # Call LLM to generate agenda
             run_output = await self.arun(full_prompt)
+
+            # Extract token usage from run_output.metrics
+            token_usage = {}
+            if hasattr(run_output, "metrics") and run_output.metrics:
+                token_usage = {
+                    "input_tokens": getattr(run_output.metrics, "input_tokens", None),
+                    "output_tokens": getattr(run_output.metrics, "output_tokens", None),
+                    "total_tokens": getattr(run_output.metrics, "total_tokens", None),
+                }
 
             # Extract agenda markdown from RunOutput
             if run_output and hasattr(run_output, "messages") and len(run_output.messages) > 0:
@@ -108,13 +120,15 @@ class AgendaGenerator(Agent):
                     content = last_message.content
                     # Extract markdown content (string)
                     if isinstance(content, str) and content.strip():
-                        return content.strip()
+                        print("[AgendaGenerator] Generated agenda successfully.")
+                        return content.strip(), token_usage
                     # If content is a dict (shouldn't happen without structured output), try to get agenda
                     elif isinstance(content, dict) and "agenda" in content:
                         agenda_text = content["agenda"]
-                        return agenda_text if isinstance(agenda_text, str) else str(agenda_text)
+                        result = agenda_text if isinstance(agenda_text, str) else str(agenda_text)
+                        return result, token_usage
 
-            return "Không thể tạo chương trình họp từ tài liệu được cung cấp."
+            return "Không thể tạo chương trình họp từ tài liệu được cung cấp.", {}
 
         except Exception as e:
             print(f"[AgendaGenerator] Error generating agenda: {e}")
@@ -129,10 +143,13 @@ async def generate_agenda_from_documents(
     meeting_metadata: Optional[dict] = None,
 ) -> tuple[str, dict]:
     """
-    Generate meeting agenda from documents.
+    Generate meeting agenda from documents or important notes.
+
+    Handles both raw documents and pre-extracted important notes (from sliding window).
+    Documents can be full text blocks or already-extracted important notes.
 
     Args:
-        documents: List of document texts from indexed files
+        documents: List of document texts or important note strings
         model: LLM model instance
         meeting_type_hint: Type hint for meeting
         custom_prompt: Custom instructions
@@ -143,16 +160,11 @@ async def generate_agenda_from_documents(
     """
     generator = AgendaGenerator(model)
 
-    agenda = await generator.generate(
+    agenda, token_usage = await generator.generate(
         documents=documents,
         meeting_type_hint=meeting_type_hint,
         custom_prompt=custom_prompt,
         meeting_metadata=meeting_metadata,
     )
-
-    # Token usage from model (if available)
-    token_usage = {}
-    if hasattr(generator, "model") and hasattr(generator.model, "token_usage"):
-        token_usage = generator.model.token_usage
 
     return agenda, token_usage

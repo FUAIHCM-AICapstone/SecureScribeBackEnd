@@ -1,17 +1,26 @@
+import asyncio
 from typing import Any, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.crud.meeting_agenda import crud_create_meeting_agenda, crud_delete_meeting_agenda, crud_get_meeting_agenda, crud_update_meeting_agenda
+from app.crud.meeting_agenda import (
+    crud_create_meeting_agenda,
+    crud_delete_meeting_agenda,
+    crud_get_meeting_agenda,
+    crud_update_meeting_agenda,
+)
 from app.events.domain_events import BaseDomainEvent
 from app.schemas.meeting_agenda import MeetingAgendaGenerateResponse
 from app.services.event_manager import EventManager
 from app.services.meeting import get_meeting
-from app.services.qdrant_service import query_documents_by_meeting_id, query_documents_by_project_id
+from app.services.qdrant_service import (
+    query_documents_by_meeting_id,
+    query_documents_by_project_id,
+)
 from app.utils.llm import _get_model
 from app.utils.logging import logger
-from app.utils.meeting_agent.agenda_generator import generate_agenda_from_documents
+from app.utils.sliding_window import extract_important_notes_from_chunk
 
 
 def get_meeting_agenda(db: Session, meeting_id: UUID, user_id: UUID) -> Optional[Any]:
@@ -72,8 +81,8 @@ def save_meeting_agenda_results(db: Session, meeting_id: UUID, user_id: UUID, ag
     if is_regeneration:
         # Update existing agenda
         agenda = crud_update_meeting_agenda(db, meeting_id, agenda_content, user_id)
-        agenda.input_tokens = token_usage.get("prompt_tokens")
-        agenda.output_tokens = token_usage.get("completion_tokens")
+        agenda.input_tokens = token_usage.get("input_tokens")
+        agenda.output_tokens = token_usage.get("output_tokens")
         agenda.total_tokens = token_usage.get("total_tokens")
         db.commit()
         db.refresh(agenda)
@@ -93,8 +102,8 @@ def save_meeting_agenda_results(db: Session, meeting_id: UUID, user_id: UUID, ag
     else:
         # Create new agenda
         agenda = crud_create_meeting_agenda(db, meeting_id, agenda_content, user_id)
-        agenda.input_tokens = token_usage.get("prompt_tokens")
-        agenda.output_tokens = token_usage.get("completion_tokens")
+        agenda.input_tokens = token_usage.get("input_tokens")
+        agenda.output_tokens = token_usage.get("output_tokens")
         agenda.total_tokens = token_usage.get("total_tokens")
         db.commit()
         db.refresh(agenda)
@@ -114,7 +123,13 @@ def save_meeting_agenda_results(db: Session, meeting_id: UUID, user_id: UUID, ag
     return {"agenda": agenda, "content": agenda_content, "token_usage": token_usage}
 
 
-def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID, custom_prompt: Optional[str] = None, meeting_type_hint: Optional[str] = None) -> MeetingAgendaGenerateResponse:
+async def generate_meeting_agenda_with_ai(
+    db: Session,
+    meeting_id: UUID,
+    user_id: UUID,
+    custom_prompt: Optional[str] = None,
+    meeting_type_hint: Optional[str] = None,
+) -> MeetingAgendaGenerateResponse:
     """
     Generate meeting agenda using AI based on indexed documents only.
 
@@ -122,8 +137,9 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
     1. Verify user has access to meeting
     2. Query indexed documents from Qdrant by meeting_id
     3. Query indexed documents from Qdrant by project_id(s)
-    4. Call agenda generator with documents
-    5. Save result to database with token tracking
+    4. Extract important notes from each document chunk
+    5. Generate agenda from notes
+    6. Save result to database with token tracking
 
     Note: Only uses documents from indexed files, not transcript or meeting notes.
 
@@ -137,8 +153,6 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
     Returns:
         MeetingAgendaGenerateResponse with generated agenda and token usage
     """
-    import asyncio
-
     meeting = get_meeting(db, meeting_id, user_id, raise_404=True)
 
     # Log request parameters
@@ -147,7 +161,7 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
     try:
         # Step 1: Query documents from Qdrant by meeting_id
         logger.info(f"[AGENDA GEN] Starting document retrieval for meeting {meeting_id}")
-        documents_data = asyncio.run(query_documents_by_meeting_id(str(meeting_id), top_k=10, db=db, user_id=str(user_id)))
+        documents_data = await query_documents_by_meeting_id(str(meeting_id), top_k=10, db=db, user_id=str(user_id))
 
         # Extract text content from document results (Qdrant format: payload.text)
         documents = []
@@ -189,7 +203,7 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
                 for pm in meeting.projects:
                     project_id = pm.project_id
                     logger.info(f"[AGENDA GEN] Querying documents from project {project_id}")
-                    project_docs = asyncio.run(query_documents_by_project_id(str(project_id), top_k=5, db=db, user_id=str(user_id)))
+                    project_docs = await query_documents_by_project_id(str(project_id), top_k=5, db=db, user_id=str(user_id))
                     if project_docs:
                         logger.info(f"[AGENDA GEN] Found {len(project_docs)} documents from project {project_id}")
                         for idx, doc in enumerate(project_docs, 1):
@@ -230,32 +244,103 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
             logger.warning(f"No documents found for meeting {meeting_id}")
             from fastapi import HTTPException
 
-            raise HTTPException(status_code=400, detail="No documents available to generate agenda. Please upload files.")
+            raise HTTPException(
+                status_code=400,
+                detail="No documents available to generate agenda. Please upload files.",
+            )
 
         # Step 4: Build meeting metadata for context
         meeting_metadata = {
             "title": meeting.title or "Không có tiêu đề",
-            "start_time": meeting.start_time.strftime("%Y-%m-%d %H:%M") if meeting.start_time else "Chưa xác định",
-            "created_by_name": meeting.created_by_user.name if meeting.created_by_user else "Không xác định",
+            "start_time": (
+                meeting.start_time.strftime("%Y-%m-%d %H:%M")
+                if meeting.start_time
+                else "Chưa xác định"
+            ),
+            "created_by_name": (
+                meeting.created_by_user.name if meeting.created_by_user else "Không xác định"
+            ),
             "status": meeting.status,
-            "projects": [pm.project.name for pm in meeting.projects] if meeting.projects else [],
+            "projects": (
+                [pm.project.name for pm in meeting.projects] if meeting.projects else []
+            ),
         }
-        logger.debug(f"[AGENDA GEN] Meeting metadata: title={meeting_metadata['title']}, start_time={meeting_metadata['start_time']}, created_by={meeting_metadata['created_by_name']}, projects={meeting_metadata['projects']}")
+        logger.debug(
+            f"[AGENDA GEN] Meeting metadata: title={meeting_metadata['title']}, start_time={meeting_metadata['start_time']}, created_by={meeting_metadata['created_by_name']}, projects={meeting_metadata['projects']}"
+        )
 
-        # Step 5: Call agenda generator with documents and metadata
-        total_chars = sum(len(doc) for doc in documents)
-        logger.info(f"[AGENDA GEN] Context ready for meeting {meeting_id}: {len(documents)} documents ({total_chars} total chars)")
-        logger.info(f"[AGENDA GEN] Starting LLM agenda generation for meeting {meeting_id}")
+        # Step 5: Extract important notes from each document chunk
+        logger.info(
+            f"[AGENDA GEN] Processing {len(documents)} document chunks for agenda generation"
+        )
+        important_notes = []
+        total_extraction_tokens = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+        }
+
+        for chunk_idx, chunk_text in enumerate(documents, 1):
+            if not chunk_text or len(chunk_text.strip()) < 50:
+                logger.debug(f"[AGENDA GEN] Skipping chunk {chunk_idx}: too short")
+                continue
+
+            logger.debug(
+                f"[AGENDA GEN] Extracting notes from chunk {chunk_idx}/{len(documents)}"
+            )
+            chunk_notes, chunk_tokens = await extract_important_notes_from_chunk(chunk_text)
+
+            # Accumulate token usage from extraction
+            total_extraction_tokens["input_tokens"] += chunk_tokens.get("input_tokens", 0)
+            total_extraction_tokens["output_tokens"] += chunk_tokens.get("output_tokens", 0)
+            total_extraction_tokens["total_tokens"] += chunk_tokens.get("total_tokens", 0)
+
+            if chunk_notes:
+                important_notes.extend(chunk_notes)
+                logger.info(
+                    f"[AGENDA GEN] Chunk {chunk_idx}: Extracted {len(chunk_notes)} notes (tokens: input={chunk_tokens.get('input_tokens', 0)}, output={chunk_tokens.get('output_tokens', 0)})"
+                )
+
+        if not important_notes:
+            logger.warning(
+                f"No important notes extracted from documents for meeting {meeting_id}"
+            )
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=400,
+                detail="No important information extracted from documents. Please try again.",
+            )
+
+        logger.info(
+            f"[AGENDA GEN] Total {len(important_notes)} important notes extracted from all chunks"
+        )
+
+        # Step 6: Call agenda generator with extracted important notes
         model = _get_model()
 
-        agenda_content, token_usage = asyncio.run(
-            generate_agenda_from_documents(
-                documents=documents,
-                model=model,
-                meeting_type_hint=meeting_type_hint,
-                custom_prompt=custom_prompt,
-                meeting_metadata=meeting_metadata,
-            )
+        from app.utils.meeting_agent.agenda_generator import generate_agenda_from_documents
+
+        agenda_content, agenda_tokens = await generate_agenda_from_documents(
+            documents=important_notes,
+            model=model,
+            meeting_type_hint=meeting_type_hint,
+            custom_prompt=custom_prompt,
+            meeting_metadata=meeting_metadata,
+        )
+
+        # Merge extraction and agenda generation tokens
+        total_tokens = {
+            "input_tokens": total_extraction_tokens.get("input_tokens", 0)
+            + agenda_tokens.get("input_tokens", 0),
+            "output_tokens": total_extraction_tokens.get("output_tokens", 0)
+            + agenda_tokens.get("output_tokens", 0),
+            "total_tokens": total_extraction_tokens.get("total_tokens", 0)
+            + agenda_tokens.get("total_tokens", 0),
+        }
+
+        logger.info(
+            f"[AGENDA GEN] Total token usage: extraction={total_extraction_tokens}, agenda={agenda_tokens}, total={total_tokens}"
         )
 
         # Step 6: Save to database using helper function
@@ -264,7 +349,7 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
             meeting_id=meeting_id,
             user_id=user_id,
             agenda_content=agenda_content,
-            token_usage=token_usage,
+            token_usage=total_tokens,
         )
 
         from app.schemas.meeting_agenda import MeetingAgendaResponse
@@ -281,7 +366,7 @@ def generate_meeting_agenda_with_ai(db: Session, meeting_id: UUID, user_id: UUID
         return MeetingAgendaGenerateResponse(
             agenda=agenda_response,
             content=agenda.content,
-            token_usage=token_usage if isinstance(token_usage, dict) else None,
+            token_usage=total_tokens if isinstance(total_tokens, dict) else None,
         )
 
     except Exception as e:

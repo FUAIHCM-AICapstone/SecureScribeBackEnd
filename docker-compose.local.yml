@@ -14,16 +14,16 @@ x-shared-service-no-env: &shared-service-no-env
     - securescribe-network
 
 services:
-  db:
-    image: postgres:15-alpine
-    <<: *shared-service
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d securescribe"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+  # db:
+  #   image: postgres:15-alpine
+  #   <<: *shared-service
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U admin -d securescribe"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
 
   api:
     build:
@@ -32,42 +32,42 @@ services:
     <<: *shared-service
     volumes:
       - ./config:/app/config:rw
-    depends_on:
-      - db
-      - redis
-      - minio
-      - bot
+    # depends_on:
+      # - db
+      # - redis
+      # - minio
+      # - bot
 
-  s2t_api:
-    image: luongnguyenminhan/securescribe:s2t
-    ports:
-      - "9998:9998"
-    <<: *shared-service
-    depends_on:
-      - redis
+  # s2t_api:
+  #   image: luongnguyenminhan/securescribe:s2t
+  #   ports:
+  #     - "9998:9998"
+  #   <<: *shared-service
+  #   depends_on:
+  #     - redis
 
-  redis:
-    image: redis:7-alpine
-    <<: *shared-service-no-env
+  # redis:
+  #   image: redis:7-alpine
+  #   <<: *shared-service-no-env
 
-  minio:
-    image: minio/minio:latest
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    <<: *shared-service
-    volumes:
-      - minio_data:/data
-    command: server /data --address ':9000' --console-address ':9001'
+  # minio:
+  #   image: minio/minio:latest
+  #   ports:
+  #     - "9000:9000"
+  #     - "9001:9001"
+  #   <<: *shared-service
+  #   volumes:
+  #     - minio_data:/data
+  #   command: server /data --address ':9000' --console-address ':9001'
 
-  qdrant:
-    image: qdrant/qdrant:latest
-    <<: *shared-service-no-env
-    ports:
-      - "6333:6333"  # REST API port
-      - "6334:6334"  # gRPC port
-    volumes:
-      - qdrant_data:/qdrant/storage
+  # qdrant:
+  #   image: qdrant/qdrant:latest
+  #   <<: *shared-service-no-env
+  #   ports:
+  #     - "6333:6333"  # REST API port
+  #     - "6334:6334"  # gRPC port
+  #   volumes:
+  #     - qdrant_data:/qdrant/storage
 
   nginx:
     image: nginx:alpine
@@ -78,57 +78,57 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - api
-      - qdrant
-      - adminer
-      - minio
+      # - qdrant
+      # - adminer
+      # - minio
 
-  adminer:
-    image: adminer:latest
-    <<: *shared-service
-    depends_on:
-      - db
+  # adminer:
+  #   image: adminer:latest
+  #   <<: *shared-service
+  #   depends_on:
+  #     - db
 
-  frontend:
-    image: luongnguyenminhan/securescribe:frontend
-    container_name: securescribe-web
-    expose:
-      - "3030"
-    <<: *shared-service
+  # frontend:
+  #   image: luongnguyenminhan/securescribe:frontend
+  #   container_name: securescribe-web
+  #   expose:
+  #     - "3030"
+  #   <<: *shared-service
 
-  bot:
-    image: luongnguyenminhan/securescribe:bot
-    ports:
-      - "3000:3000"
-    <<: *shared-service
-    depends_on:
-      - redis
-      - minio
+  # bot:
+  #   image: luongnguyenminhan/securescribe:bot
+  #   ports:
+  #     - "3000:3000"
+  #   <<: *shared-service
+  #   depends_on:
+  #     - redis
+  #     - minio
 
-  test:
-    build:
-      context: .
-      dockerfile: build/Dockerfile.test
-    <<: *shared-service
-    volumes:
-      - ./coverage_reports:/app/coverage_reports
-      - ./tests:/app/tests:ro
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-      minio:
-        condition: service_started
-      qdrant:
-        condition: service_started
-    environment:
-      - DATABASE_URL=postgresql://admin:admin@db:5432/securescribe
-      - REDIS_URL=redis://redis:6379/0
-      - MINIO_ENDPOINT=minio:9000
-      - QDRANT_URL=http://qdrant:6333
-    profiles:
-      - test
-    restart: none
+  # test:
+  #   build:
+  #     context: .
+  #     dockerfile: build/Dockerfile.test
+  #   <<: *shared-service
+  #   volumes:
+  #     - ./coverage_reports:/app/coverage_reports
+  #     - ./tests:/app/tests:ro
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_started
+  #     minio:
+  #       condition: service_started
+  #     qdrant:
+  #       condition: service_started
+  #   environment:
+  #     - DATABASE_URL=postgresql://admin:admin@db:5432/securescribe
+  #     - REDIS_URL=redis://redis:6379/0
+  #     - MINIO_ENDPOINT=minio:9000
+  #     - QDRANT_URL=http://qdrant:6333
+  #   profiles:
+  #     - test
+  #   restart: none
 
 networks:
   securescribe-network:

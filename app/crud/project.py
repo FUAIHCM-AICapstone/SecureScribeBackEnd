@@ -25,7 +25,7 @@ def crud_get_project(db: Session, project_id: uuid.UUID, include_members: bool =
         return (
             db.query(Project)
             .options(
-                joinedload(Project.members).joinedload(UserProject.user),
+                joinedload(Project.users).joinedload(UserProject.user),
                 joinedload(Project.created_by_user),
             )
             .filter(Project.id == project_id)
