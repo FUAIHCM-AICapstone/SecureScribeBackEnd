@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from agno.models.google import Gemini
 
@@ -21,6 +21,9 @@ class MeetingAnalyzer:
         self,
         transcript: Optional[str],
         custom_prompt: Optional[str] = None,
+        meeting_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        db: Optional[Any] = None,
     ) -> dict:
         """
         Analyze meeting transcript and extract tasks + generate note.
@@ -28,6 +31,9 @@ class MeetingAnalyzer:
         Args:
             transcript: Meeting transcript text
             custom_prompt: Optional custom prompt for note generation
+            meeting_id: Meeting UUID for retrieving related documents/agenda
+            user_id: User UUID for authorization
+            db: Database session for querying
 
         Returns:
             Dictionary with meeting_note, task_items, is_informative, meeting_type
@@ -37,7 +43,13 @@ class MeetingAnalyzer:
         print(f"[MeetingAnalyzer] Starting analysis - transcript_length: {len(transcript_value)}")
 
         try:
-            result = await self._processor.process_meeting(transcript_value, custom_prompt=custom_prompt)
+            result = await self._processor.process_meeting(
+                transcript_value,
+                custom_prompt=custom_prompt,
+                meeting_id=meeting_id,
+                user_id=user_id,
+                db=db,
+            )
             print("[MeetingAnalyzer] Analysis completed successfully")
             return result
         except Exception as exc:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from textwrap import dedent
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from agno.agent import Agent
 from agno.models.message import Message
@@ -41,13 +41,16 @@ class NoteGenerator(Agent):
         transcript: str,
         tasks: List[Task],
         custom_prompt: Optional[str] = None,
-    ) -> str:
+        agenda: Optional[str] = None,
+        project_files_context: Optional[str] = None,
+        meeting_files_context: Optional[str] = None,
+    ) -> Tuple[str, Dict[str, Any]]:
         """Generate meeting note from transcript with automatic retry on failure."""
         if not transcript or not transcript.strip():
-            return "Không đủ thông tin để tạo ghi chú cuộc họp."
+            return "Không đủ thông tin để tạo ghi chú cuộc họp.", {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 
         if len(transcript) < 50:
-            return "Không đủ thông tin để tạo ghi chú cuộc họp."
+            return "Không đủ thông tin để tạo ghi chú cuộc họp.", {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 
         # Convert tasks to dict for JSON serialization
         tasks_dict = [task.model_dump() if hasattr(task, "model_dump") else task for task in tasks]
@@ -60,6 +63,14 @@ class NoteGenerator(Agent):
             "tasks": tasks_dict,
         }
 
+        # Add optional context
+        if agenda:
+            context["agenda"] = agenda
+        if project_files_context:
+            context["project_files_context"] = project_files_context
+        if meeting_files_context:
+            context["meeting_files_context"] = meeting_files_context
+
         try:
             prompt_instruction = ""
             if custom_prompt:
@@ -67,13 +78,46 @@ class NoteGenerator(Agent):
 CUSTOM INSTRUCTION (Apply this first if provided):
 {custom_prompt}
 
-After applying the custom instruction above, also follow the context below:
+After applying the custom instruction above, also follow the priority guidelines below:
 """
             else:
                 prompt_instruction = "Create a concise Vietnamese meeting note in Markdown format using the provided context.\n"
 
+            # Add priority guidelines to ensure focus on transcript
+            priority_guidelines = """
+PRIORITY GUIDELINES (CRITICAL - Must follow):
+1. PRIMARY FOCUS (HIGH PRIORITY): "transcript" field
+   - This is the MAIN content of the meeting
+   - Extract key points, decisions, and actions from here
+   - Your output MUST be primarily based on transcript content
+
+2. SECONDARY CONTEXT (MEDIUM PRIORITY): "meeting_files_context" field
+   - Use to supplement and clarify points from transcript
+   - DO NOT let this override or dominate the note
+   - Only include if directly relevant to meeting discussion
+
+3. REFERENCE CONTEXT (LOW PRIORITY): "agenda", "project_files_context" fields
+   - Use ONLY to understand business/project context
+   - DO NOT include extensive project details unless mentioned in transcript
+   - If meeting is short (5 min) but project files are long (100 pages), 
+     focus on what was actually discussed in the meeting, not project documents
+   - Project context should occupy <20% of the output
+
+RULE: If project/agenda context conflicts with transcript content, 
+       ALWAYS prioritize what was actually said in the meeting.
+
+OUTPUT REQUIREMENT:
+- Summarize meeting transcript content accurately
+- Add meeting files details only when transcript references them
+- Mention project context ONLY if meeting specifically discussed it
+- If input has 5-min transcript + 100-page project doc:
+  Output should be 80% transcript summary + 20% project context
+"""
+
             prompt = dedent(
                 f"""
+                {priority_guidelines}
+
                 {prompt_instruction}
 
                 Context (JSON):
@@ -118,9 +162,24 @@ After applying the custom instruction above, also follow the context below:
             print(f"[NoteGenerator] Unexpected error during generation: {exc}")
             raise  # Re-raise for retry
 
-    async def generate_with_empty_fallback(self, transcript: str, tasks: List[Task], custom_prompt: Optional[str] = None) -> tuple[str, dict]:
+    async def generate_with_empty_fallback(
+        self,
+        transcript: str,
+        tasks: List[Task],
+        custom_prompt: Optional[str] = None,
+        agenda: Optional[str] = None,
+        project_files_context: Optional[str] = None,
+        meeting_files_context: Optional[str] = None,
+    ) -> Tuple[str, Dict[str, Any]]:
         """Wrapper to return fallback on failure instead of raising."""
         try:
-            return await self.generate(transcript, tasks, custom_prompt)
+            return await self.generate(
+                transcript,
+                tasks,
+                custom_prompt,
+                agenda=agenda,
+                project_files_context=project_files_context,
+                meeting_files_context=meeting_files_context,
+            )
         except Exception:
-            return "Không thể tạo ghi chú cuộc họp do lỗi xử lý.", {}
+            return "Không thể tạo ghi chú cuộc họp do lỗi xử lý.", {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}

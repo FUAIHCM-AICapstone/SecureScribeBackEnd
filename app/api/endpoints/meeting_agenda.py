@@ -71,9 +71,7 @@ def update_meeting_agenda_endpoint(
     )
 
 
-@router.post(
-    "/meetings/{meeting_id}/agenda/generate", response_model=ApiResponse[MeetingAgendaGenerateResponse]
-)
+@router.post("/meetings/{meeting_id}/agenda/generate", response_model=ApiResponse[MeetingAgendaGenerateResponse])
 async def generate_meeting_agenda_endpoint(
     meeting_id: UUID,
     custom_prompt: Optional[str] = Query(

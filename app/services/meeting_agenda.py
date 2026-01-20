@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -141,7 +140,12 @@ async def generate_meeting_agenda_with_ai(
     5. Generate agenda from notes
     6. Save result to database with token tracking
 
-    Note: Only uses documents from indexed files, not transcript or meeting notes.
+    IMPORTANT: Document retrieval prioritization (for transcript-focused agendas):
+    - If meeting has transcript: Use as PRIMARY context (80%)
+    - Meeting files: SECONDARY context (15%)
+    - Project files: REFERENCE context only (5%)
+    - Note: Agenda generation extracts from indexed documents, not transcript directly.
+      For transcript-focused agendas, the transcript should be indexed as a document.
 
     Args:
         db: Database session
@@ -165,25 +169,32 @@ async def generate_meeting_agenda_with_ai(
 
         # Extract text content from document results (Qdrant format: payload.text)
         documents = []
+        document_metadata = []  # Store point_id for later updates
         if documents_data:
             logger.info(f"[AGENDA GEN] Found {len(documents_data)} documents from meeting {meeting_id}")
             for idx, doc in enumerate(documents_data, 1):
                 content = None
+                point_id = None
+                existing_notes = None
                 if isinstance(doc, dict):
                     payload = doc.get("payload") or {}
                     if isinstance(payload, dict):
                         content = payload.get("text")
+                        existing_notes = payload.get("important_notes")
                     if not content:
                         content = doc.get("content")
-                    logger.debug(f"[AGENDA GEN] Meeting doc {idx} structure: id={doc.get('id')}, score={doc.get('score'):.4f}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
+                    point_id = doc.get("id")
+                    logger.debug(f"[AGENDA GEN] Meeting doc {idx} structure: id={point_id}, score={doc.get('score'):.4f}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
                 elif isinstance(doc, str):
                     content = doc
                 else:
                     payload = getattr(doc, "payload", None) or {}
                     if isinstance(payload, dict):
                         content = payload.get("text")
+                        existing_notes = payload.get("important_notes")
                     if not content:
                         content = getattr(doc, "content", None)
+                    point_id = getattr(doc, "id", None)
                     logger.debug(f"[AGENDA GEN] Meeting doc {idx} type={type(doc).__name__}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
 
                 if content:
@@ -191,6 +202,7 @@ async def generate_meeting_agenda_with_ai(
                     logger.debug(f"[AGENDA GEN] Meeting doc {idx} preview: {preview}")
                     logger.debug(f"[AGENDA GEN] Meeting doc {idx} FULL CONTENT:\n{content}")
                     documents.append(content)
+                    document_metadata.append({"point_id": point_id, "existing_notes": existing_notes})
                 else:
                     logger.warning(f"[AGENDA GEN] Meeting doc {idx} has no extractable text content")
         else:
@@ -208,21 +220,27 @@ async def generate_meeting_agenda_with_ai(
                         logger.info(f"[AGENDA GEN] Found {len(project_docs)} documents from project {project_id}")
                         for idx, doc in enumerate(project_docs, 1):
                             content = None
+                            point_id = None
+                            existing_notes = None
                             if isinstance(doc, dict):
                                 payload = doc.get("payload") or {}
                                 if isinstance(payload, dict):
                                     content = payload.get("text")
+                                    existing_notes = payload.get("important_notes")
                                 if not content:
                                     content = doc.get("content")
-                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} structure: id={doc.get('id')}, score={doc.get('score'):.4f}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
+                                point_id = doc.get("id")
+                                logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} structure: id={point_id}, score={doc.get('score'):.4f}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
                             elif isinstance(doc, str):
                                 content = doc
                             else:
                                 payload = getattr(doc, "payload", None) or {}
                                 if isinstance(payload, dict):
                                     content = payload.get("text")
+                                    existing_notes = payload.get("important_notes")
                                 if not content:
                                     content = getattr(doc, "content", None)
+                                point_id = getattr(doc, "id", None)
                                 logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} type={type(doc).__name__}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
 
                             if content:
@@ -230,6 +248,7 @@ async def generate_meeting_agenda_with_ai(
                                 logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} preview: {preview}")
                                 logger.debug(f"[AGENDA GEN] Project {project_id} doc {idx} FULL CONTENT:\n{content}")
                                 documents.append(content)
+                                document_metadata.append({"point_id": point_id, "existing_notes": existing_notes})
                             else:
                                 logger.warning(f"[AGENDA GEN] Project {project_id} doc {idx} has no extractable text content")
                     else:
@@ -252,27 +271,15 @@ async def generate_meeting_agenda_with_ai(
         # Step 4: Build meeting metadata for context
         meeting_metadata = {
             "title": meeting.title or "Không có tiêu đề",
-            "start_time": (
-                meeting.start_time.strftime("%Y-%m-%d %H:%M")
-                if meeting.start_time
-                else "Chưa xác định"
-            ),
-            "created_by_name": (
-                meeting.created_by_user.name if meeting.created_by_user else "Không xác định"
-            ),
+            "start_time": (meeting.start_time.strftime("%Y-%m-%d %H:%M") if meeting.start_time else "Chưa xác định"),
+            "created_by_name": (meeting.created_by_user.name if meeting.created_by_user else "Không xác định"),
             "status": meeting.status,
-            "projects": (
-                [pm.project.name for pm in meeting.projects] if meeting.projects else []
-            ),
+            "projects": ([pm.project.name for pm in meeting.projects] if meeting.projects else []),
         }
-        logger.debug(
-            f"[AGENDA GEN] Meeting metadata: title={meeting_metadata['title']}, start_time={meeting_metadata['start_time']}, created_by={meeting_metadata['created_by_name']}, projects={meeting_metadata['projects']}"
-        )
+        logger.debug(f"[AGENDA GEN] Meeting metadata: title={meeting_metadata['title']}, start_time={meeting_metadata['start_time']}, created_by={meeting_metadata['created_by_name']}, projects={meeting_metadata['projects']}")
 
         # Step 5: Extract important notes from each document chunk
-        logger.info(
-            f"[AGENDA GEN] Processing {len(documents)} document chunks for agenda generation"
-        )
+        logger.info(f"[AGENDA GEN] Processing {len(documents)} document chunks for agenda generation")
         important_notes = []
         total_extraction_tokens = {
             "input_tokens": 0,
@@ -285,26 +292,41 @@ async def generate_meeting_agenda_with_ai(
                 logger.debug(f"[AGENDA GEN] Skipping chunk {chunk_idx}: too short")
                 continue
 
-            logger.debug(
-                f"[AGENDA GEN] Extracting notes from chunk {chunk_idx}/{len(documents)}"
-            )
-            chunk_notes, chunk_tokens = await extract_important_notes_from_chunk(chunk_text)
+            logger.debug(f"[AGENDA GEN] Extracting notes from chunk {chunk_idx}/{len(documents)}")
+
+            # Get metadata for this chunk
+            meta = document_metadata[chunk_idx - 1] if chunk_idx - 1 < len(document_metadata) else {}
+            point_id = meta.get("point_id")
+            existing_notes = meta.get("existing_notes")
+
+            # Pass existing_notes to check cache first
+            chunk_notes, chunk_tokens = await extract_important_notes_from_chunk(chunk_text, existing_notes=existing_notes)
+
+            if chunk_notes:
+                important_notes.extend(chunk_notes)
+                logger.info(f"[AGENDA GEN] Chunk {chunk_idx}: Extracted {len(chunk_notes)} notes (tokens: input={chunk_tokens.get('input_tokens', 0)}, output={chunk_tokens.get('output_tokens', 0)})")
+
+                # Update vector payload if notes were newly extracted (not cached)
+                if not existing_notes and point_id:
+                    from app.core.config import settings as _settings
+                    from app.utils.qdrant import update_vector_payload
+
+                    update_vector_payload(
+                        _settings.QDRANT_COLLECTION_NAME,
+                        point_id,
+                        {
+                            "important_notes": chunk_notes,
+                            "important_notes_count": len(chunk_notes),
+                        },
+                    )
 
             # Accumulate token usage from extraction
             total_extraction_tokens["input_tokens"] += chunk_tokens.get("input_tokens", 0)
             total_extraction_tokens["output_tokens"] += chunk_tokens.get("output_tokens", 0)
             total_extraction_tokens["total_tokens"] += chunk_tokens.get("total_tokens", 0)
 
-            if chunk_notes:
-                important_notes.extend(chunk_notes)
-                logger.info(
-                    f"[AGENDA GEN] Chunk {chunk_idx}: Extracted {len(chunk_notes)} notes (tokens: input={chunk_tokens.get('input_tokens', 0)}, output={chunk_tokens.get('output_tokens', 0)})"
-                )
-
         if not important_notes:
-            logger.warning(
-                f"No important notes extracted from documents for meeting {meeting_id}"
-            )
+            logger.warning(f"No important notes extracted from documents for meeting {meeting_id}")
             from fastapi import HTTPException
 
             raise HTTPException(
@@ -312,9 +334,7 @@ async def generate_meeting_agenda_with_ai(
                 detail="No important information extracted from documents. Please try again.",
             )
 
-        logger.info(
-            f"[AGENDA GEN] Total {len(important_notes)} important notes extracted from all chunks"
-        )
+        logger.info(f"[AGENDA GEN] Total {len(important_notes)} important notes extracted from all chunks")
 
         # Step 6: Call agenda generator with extracted important notes
         model = _get_model()
@@ -331,17 +351,12 @@ async def generate_meeting_agenda_with_ai(
 
         # Merge extraction and agenda generation tokens
         total_tokens = {
-            "input_tokens": total_extraction_tokens.get("input_tokens", 0)
-            + agenda_tokens.get("input_tokens", 0),
-            "output_tokens": total_extraction_tokens.get("output_tokens", 0)
-            + agenda_tokens.get("output_tokens", 0),
-            "total_tokens": total_extraction_tokens.get("total_tokens", 0)
-            + agenda_tokens.get("total_tokens", 0),
+            "input_tokens": total_extraction_tokens.get("input_tokens", 0) + agenda_tokens.get("input_tokens", 0),
+            "output_tokens": total_extraction_tokens.get("output_tokens", 0) + agenda_tokens.get("output_tokens", 0),
+            "total_tokens": total_extraction_tokens.get("total_tokens", 0) + agenda_tokens.get("total_tokens", 0),
         }
 
-        logger.info(
-            f"[AGENDA GEN] Total token usage: extraction={total_extraction_tokens}, agenda={agenda_tokens}, total={total_tokens}"
-        )
+        logger.info(f"[AGENDA GEN] Total token usage: extraction={total_extraction_tokens}, agenda={agenda_tokens}, total={total_tokens}")
 
         # Step 6: Save to database using helper function
         result = save_meeting_agenda_results(

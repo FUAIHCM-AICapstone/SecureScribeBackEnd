@@ -102,6 +102,31 @@ class QdrantClientManager:
             logger.error(f"Failed to get collection {collection_name}: {e}")
             return None
 
+    def update_vector_payload(self, collection_name: str, point_id: int, payload: dict) -> bool:
+        """Update payload of a specific vector point.
+
+        Args:
+            collection_name: Name of the collection.
+            point_id: ID of the point to update.
+            payload: Dictionary of payload to update (will be merged with existing).
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        try:
+            client = self.get_client()
+            client.set_payload(
+                collection_name=collection_name,
+                payload=payload,
+                points=[point_id],
+                wait=True,
+            )
+            logger.info(f"[QDRANT] Updated payload for point {point_id} in {collection_name}")
+            return True
+        except Exception as e:
+            logger.error(f"[QDRANT] Failed to update payload for point {point_id}: {e}")
+            return False
+
 
 # Global instance
 qdrant_client_manager = QdrantClientManager()
@@ -120,3 +145,17 @@ def health_check() -> bool:
 def get_collection_info(collection_name: str = "documents"):
     """Get collection information"""
     return qdrant_client_manager.get_collection_info(collection_name)
+
+
+def update_vector_payload(collection_name: str, point_id: int, payload: dict) -> bool:
+    """Update payload of a specific vector point.
+
+    Args:
+        collection_name: Name of the collection.
+        point_id: ID of the point to update.
+        payload: Dictionary of payload to update.
+
+    Returns:
+        bool: True if successful, False otherwise.
+    """
+    return qdrant_client_manager.update_vector_payload(collection_name, point_id, payload)

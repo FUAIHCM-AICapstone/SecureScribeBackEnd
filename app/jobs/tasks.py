@@ -1013,8 +1013,21 @@ def process_meeting_analysis_task(
 
         analyzer = MeetingAnalyzer()
 
-        # Run async analysis in sync context
-        analysis_result = asyncio.run(analyzer.complete(transcript=transcript, custom_prompt=custom_prompt))
+        # Create database session for analysis
+        db_for_analysis = SessionLocal()
+        try:
+            # Run async analysis in sync context with meeting context for retrieving docs/agenda
+            analysis_result = asyncio.run(
+                analyzer.complete(
+                    transcript=transcript,
+                    custom_prompt=custom_prompt,
+                    meeting_id=meeting_id,
+                    user_id=user_id,
+                    db=db_for_analysis,
+                )
+            )
+        finally:
+            db_for_analysis.close()
 
         # Step 4: Saving to database (90%)
         update_task_progress(task_id, user_id, 90, "saving", task_type="meeting_analysis")
@@ -1051,6 +1064,7 @@ def process_meeting_analysis_task(
                         upsert_vectors,
                     )
                     from app.utils.llm import embed_documents
+                    from app.utils.sliding_window import extract_important_notes_from_chunk
 
                     logger.info(f"[MEETING_ANALYSIS] Indexing meeting note ({len(meeting_note_content)} chars)")
 
@@ -1066,19 +1080,26 @@ def process_meeting_analysis_task(
                             logger.info(f"[MEETING_ANALYSIS] Generated {len(vectors)} embeddings")
                             asyncio.run(create_collection_if_not_exist(_settings.QDRANT_COLLECTION_NAME, len(vectors[0])))
 
-                            payloads = [
-                                {
-                                    "text": ch,
-                                    "chunk_index": i,
-                                    "meeting_id": meeting_id,
-                                    "note_type": "meeting_note",
-                                    "total_chunks": len(chunks),
-                                }
-                                for i, ch in enumerate(chunks)
-                            ]
+                            # Extract important notes from each chunk with sliding window (for quick access later)
+                            logger.info("[MEETING_ANALYSIS] Extracting important notes from chunks for metadata cache")
+                            payloads = []
+                            for i, ch in enumerate(chunks):
+                                notes, _ = asyncio.run(extract_important_notes_from_chunk(ch))
+                                payloads.append(
+                                    {
+                                        "text": ch,
+                                        "chunk_index": i,
+                                        "meeting_id": meeting_id,
+                                        "note_type": "meeting_note",
+                                        "total_chunks": len(chunks),
+                                        "important_notes": notes,  # Cache extracted notes for quick access
+                                        "important_notes_count": len(notes),
+                                    }
+                                )
+
                             success = asyncio.run(upsert_vectors(_settings.QDRANT_COLLECTION_NAME, vectors, payloads))
                             if success:
-                                logger.info("[MEETING_ANALYSIS] Successfully indexed meeting note")
+                                logger.info("[MEETING_ANALYSIS] Successfully indexed meeting note with extracted notes metadata")
                             else:
                                 logger.warning("[MEETING_ANALYSIS] Upsert vectors returned False")
 
