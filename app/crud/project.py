@@ -1,4 +1,3 @@
-import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session, joinedload
@@ -8,7 +7,7 @@ from app.models.meeting import ProjectMeeting
 from app.models.project import Project, UserProject
 
 
-def crud_create_project(db: Session, name: str, description: str, created_by: uuid.UUID) -> Project:
+def crud_create_project(db: Session, name: str, description: str, created_by: int) -> Project:
     project = Project(
         name=name,
         description=description,
@@ -20,7 +19,7 @@ def crud_create_project(db: Session, name: str, description: str, created_by: uu
     return project
 
 
-def crud_get_project(db: Session, project_id: uuid.UUID, include_members: bool = False) -> Optional[Project]:
+def crud_get_project(db: Session, project_id: int, include_members: bool = False) -> Optional[Project]:
     if include_members:
         return (
             db.query(Project)
@@ -75,7 +74,7 @@ def crud_get_projects(db: Session, filters: Dict[str, Any] = None, **kwargs) -> 
     return projects, total
 
 
-def crud_update_project(db: Session, project_id: uuid.UUID, **updates) -> Optional[Project]:
+def crud_update_project(db: Session, project_id: int, **updates) -> Optional[Project]:
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         return None
@@ -87,7 +86,7 @@ def crud_update_project(db: Session, project_id: uuid.UUID, **updates) -> Option
     return project
 
 
-def crud_delete_project_with_cascade(db: Session, project_id: uuid.UUID) -> bool:
+def crud_delete_project_with_cascade(db: Session, project_id: int) -> bool:
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         return False
@@ -107,7 +106,7 @@ def crud_delete_project_with_cascade(db: Session, project_id: uuid.UUID) -> bool
     return True
 
 
-def crud_add_user_to_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, role: str = "member") -> Optional[UserProject]:
+def crud_add_user_to_project(db: Session, project_id: int, user_id: int, role: str = "member") -> Optional[UserProject]:
     user_project = UserProject(
         project_id=project_id,
         user_id=user_id,
@@ -119,7 +118,7 @@ def crud_add_user_to_project(db: Session, project_id: uuid.UUID, user_id: uuid.U
     return user_project
 
 
-def crud_remove_user_from_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def crud_remove_user_from_project(db: Session, project_id: int, user_id: int) -> bool:
     user_project = db.query(UserProject).filter(UserProject.project_id == project_id, UserProject.user_id == user_id).first()
     if not user_project:
         return False
@@ -128,7 +127,7 @@ def crud_remove_user_from_project(db: Session, project_id: uuid.UUID, user_id: u
     return True
 
 
-def crud_update_user_role_in_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID, role: str) -> Optional[UserProject]:
+def crud_update_user_role_in_project(db: Session, project_id: int, user_id: int, role: str) -> Optional[UserProject]:
     user_project = db.query(UserProject).filter(UserProject.project_id == project_id, UserProject.user_id == user_id).first()
     if not user_project:
         return None
@@ -138,15 +137,15 @@ def crud_update_user_role_in_project(db: Session, project_id: uuid.UUID, user_id
     return user_project
 
 
-def crud_get_project_members(db: Session, project_id: uuid.UUID) -> List[UserProject]:
+def crud_get_project_members(db: Session, project_id: int) -> List[UserProject]:
     return db.query(UserProject).options(joinedload(UserProject.user)).filter(UserProject.project_id == project_id).all()
 
 
-def crud_is_user_in_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def crud_is_user_in_project(db: Session, project_id: int, user_id: int) -> bool:
     user_project = db.query(UserProject).filter(UserProject.project_id == project_id, UserProject.user_id == user_id).first()
     return user_project is not None
 
 
-def crud_get_user_role_in_project(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> Optional[str]:
+def crud_get_user_role_in_project(db: Session, project_id: int, user_id: int) -> Optional[str]:
     user_project = db.query(UserProject).filter(UserProject.project_id == project_id, UserProject.user_id == user_id).first()
     return user_project.role if user_project else None

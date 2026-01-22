@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -9,9 +8,9 @@ from app.events.base import BaseEvent
 class UserAddedToProjectEvent(BaseEvent):
     def __init__(
         self,
-        project_id: uuid.UUID,
-        user_id: uuid.UUID,
-        added_by_user_id: uuid.UUID,
+        project_id: int,
+        user_id: int,
+        added_by_user_id: int,
         db: Session,
         timestamp: datetime = None,
     ):
@@ -25,9 +24,9 @@ class UserAddedToProjectEvent(BaseEvent):
 class UserRemovedFromProjectEvent(BaseEvent):
     def __init__(
         self,
-        project_id: uuid.UUID,
-        user_id: uuid.UUID,
-        removed_by_user_id: uuid.UUID,
+        project_id: int,
+        user_id: int,
+        removed_by_user_id: int,
         db: Session,
         is_self_removal: bool = False,
         timestamp: datetime = None,

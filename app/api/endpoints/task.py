@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -37,11 +36,11 @@ def get_tasks_endpoint(
     limit: int = Query(20, ge=1, le=100),
     title: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
-    creator_id: Optional[uuid.UUID] = Query(None),
-    assignee_id: Optional[uuid.UUID] = Query(None),
+    creator_id: Optional[int] = Query(None),
+    assignee_id: Optional[int] = Query(None),
     due_date_gte: Optional[str] = Query(None),
     due_date_lte: Optional[str] = Query(None),
-    meeting_id: Optional[uuid.UUID] = Query(None),
+    meeting_id: Optional[int] = Query(None),
     created_at_gte: Optional[str] = Query(None),
     created_at_lte: Optional[str] = Query(None),
 ):
@@ -73,7 +72,7 @@ def get_tasks_endpoint(
 
 @router.get("/tasks/{task_id}", response_model=ApiResponse[TaskResponse])
 def get_task_endpoint(
-    task_id: uuid.UUID,
+    task_id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -128,7 +127,7 @@ def bulk_create_tasks_endpoint(
 
 @router.put("/tasks/{task_id}", response_model=ApiResponse[TaskResponse])
 def update_task_endpoint(
-    task_id: uuid.UUID,
+    task_id: int,
     task_update: TaskUpdate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
@@ -145,7 +144,7 @@ def update_task_endpoint(
 
 @router.delete("/tasks/{task_id}", response_model=ApiResponse[dict])
 def delete_task_endpoint(
-    task_id: uuid.UUID,
+    task_id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):

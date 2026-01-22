@@ -1,5 +1,4 @@
 from typing import Any, Dict, Optional
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -22,12 +21,12 @@ from app.utils.logging import logger
 from app.utils.sliding_window import extract_important_notes_from_chunk
 
 
-def get_meeting_agenda(db: Session, meeting_id: UUID, user_id: UUID) -> Optional[Any]:
+def get_meeting_agenda(db: Session, meeting_id: int, user_id: int) -> Optional[Any]:
     get_meeting(db, meeting_id, user_id, raise_404=True)
     return crud_get_meeting_agenda(db, meeting_id)
 
 
-def create_meeting_agenda(db: Session, meeting_id: UUID, user_id: UUID, content: str) -> Optional[Any]:
+def create_meeting_agenda(db: Session, meeting_id: int, user_id: int, content: str) -> Optional[Any]:
     existing_agenda = crud_get_meeting_agenda(db, meeting_id)
     if existing_agenda:
         return update_meeting_agenda(db, meeting_id, user_id, content)
@@ -37,7 +36,7 @@ def create_meeting_agenda(db: Session, meeting_id: UUID, user_id: UUID, content:
     return agenda
 
 
-def update_meeting_agenda(db: Session, meeting_id: UUID, user_id: UUID, content: str) -> Optional[Any]:
+def update_meeting_agenda(db: Session, meeting_id: int, user_id: int, content: str) -> Optional[Any]:
     agenda = get_meeting_agenda(db, meeting_id, user_id)
     if not agenda:
         return None
@@ -48,7 +47,7 @@ def update_meeting_agenda(db: Session, meeting_id: UUID, user_id: UUID, content:
     return agenda
 
 
-def delete_meeting_agenda(db: Session, meeting_id: UUID, user_id: UUID) -> bool:
+def delete_meeting_agenda(db: Session, meeting_id: int, user_id: int) -> bool:
     agenda = get_meeting_agenda(db, meeting_id, user_id)
     if not agenda:
         return False
@@ -58,7 +57,7 @@ def delete_meeting_agenda(db: Session, meeting_id: UUID, user_id: UUID) -> bool:
     return False
 
 
-def save_meeting_agenda_results(db: Session, meeting_id: UUID, user_id: UUID, agenda_content: str, token_usage: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def save_meeting_agenda_results(db: Session, meeting_id: int, user_id: int, agenda_content: str, token_usage: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Save meeting agenda results with token tracking and event emission.
     Handles both create and regenerate cases consistently.
@@ -124,8 +123,8 @@ def save_meeting_agenda_results(db: Session, meeting_id: UUID, user_id: UUID, ag
 
 async def generate_meeting_agenda_with_ai(
     db: Session,
-    meeting_id: UUID,
-    user_id: UUID,
+    meeting_id: int,
+    user_id: int,
     custom_prompt: Optional[str] = None,
     meeting_type_hint: Optional[str] = None,
 ) -> MeetingAgendaGenerateResponse:

@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -35,17 +34,17 @@ def create_audio_file(
     return crud_create_audio_file(db, audio_data, file_bytes, content_type)
 
 
-def get_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[AudioFile]:
+def get_audio_file(db: Session, audio_id: int) -> Optional[AudioFile]:
     return crud_get_audio_file(db, audio_id)
 
 
-def get_audio_files_by_meeting(db: Session, meeting_id: uuid.UUID) -> List[AudioFile]:
+def get_audio_files_by_meeting(db: Session, meeting_id: int) -> List[AudioFile]:
     return crud_get_audio_files_by_meeting(db, meeting_id)
 
 
-def update_audio_file(db: Session, audio_id: uuid.UUID, updates: AudioFileUpdate) -> Optional[AudioFile]:
+def update_audio_file(db: Session, audio_id: int, updates: AudioFileUpdate) -> Optional[AudioFile]:
     return crud_update_audio_file(db, audio_id, updates)
 
 
-def delete_audio_file(db: Session, audio_id: uuid.UUID) -> bool:
+def delete_audio_file(db: Session, audio_id: int) -> bool:
     return crud_delete_audio_file(db, audio_id)

@@ -1,23 +1,18 @@
 # app/utils/task_progress.py
 import asyncio
 import json
-import logging
 import time
 from datetime import datetime, timezone
 from typing import Optional
-from uuid import UUID
 
+from app.utils.logging import logger
 from app.utils.redis import get_redis_client, publish_to_user_channel
-
-logger = logging.getLogger(__name__)
 
 # TTL cho last state (ví dụ giữ 1 giờ) — ephemeral requirement
 TASK_PROGRESS_TTL_SECONDS = 60 * 60  # 1 hour
 
 
-def normalize_user_id(user_id: str | UUID) -> str:
-    if isinstance(user_id, UUID):
-        return str(user_id)
+def normalize_user_id(user_id: str | int) -> str:
     return str(user_id)
 
 
@@ -41,7 +36,7 @@ def publish_task_progress(user_id: str, payload: dict) -> bool:
 
 def update_task_progress(
     task_id: str,
-    user_id: str | UUID,
+    user_id: int | str,
     progress: int,
     status: str,
     estimated_time: Optional[str] = None,

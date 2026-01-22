@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -51,15 +50,15 @@ def crud_create_audio_file(
     return None
 
 
-def crud_get_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[AudioFile]:
+def crud_get_audio_file(db: Session, audio_id: int) -> Optional[AudioFile]:
     return db.query(AudioFile).filter(AudioFile.id == audio_id, AudioFile.is_deleted == False).first()
 
 
-def crud_get_audio_files_by_meeting(db: Session, meeting_id: uuid.UUID) -> List[AudioFile]:
+def crud_get_audio_files_by_meeting(db: Session, meeting_id: int) -> List[AudioFile]:
     return db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id, AudioFile.is_deleted == False).order_by(AudioFile.seq_order, AudioFile.created_at).all()
 
 
-def crud_update_audio_file(db: Session, audio_id: uuid.UUID, updates: AudioFileUpdate) -> Optional[AudioFile]:
+def crud_update_audio_file(db: Session, audio_id: int, updates: AudioFileUpdate) -> Optional[AudioFile]:
     audio_file = db.query(AudioFile).filter(AudioFile.id == audio_id, AudioFile.is_deleted == False).first()
     if not audio_file:
         return None
@@ -73,7 +72,7 @@ def crud_update_audio_file(db: Session, audio_id: uuid.UUID, updates: AudioFileU
     return audio_file
 
 
-def crud_delete_audio_file(db: Session, audio_id: uuid.UUID) -> bool:
+def crud_delete_audio_file(db: Session, audio_id: int) -> bool:
     audio_file = db.query(AudioFile).filter(AudioFile.id == audio_id, AudioFile.is_deleted == False).first()
     if not audio_file:
         return False

@@ -1,10 +1,8 @@
-import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -46,9 +44,8 @@ class Meeting(SQLModel, table=True):
 
     __tablename__ = "meetings"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -56,13 +53,13 @@ class Meeting(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    title: Optional[str] = Field(default=None, sa_column=Column(String))
+    title: Optional[str] = Field(default=None, sa_column=Column(String(255)))
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
-    url: Optional[str] = Field(default=None, sa_column=Column(String))
+    url: Optional[str] = Field(default=None, sa_column=Column(String(500)))
     start_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
-    created_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
+    created_by: int = Field(foreign_key="users.id", nullable=False)
     is_personal: bool = Field(default=False, sa_column=Column(Boolean))
-    status: str = Field(default=MeetingStatus.active, sa_column=Column(String))
+    status: str = Field(default=MeetingStatus.active, sa_column=Column(String(50)))
     is_deleted: bool = Field(default=False, sa_column=Column(Boolean))
 
     # Relationships
@@ -86,8 +83,8 @@ class ProjectMeeting(SQLModel, table=True):
 
     __tablename__ = "projects_meetings"
 
-    project_id: uuid.UUID = Field(foreign_key="projects.id", primary_key=True)
-    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", primary_key=True)
+    project_id: int = Field(foreign_key="projects.id", primary_key=True)
+    meeting_id: int = Field(foreign_key="meetings.id", primary_key=True)
 
     # Relationships
     project: "Project" = Relationship(
@@ -105,9 +102,8 @@ class AudioFile(SQLModel, table=True):
 
     __tablename__ = "audio_files"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -115,9 +111,9 @@ class AudioFile(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", nullable=False)
-    uploaded_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
-    file_url: Optional[str] = Field(default=None, sa_column=Column(String))
+    meeting_id: int = Field(foreign_key="meetings.id", nullable=False)
+    uploaded_by: int = Field(foreign_key="users.id", nullable=False)
+    file_url: Optional[str] = Field(default=None, sa_column=Column(String(500)))
     seq_order: Optional[int] = Field(default=None, sa_column=Column(Integer))
     duration_seconds: Optional[int] = Field(default=None, sa_column=Column(Integer))
     is_concatenated: bool = Field(default=False, sa_column=Column(Boolean))
@@ -140,9 +136,8 @@ class Transcript(SQLModel, table=True):
 
     __tablename__ = "transcripts"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -150,11 +145,11 @@ class Transcript(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", unique=True, nullable=False)
+    meeting_id: int = Field(foreign_key="meetings.id", unique=True, nullable=False)
     content: Optional[str] = Field(default=None, sa_column=Column(Text))
-    audio_concat_file_id: Optional[uuid.UUID] = Field(default=None, foreign_key="audio_files.id")
+    audio_concat_file_id: Optional[int] = Field(default=None, foreign_key="audio_files.id")
     extracted_text_for_search: Optional[str] = Field(default=None, sa_column=Column(Text))
-    qdrant_vector_id: Optional[str] = Field(default=None, sa_column=Column(String))
+    qdrant_vector_id: Optional[str] = Field(default=None, sa_column=Column(String(255)))
     input_tokens: Optional[int] = Field(default=None, description="Input tokens used")
     output_tokens: Optional[int] = Field(default=None, description="Output tokens used")
     total_tokens: Optional[int] = Field(default=None, description="Total tokens used")
@@ -172,9 +167,8 @@ class MeetingNote(SQLModel, table=True):
 
     __tablename__ = "meeting_notes"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -182,9 +176,9 @@ class MeetingNote(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", unique=True, nullable=False)
+    meeting_id: int = Field(foreign_key="meetings.id", unique=True, nullable=False)
     content: Optional[str] = Field(default=None, sa_column=Column(Text))
-    last_editor_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    last_editor_id: Optional[int] = Field(default=None, foreign_key="users.id")
     last_edited_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     input_tokens: Optional[int] = Field(default=None, description="Input tokens used")
     output_tokens: Optional[int] = Field(default=None, description="Output tokens used")
@@ -203,9 +197,8 @@ class MeetingAgenda(SQLModel, table=True):
 
     __tablename__ = "meeting_agendas"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -213,9 +206,9 @@ class MeetingAgenda(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", unique=True, nullable=False)
+    meeting_id: int = Field(foreign_key="meetings.id", unique=True, nullable=False)
     content: Optional[str] = Field(default=None, sa_column=Column(Text))
-    last_editor_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    last_editor_id: Optional[int] = Field(default=None, foreign_key="users.id")
     last_edited_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     input_tokens: Optional[int] = Field(default=None, description="Input tokens used")
     output_tokens: Optional[int] = Field(default=None, description="Output tokens used")
@@ -234,9 +227,8 @@ class MeetingBot(SQLModel, table=True):
 
     __tablename__ = "meeting_bots"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -244,15 +236,15 @@ class MeetingBot(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", nullable=False)
+    meeting_id: int = Field(foreign_key="meetings.id", nullable=False)
     scheduled_start_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     actual_start_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     actual_end_time: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
-    status: str = Field(default=BotStatus.pending.value, sa_column=Column(String))
-    meeting_url: Optional[str] = Field(default=None, sa_column=Column(String))
+    status: str = Field(default=BotStatus.pending.value, sa_column=Column(String(50)))
+    meeting_url: Optional[str] = Field(default=None, sa_column=Column(String(500)))
     retry_count: int = Field(default=0, sa_column=Column(Integer))
     last_error: Optional[str] = Field(default=None, sa_column=Column(Text))
-    created_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
+    created_by: int = Field(foreign_key="users.id", nullable=False)
 
     # Relationships
     meeting: Meeting = Relationship(back_populates="bot")
@@ -268,9 +260,8 @@ class MeetingBotLog(SQLModel, table=True):
 
     __tablename__ = "meeting_bot_logs"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
@@ -278,14 +269,14 @@ class MeetingBotLog(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    meeting_bot_id: uuid.UUID = Field(
+    meeting_bot_id: int = Field(
         sa_column=Column(
-            UUID(as_uuid=True),
+            Integer,
             ForeignKey("meeting_bots.id", ondelete="CASCADE"),
             nullable=False,
         )
     )
-    action: Optional[str] = Field(default=None, sa_column=Column(String))
+    action: Optional[str] = Field(default=None, sa_column=Column(String(100)))
     message: Optional[str] = Field(default=None, sa_column=Column(Text))
 
     # Relationships

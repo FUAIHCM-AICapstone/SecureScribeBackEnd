@@ -22,7 +22,12 @@ def load_config() -> None:
     vault_config_path = f"/vault/secrets/configuration.{service_env}.json"
 
     logger.info(f"Loading configuration from Vault file: {vault_config_path}")
-    _load_from_vault_file(vault_config_path)
+    try:
+        # _load_from_vault_file(vault_config_path)
+        load_config_from_api_v2()
+    except Exception as e:
+        logger.error(f"Failed to load configuration from Vault file: {e}")
+        load_config_from_api_v2()
 
 
 def _load_from_vault_file(vault_config_path: str) -> None:

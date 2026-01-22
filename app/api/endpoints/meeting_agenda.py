@@ -1,6 +1,5 @@
 from io import BytesIO
 from typing import Optional
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -21,7 +20,7 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting Agenda"])
 
 @router.get("/meetings/{meeting_id}/agenda", response_model=ApiResponse[MeetingAgendaResponse])
 def get_meeting_agenda_endpoint(
-    meeting_id: UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -44,7 +43,7 @@ def get_meeting_agenda_endpoint(
 
 @router.put("/meetings/{meeting_id}/agenda", response_model=ApiResponse[MeetingAgendaResponse])
 def update_meeting_agenda_endpoint(
-    meeting_id: UUID,
+    meeting_id: int,
     payload: MeetingAgendaRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -73,7 +72,7 @@ def update_meeting_agenda_endpoint(
 
 @router.post("/meetings/{meeting_id}/agenda/generate", response_model=ApiResponse[MeetingAgendaGenerateResponse])
 async def generate_meeting_agenda_endpoint(
-    meeting_id: UUID,
+    meeting_id: int,
     custom_prompt: Optional[str] = Query(
         None,
         description="Optional custom prompt for AI generation",
@@ -124,7 +123,7 @@ async def generate_meeting_agenda_endpoint(
 
 @router.delete("/meetings/{meeting_id}/agenda", response_model=ApiResponse[None])
 def delete_meeting_agenda_endpoint(
-    meeting_id: UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -137,7 +136,7 @@ def delete_meeting_agenda_endpoint(
 
 @router.get("/meetings/{meeting_id}/agenda/download")
 def download_meeting_agenda_pdf_endpoint(
-    meeting_id: UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

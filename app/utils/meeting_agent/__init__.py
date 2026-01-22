@@ -31,8 +31,8 @@ class MeetingAnalyzer:
         Args:
             transcript: Meeting transcript text
             custom_prompt: Optional custom prompt for note generation
-            meeting_id: Meeting UUID for retrieving related documents/agenda
-            user_id: User UUID for authorization
+            meeting_id: Meeting int for retrieving related documents/agenda
+            user_id: User int for authorization
             db: Database session for querying
 
         Returns:

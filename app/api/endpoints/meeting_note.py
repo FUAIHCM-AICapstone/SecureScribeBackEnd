@@ -1,6 +1,5 @@
 from io import BytesIO
 from typing import Optional
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -26,7 +25,7 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["Meeting Notes"])
 
 @router.post("/meetings/{meeting_id}/notes", response_model=ApiResponse[dict])
 async def create_meeting_note_endpoint(
-    meeting_id: UUID,
+    meeting_id: int,
     custom_prompt: Optional[str] = Query(None, description="Optional custom instructions for the AI agent"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -82,7 +81,7 @@ async def create_meeting_note_endpoint(
 
 @router.get("/meetings/{meeting_id}/notes", response_model=ApiResponse[MeetingNoteResponse])
 def get_meeting_note_endpoint(
-    meeting_id: UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -98,7 +97,7 @@ def get_meeting_note_endpoint(
 
 @router.put("/meetings/{meeting_id}/notes", response_model=ApiResponse[MeetingNoteResponse])
 def update_meeting_note_endpoint(
-    meeting_id: UUID,
+    meeting_id: int,
     payload: MeetingNoteRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -120,7 +119,7 @@ def update_meeting_note_endpoint(
 
 @router.delete("/meetings/{meeting_id}/notes", response_model=ApiResponse[None])
 def delete_meeting_note_endpoint(
-    meeting_id: UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -132,7 +131,7 @@ def delete_meeting_note_endpoint(
 
 @router.get("/meetings/{meeting_id}/notes/download")
 def download_meeting_note_pdf_endpoint(
-    meeting_id: UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

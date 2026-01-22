@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
-from uuid import UUID
 
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -81,7 +80,7 @@ def _fill_chart_data(data: List[Any], start_date: Optional[datetime]) -> List[Ch
     return result
 
 
-def _build_task_scope_filter(user_id: UUID, scope: DashboardScope):
+def _build_task_scope_filter(user_id: int, scope: DashboardScope):
     if scope == DashboardScope.PROJECT:
         user_project_ids = select(UserProject.project_id).where(UserProject.user_id == user_id).scalar_subquery()
         task_ids_in_projects = select(TaskProject.task_id).where(TaskProject.project_id.in_(user_project_ids)).scalar_subquery()
@@ -92,7 +91,7 @@ def _build_task_scope_filter(user_id: UUID, scope: DashboardScope):
         return or_(Task.assignee_id == user_id, Task.creator_id == user_id)
 
 
-def _build_meeting_scope_filter(user_id: UUID, scope: DashboardScope):
+def _build_meeting_scope_filter(user_id: int, scope: DashboardScope):
     if scope == DashboardScope.PERSONAL:
         return Meeting.created_by == user_id
     elif scope == DashboardScope.PROJECT:
@@ -107,7 +106,7 @@ def _build_meeting_scope_filter(user_id: UUID, scope: DashboardScope):
         return or_(Meeting.created_by == user_id, Meeting.id.in_(meeting_ids_in_projects))
 
 
-def get_task_stats(db: Session, user_id: UUID, start_date: Optional[datetime], scope: DashboardScope) -> TaskStats:
+def get_task_stats(db: Session, user_id: int, start_date: Optional[datetime], scope: DashboardScope) -> TaskStats:
     scope_filter = _build_task_scope_filter(user_id, scope)
     total, todo, in_progress, done, overdue, due_today, due_this_week = crud_get_task_aggregates(db, scope_filter)
 
@@ -133,7 +132,7 @@ def get_task_stats(db: Session, user_id: UUID, start_date: Optional[datetime], s
     )
 
 
-def get_meeting_stats(db: Session, user_id: UUID, start_date: Optional[datetime], scope: DashboardScope) -> MeetingStats:
+def get_meeting_stats(db: Session, user_id: int, start_date: Optional[datetime], scope: DashboardScope) -> MeetingStats:
     scope_filter = _build_meeting_scope_filter(user_id, scope)
     meeting_ids_scalar = crud_get_meeting_ids_subquery(scope_filter, start_date)
 
@@ -163,7 +162,7 @@ def get_meeting_stats(db: Session, user_id: UUID, start_date: Optional[datetime]
     )
 
 
-def get_project_stats(db: Session, user_id: UUID) -> ProjectStats:
+def get_project_stats(db: Session, user_id: int) -> ProjectStats:
     total, active, archived, owned, member = crud_get_project_aggregates(db, user_id)
     return ProjectStats(
         total_count=total,
@@ -174,7 +173,7 @@ def get_project_stats(db: Session, user_id: UUID) -> ProjectStats:
     )
 
 
-def get_storage_stats(db: Session, user_id: UUID) -> StorageStats:
+def get_storage_stats(db: Session, user_id: int) -> StorageStats:
     count, size_bytes = crud_get_storage_aggregates(db, user_id)
     size_mb = round(size_bytes / (1024 * 1024), 2) if size_bytes else 0.0
     files_by_type = crud_get_file_type_breakdown(db, user_id)
@@ -187,7 +186,7 @@ def get_storage_stats(db: Session, user_id: UUID) -> StorageStats:
     )
 
 
-def get_quick_access(db: Session, user_id: UUID) -> QuickAccessData:
+def get_quick_access(db: Session, user_id: int) -> QuickAccessData:
     user_project_ids = select(UserProject.project_id).where(UserProject.user_id == user_id).scalar_subquery()
     meeting_ids_in_projects = select(ProjectMeeting.meeting_id).where(ProjectMeeting.project_id.in_(user_project_ids)).scalar_subquery()
 
@@ -284,7 +283,7 @@ def get_quick_access(db: Session, user_id: UUID) -> QuickAccessData:
     )
 
 
-def get_summary_stats(db: Session, user_id: UUID, scope: DashboardScope) -> SummaryStats:
+def get_summary_stats(db: Session, user_id: int, scope: DashboardScope) -> SummaryStats:
     task_scope_filter = _build_task_scope_filter(user_id, scope)
     task_total, task_pending = crud_get_summary_task_counts(db, task_scope_filter)
 
@@ -302,7 +301,7 @@ def get_summary_stats(db: Session, user_id: UUID, scope: DashboardScope) -> Summ
     )
 
 
-def get_dashboard_stats(db: Session, user_id: UUID, period: DashboardPeriod, scope: DashboardScope) -> DashboardResponse:
+def get_dashboard_stats(db: Session, user_id: int, period: DashboardPeriod, scope: DashboardScope) -> DashboardResponse:
     start_date = get_date_range(period)
     summary = get_summary_stats(db, user_id, scope)
     tasks = get_task_stats(db, user_id, start_date, scope)

@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -42,7 +41,7 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["Transcripts"])
 
 
 @router.post("/transcripts/transcribe/{audio_id}", response_model=ApiResponse[dict])
-def transcribe_audio_endpoint(audio_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def transcribe_audio_endpoint(audio_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Transcribe audio file and enqueue ASR processing."""
     try:
         # Get audio file to find meeting_id
@@ -71,14 +70,14 @@ def transcribe_audio_endpoint(audio_id: uuid.UUID, db: Session = Depends(get_db)
 
 
 @router.get("/transcripts", response_model=TranscriptsPaginatedResponse)
-def get_transcripts_endpoint(db: Session = Depends(get_db), current_user: User = Depends(get_current_user), page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), content_search: Optional[str] = Query(None), meeting_id: Optional[uuid.UUID] = Query(None)):
+def get_transcripts_endpoint(db: Session = Depends(get_db), current_user: User = Depends(get_current_user), page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), content_search: Optional[str] = Query(None), meeting_id: Optional[int] = Query(None)):
     transcripts, total = get_transcripts(db=db, user_id=current_user.id, content_search=content_search, meeting_id=meeting_id, page=page, limit=limit)
     pagination_meta = create_pagination_meta(page, limit, total)
     return TranscriptsPaginatedResponse(success=True, message=MessageConstants.TRANSCRIPT_RETRIEVED_SUCCESS, data=[TranscriptResponse.model_validate(t) for t in transcripts], pagination=pagination_meta)
 
 
 @router.get("/transcripts/{transcript_id}", response_model=TranscriptApiResponse)
-def get_transcript_endpoint(transcript_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_transcript_endpoint(transcript_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     transcript = get_transcript(db, transcript_id, current_user.id)
     if not transcript:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.TRANSCRIPT_NOT_FOUND)
@@ -86,7 +85,7 @@ def get_transcript_endpoint(transcript_id: uuid.UUID, db: Session = Depends(get_
 
 
 @router.get("/transcripts/meeting/{meeting_id}", response_model=TranscriptApiResponse)
-def get_meeting_transcript_endpoint(meeting_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_meeting_transcript_endpoint(meeting_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     transcript = get_transcript_by_meeting(db, meeting_id, current_user.id)
     if not transcript:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageConstants.TRANSCRIPT_NOT_FOUND)
@@ -101,14 +100,14 @@ def create_transcript_endpoint(transcript: TranscriptCreate, db: Session = Depen
 
 
 @router.put("/transcripts/{transcript_id}", response_model=TranscriptApiResponse)
-def update_transcript_endpoint(transcript_id: uuid.UUID, transcript_update: TranscriptUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def update_transcript_endpoint(transcript_id: int, transcript_update: TranscriptUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     updated_transcript = update_transcript(db, transcript_id, transcript_update, current_user.id)
     loaded_transcript = get_transcript(db, transcript_id, current_user.id)
     return ApiResponse(success=True, message=MessageConstants.TRANSCRIPT_UPDATED_SUCCESS, data=TranscriptResponse.model_validate(loaded_transcript or updated_transcript))
 
 
 @router.delete("/transcripts/{transcript_id}", response_model=ApiResponse[dict])
-def delete_transcript_endpoint(transcript_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def delete_transcript_endpoint(transcript_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     delete_transcript(db, transcript_id, current_user.id)
     return ApiResponse(success=True, message=MessageConstants.TRANSCRIPT_DELETED_SUCCESS, data={"transcript_id": str(transcript_id)})
 
@@ -143,8 +142,8 @@ def bulk_delete_transcripts_endpoint(bulk_request: BulkTranscriptDelete, db: Ses
 
 @router.post("/meetings/{meeting_id}/transcripts/{transcript_id}/reindex", response_model=TranscriptReindexResponse)
 def reindex_transcript_endpoint(
-    meeting_id: uuid.UUID,
-    transcript_id: uuid.UUID,
+    meeting_id: int,
+    transcript_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

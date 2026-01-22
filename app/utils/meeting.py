@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -18,7 +17,7 @@ def validate_meeting_url(url: Optional[str]) -> bool:
     return url.startswith(("http://", "https://"))
 
 
-def check_meeting_access(db: Session, meeting: Meeting, user_id: uuid.UUID) -> bool:
+def check_meeting_access(db: Session, meeting: Meeting, user_id: int) -> bool:
     """Check if user can access meeting
 
     Policy:
@@ -49,7 +48,7 @@ def check_meeting_access(db: Session, meeting: Meeting, user_id: uuid.UUID) -> b
     return meeting.created_by == user_id
 
 
-def get_meeting_projects(db: Session, meeting_id: uuid.UUID) -> List[uuid.UUID]:
+def get_meeting_projects(db: Session, meeting_id: int) -> List[int]:
     """Get list of project IDs linked to meeting"""
     from app.models.meeting import ProjectMeeting
 
@@ -58,7 +57,7 @@ def get_meeting_projects(db: Session, meeting_id: uuid.UUID) -> List[uuid.UUID]:
     return project_ids
 
 
-def can_delete_meeting(db: Session, meeting: Meeting, user_id: uuid.UUID) -> bool:
+def can_delete_meeting(db: Session, meeting: Meeting, user_id: int) -> bool:
     """Check if user can delete meeting"""
     # Owner of meeting can delete
     if meeting.created_by == user_id:
@@ -82,7 +81,7 @@ def can_delete_meeting(db: Session, meeting: Meeting, user_id: uuid.UUID) -> boo
     return False
 
 
-def notify_meeting_members(db: Session, meeting: Meeting, action: str, user_id: uuid.UUID):
+def notify_meeting_members(db: Session, meeting: Meeting, action: str, user_id: int):
     """Send notifications to meeting members"""
     try:
         linked_projects = get_meeting_projects(db, meeting.id)

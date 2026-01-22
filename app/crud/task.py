@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import List, Optional, Tuple
 
@@ -17,7 +16,7 @@ def crud_create_task(db: Session, **task_data) -> Task:
     return task
 
 
-def crud_get_task(db: Session, task_id: uuid.UUID) -> Optional[Task]:
+def crud_get_task(db: Session, task_id: int) -> Optional[Task]:
     return (
         db.query(Task)
         .options(
@@ -32,14 +31,14 @@ def crud_get_task(db: Session, task_id: uuid.UUID) -> Optional[Task]:
 
 def crud_get_tasks(
     db: Session,
-    user_id: uuid.UUID,
+    user_id: int,
     title: Optional[str] = None,
     status: Optional[str] = None,
-    creator_id: Optional[uuid.UUID] = None,
-    assignee_id: Optional[uuid.UUID] = None,
+    creator_id: Optional[int] = None,
+    assignee_id: Optional[int] = None,
     due_date_gte: Optional[str] = None,
     due_date_lte: Optional[str] = None,
-    meeting_id: Optional[uuid.UUID] = None,
+    meeting_id: Optional[int] = None,
     created_at_gte: Optional[str] = None,
     created_at_lte: Optional[str] = None,
     page: int = 1,
@@ -84,7 +83,7 @@ def crud_get_tasks(
     return tasks, total
 
 
-def crud_update_task(db: Session, task_id: uuid.UUID, **updates) -> Optional[Task]:
+def crud_update_task(db: Session, task_id: int, **updates) -> Optional[Task]:
     task = crud_get_task(db, task_id)
     if not task:
         return None
@@ -96,7 +95,7 @@ def crud_update_task(db: Session, task_id: uuid.UUID, **updates) -> Optional[Tas
     return task
 
 
-def crud_delete_task(db: Session, task_id: uuid.UUID) -> bool:
+def crud_delete_task(db: Session, task_id: int) -> bool:
     db.query(TaskProject).filter(TaskProject.task_id == task_id).delete()
     task = crud_get_task(db, task_id)
     if not task:
@@ -106,22 +105,22 @@ def crud_delete_task(db: Session, task_id: uuid.UUID) -> bool:
     return True
 
 
-def crud_link_task_to_projects(db: Session, task_id: uuid.UUID, project_ids: List[uuid.UUID]) -> None:
+def crud_link_task_to_projects(db: Session, task_id: int, project_ids: List[int]) -> None:
     for project_id in project_ids:
         db.add(TaskProject(task_id=task_id, project_id=project_id))
     db.commit()
 
 
-def crud_check_direct_access(task: Task, user_id: uuid.UUID) -> bool:
+def crud_check_direct_access(task: Task, user_id: int) -> bool:
     return task.creator_id == user_id or task.assignee_id == user_id
 
 
-def crud_check_project_access(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def crud_check_project_access(db: Session, task_id: int, user_id: int) -> bool:
     user_projects = db.query(Project.id).join(Project.users).filter(Project.users.any(user_id=user_id)).subquery()
     return db.query(TaskProject).filter(TaskProject.task_id == task_id, TaskProject.project_id.in_(user_projects)).first() is not None
 
 
-def crud_check_meeting_access(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def crud_check_meeting_access(db: Session, meeting_id: int, user_id: int) -> bool:
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     if meeting and meeting.created_by == user_id:
         return True
@@ -129,11 +128,11 @@ def crud_check_meeting_access(db: Session, meeting_id: uuid.UUID, user_id: uuid.
     return db.query(UserProject).filter(UserProject.user_id == user_id, UserProject.project_id.in_(linked_projects)).first() is not None
 
 
-def crud_check_user_project_access(db: Session, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def crud_check_user_project_access(db: Session, project_id: int, user_id: int) -> bool:
     return db.query(Project).join(Project.users).filter(Project.id == project_id, Project.users.any(user_id=user_id)).first() is not None
 
 
-def crud_get_task_status_notifyees(db: Session, task_id: uuid.UUID, task: Task, user_id: uuid.UUID) -> set:
+def crud_get_task_status_notifyees(db: Session, task_id: int, task: Task, user_id: int) -> set:
     notify_user_ids = set()
     if task.creator_id:
         notify_user_ids.add(task.creator_id)

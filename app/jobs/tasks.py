@@ -2,12 +2,11 @@ import asyncio
 import hashlib
 import json
 import time
-import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from agno.models.message import Message
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
@@ -29,7 +28,7 @@ from app.services.qdrant_service import (
 from app.services.transcript import transcribe_audio_file
 from app.utils.llm import (
     create_general_chat_agent,
-    get_agno_postgres_db,
+    get_agno_mysql_db,
     optimize_contexts_with_llm,
 )
 from app.utils.logging import logger
@@ -45,7 +44,19 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
+    pool_recycle=3600,  # Recycle connections every hour
 )
+
+
+# MySQL-specific: Set UTF-8 charset on connection
+@event.listens_for(engine, "connect")
+def set_mysql_charset(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("SET NAMES utf8mb4")
+    cursor.execute("SET CHARACTER SET utf8mb4")
+    cursor.close()
+
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Attempt to establish Redis connection, but fall back to a no-op client in test
 sync_redis_client = get_redis_client()
@@ -55,8 +66,8 @@ async def update_meeting_vectors_with_project_id(meeting_id: str, project_id: st
     """Update all vectors for a meeting with project_id.
 
     Args:
-        meeting_id: Meeting UUID.
-        project_id: Project UUID to assign.
+        meeting_id: Meeting int.
+        project_id: Project int to assign.
         collection_name: Qdrant collection name.
 
     Returns:
@@ -212,7 +223,7 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         publish_task_progress_sync(user_id, 10, "validating", "55s", "file_indexing", task_id)
 
         # Get file info
-        file = db.query(File).filter(File.id == uuid.UUID(file_id)).first()
+        file = db.query(File).filter(File.id == int(file_id)).first()
         if not file:
             raise Exception(f"File {file_id} not found")
 
@@ -268,7 +279,7 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
 
         # Create notification for task completion
         notification_data = NotificationCreate(
-            user_ids=[uuid.UUID(user_id)],
+            user_ids=[int(user_id)],
             type="task.file_indexing.completed",
             payload={
                 "task_id": task_id,
@@ -312,7 +323,7 @@ def index_file_task(self, file_id: str, user_id: str) -> Dict[str, Any]:
         raise
 
 
-def _get_meeting_member_ids(db, meeting_id: uuid.UUID, include_creator: bool = True):
+def _get_meeting_member_ids(db, meeting_id: int, include_creator: bool = True):
     members = []
     meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
     if not meeting:
@@ -335,7 +346,7 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
     task_id = self.request.id or f"process_audio_{audio_file_id}_{int(time.time())}"
     db = SessionLocal()
     try:
-        audio = db.query(AudioFile).filter(AudioFile.id == uuid.UUID(audio_file_id)).first()
+        audio = db.query(AudioFile).filter(AudioFile.id == int(audio_file_id)).first()
         if not audio:
             raise Exception(f"AudioFile {audio_file_id} not found")
 
@@ -356,7 +367,7 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
         _broadcast(75, "transcribing", "20s")
 
         # Perform real audio transcription
-        transcript = transcribe_audio_file(db, uuid.UUID(audio_file_id))
+        transcript = transcribe_audio_file(db, int(audio_file_id))
         if not transcript:
             raise Exception(f"Failed to transcribe audio file {audio_file_id}")
 
@@ -424,7 +435,7 @@ def process_audio_task(self, audio_file_id: str, actor_user_id: str) -> Dict[str
     except Exception:
         update_task_progress(task_id, actor_user_id, 0, "failed", task_type="audio_asr")
         try:
-            audio = db.query(AudioFile).filter(AudioFile.id == uuid.UUID(audio_file_id)).first()
+            audio = db.query(AudioFile).filter(AudioFile.id == int(audio_file_id)).first()
             if audio:
                 for uid in _get_meeting_member_ids(db, audio.meeting_id, include_creator=True):
                     publish_task_progress_sync(str(uid), 0, "failed", "", "audio_asr", task_id)
@@ -515,7 +526,7 @@ def process_chat_message(
     try:
         logger.info("[CHAT_PROCESS] Getting Agno DB for agent")
         # Get Agno DB for agent
-        agno_db = get_agno_postgres_db()
+        agno_db = get_agno_mysql_db()
         logger.success("[CHAT_PROCESS] Agno DB retrieved successfully")
 
         logger.info("[CHAT_PROCESS] Creating chat agent")
@@ -755,7 +766,7 @@ def process_chat_message(
         # Create notification for task completion
         logger.info("[CHAT_PROCESS] Creating completion notification")
         notification_data = NotificationCreate(
-            user_ids=[uuid.UUID(user_id_str)],
+            user_ids=[int(user_id_str)],
             type="task.chat_processing.completed",
             payload={
                 "conversation_id": conversation_id,
@@ -921,8 +932,8 @@ def send_bot_status_notification_task(bot_id: str, status: str, error: Optional[
     try:
         db = SessionLocal()
         try:
-            # Convert string bot_id to UUID
-            bot_uuid = uuid.UUID(bot_id)
+            # Convert string bot_id to int
+            bot_id = int(bot_id)
 
             # Run the async notification function
             import asyncio
@@ -933,10 +944,10 @@ def send_bot_status_notification_task(bot_id: str, status: str, error: Optional[
                 import concurrent.futures
 
                 with concurrent.futures.ThreadPoolExecutor() as executor:
-                    executor.submit(asyncio.run, send_bot_status_notification(db, bot_uuid, status, error))
+                    executor.submit(asyncio.run, send_bot_status_notification(db, bot_id, status, error))
             except RuntimeError:
                 # No running loop, create a new one
-                asyncio.run(send_bot_status_notification(db, bot_uuid, status, error))
+                asyncio.run(send_bot_status_notification(db, bot_id, status, error))
 
             logger.info(f"Bot status notification sent: bot_id={bot_id}, status={status}")
             return {"status": "success", "bot_id": bot_id, "notification_status": status}
@@ -972,8 +983,8 @@ def process_meeting_analysis_task(
 
     Args:
         transcript: Meeting transcript text
-        meeting_id: Meeting UUID
-        user_id: User UUID who triggered the analysis
+        meeting_id: Meeting int
+        user_id: User int who triggered the analysis
         custom_prompt: Optional custom prompt for note generation
 
     Returns:
@@ -995,7 +1006,7 @@ def process_meeting_analysis_task(
         # query for meeting start time from database
         db = SessionLocal()
         try:
-            meeting_obj = db.query(Meeting).filter(Meeting.id == uuid.UUID(meeting_id)).first()
+            meeting_obj = db.query(Meeting).filter(Meeting.id == int(meeting_id)).first()
             if meeting_obj and meeting_obj.start_time:
                 meeting_start_time = meeting_obj.start_time.isoformat()
                 meeting_title = meeting_obj.title or "Untitled Meeting"
@@ -1043,8 +1054,8 @@ def process_meeting_analysis_task(
             # Save results using the service layer
             save_meeting_analysis_results(
                 db=db,
-                meeting_id=uuid.UUID(meeting_id),
-                user_id=uuid.UUID(user_id),
+                meeting_id=int(meeting_id),
+                user_id=int(user_id),
                 meeting_note_content=analysis_result.get("meeting_note", ""),
                 task_items=analysis_result.get("task_items", []),
                 token_usage=analysis_result.get("token_usage", {}),
@@ -1116,7 +1127,7 @@ def process_meeting_analysis_task(
 
             try:
                 # Get meeting's project_id from database
-                meeting_obj = db.query(Meeting).filter(Meeting.id == uuid.UUID(meeting_id)).first()
+                meeting_obj = db.query(Meeting).filter(Meeting.id == int(meeting_id)).first()
                 project_ids = []
                 if meeting_obj and hasattr(meeting_obj, "projects") and meeting_obj.projects:
                     project_ids = [str(project_meeting.project_id) for project_meeting in meeting_obj.projects if project_meeting.project]
@@ -1136,8 +1147,8 @@ def process_meeting_analysis_task(
         try:
             db = SessionLocal()
             try:
-                meeting_obj = db.query(Meeting).filter(Meeting.id == uuid.UUID(meeting_id)).first()
-                user_obj = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
+                meeting_obj = db.query(Meeting).filter(Meeting.id == int(meeting_id)).first()
+                user_obj = db.query(User).filter(User.id == int(user_id)).first()
 
                 if meeting_obj and user_obj and user_obj.email:
                     from app.utils.email import send_meeting_note_email
@@ -1180,7 +1191,7 @@ def process_meeting_analysis_task(
         publish_task_progress_sync(user_id, 100, "completed", "0s", "meeting_analysis", task_id)
 
         notification_data = NotificationCreate(
-            user_ids=[uuid.UUID(user_id)],
+            user_ids=[int(user_id)],
             type="task.meeting_analysis.completed",
             payload={
                 "task_id": task_id,
@@ -1222,7 +1233,7 @@ def process_meeting_analysis_task(
         db = SessionLocal()
         try:
             notification_data = NotificationCreate(
-                user_ids=[uuid.UUID(user_id)],
+                user_ids=[int(user_id)],
                 type="task.meeting_analysis.failed",
                 payload={
                     "task_id": task_id,
@@ -1262,8 +1273,8 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
     - 100%: Completed
 
     Args:
-        transcript_id: Transcript UUID
-        user_id: User UUID who triggered the reindex
+        transcript_id: Transcript int
+        user_id: User int who triggered the reindex
 
     Returns:
         Dictionary with status, transcript_id, meeting_id
@@ -1283,7 +1294,7 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
 
         try:
             # Get transcript
-            transcript = db.query(Transcript).filter(Transcript.id == uuid.UUID(transcript_id)).first()
+            transcript = db.query(Transcript).filter(Transcript.id == int(transcript_id)).first()
             if not transcript:
                 raise Exception(f"Transcript {transcript_id} not found")
 
@@ -1372,7 +1383,7 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
 
             # Create notification
             notification_data = NotificationCreate(
-                user_ids=[uuid.UUID(user_id)],
+                user_ids=[int(user_id)],
                 type="task.transcript_reindex.completed",
                 payload={
                     "task_id": task_id,
@@ -1415,7 +1426,7 @@ def reindex_transcript_task(self, transcript_id: str, user_id: str) -> Dict[str,
         db = SessionLocal()
         try:
             notification_data = NotificationCreate(
-                user_ids=[uuid.UUID(user_id)],
+                user_ids=[int(user_id)],
                 type="task.transcript_reindex.failed",
                 payload={
                     "task_id": task_id,

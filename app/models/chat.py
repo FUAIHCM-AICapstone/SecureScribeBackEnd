@@ -1,10 +1,8 @@
-import uuid
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -23,9 +21,8 @@ class Conversation(SQLModel, table=True):
 
     __tablename__ = "conversations"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -33,9 +30,9 @@ class Conversation(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
 
-    user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
-    agno_session_id: str = Field(sa_column=Column(String, nullable=False))
-    title: Optional[str] = Field(default=None, sa_column=Column(String))
+    user_id: int = Field(foreign_key="users.id", nullable=False)
+    agno_session_id: str = Field(sa_column=Column(String(255), nullable=False))
+    title: Optional[str] = Field(default=None, sa_column=Column(String(255)))
     is_active: bool = Field(default=True, sa_column=Column(Boolean))
 
     # Relationships
@@ -48,17 +45,16 @@ class ChatMessage(SQLModel, table=True):
 
     __tablename__ = "chat_messages"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
         sa_column=Column(DateTime(timezone=True), nullable=False),
     )
 
-    conversation_id: uuid.UUID = Field(foreign_key="conversations.id", nullable=False)
-    message_type: str = Field(default=ChatMessageType.user, sa_column=Column(String))
+    conversation_id: int = Field(foreign_key="conversations.id", nullable=False)
+    message_type: str = Field(default=ChatMessageType.user, sa_column=Column(String(50)))
     content: str = Field(sa_column=Column(Text, nullable=False))
     mentions: Optional[list] = Field(default=None, sa_column=Column(JSON))
     message_metadata: Optional[dict] = Field(default=None, sa_column=Column(JSON))

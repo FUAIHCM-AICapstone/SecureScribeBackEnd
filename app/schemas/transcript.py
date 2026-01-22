@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import List, Optional
 
@@ -8,9 +7,9 @@ from app.schemas.common import ApiResponse, PaginatedResponse
 
 
 class TranscriptBase(BaseModel):
-    meeting_id: uuid.UUID
+    meeting_id: int
     content: Optional[str] = None
-    audio_concat_file_id: Optional[uuid.UUID] = None
+    audio_concat_file_id: Optional[int] = None
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
     total_tokens: Optional[int] = None
@@ -27,10 +26,10 @@ class TranscriptUpdate(BaseModel):
 
 
 class TranscriptResponse(BaseModel):
-    id: uuid.UUID
-    meeting_id: uuid.UUID
+    id: int
+    meeting_id: int
     content: Optional[str]
-    audio_concat_file_id: Optional[uuid.UUID]
+    audio_concat_file_id: Optional[int]
     extracted_text_for_search: Optional[str]
     qdrant_vector_id: Optional[str]
     input_tokens: Optional[int]
@@ -56,7 +55,7 @@ class BulkTranscriptCreate(BaseModel):
 
 
 class BulkTranscriptUpdateItem(BaseModel):
-    id: uuid.UUID
+    id: int
     updates: TranscriptUpdate
 
 
@@ -65,7 +64,7 @@ class BulkTranscriptUpdate(BaseModel):
 
 
 class BulkTranscriptDelete(BaseModel):
-    transcript_ids: List[uuid.UUID]
+    transcript_ids: List[int]
 
 
 class BulkTranscriptResponse(BaseModel):

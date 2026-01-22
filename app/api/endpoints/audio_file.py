@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -34,7 +33,7 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["Audio Files"])
 @router.post("/audio-files/upload", response_model=AudioFileApiResponse)
 def upload_audio_file(
     file: UploadFile = File(...),
-    meeting_id: Optional[uuid.UUID] = None,
+    meeting_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -102,7 +101,7 @@ def upload_audio_file(
 
 @router.get("/audio-files/{audio_id}", response_model=AudioFileApiResponse)
 def get_audio_file_endpoint(
-    audio_id: uuid.UUID,
+    audio_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -119,7 +118,7 @@ def get_audio_file_endpoint(
 
 @router.get("/meetings/{meeting_id}/audio-files")
 def get_meeting_audio_files(
-    meeting_id: uuid.UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -133,7 +132,7 @@ def get_meeting_audio_files(
 
 @router.put("/audio-files/{audio_id}", response_model=AudioFileApiResponse)
 def update_audio_file_endpoint(
-    audio_id: uuid.UUID,
+    audio_id: int,
     updates: AudioFileUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -151,7 +150,7 @@ def update_audio_file_endpoint(
 
 @router.delete("/audio-files/{audio_id}")
 def delete_audio_file_endpoint(
-    audio_id: uuid.UUID,
+    audio_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

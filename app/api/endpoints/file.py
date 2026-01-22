@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -44,8 +43,8 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["File"])
 @router.post("/files/upload", response_model=FileApiResponse)
 def upload_file_endpoint(
     file: UploadFile = File(...),
-    project_id: Optional[uuid.UUID] = None,
-    meeting_id: Optional[uuid.UUID] = None,
+    project_id: Optional[int] = None,
+    meeting_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -116,8 +115,8 @@ def get_files_endpoint(
     limit: int = 20,
     filename: Optional[str] = None,
     file_type: Optional[str] = None,
-    project_id: Optional[uuid.UUID] = None,
-    meeting_id: Optional[uuid.UUID] = None,
+    project_id: Optional[int] = None,
+    meeting_id: Optional[int] = None,
 ):
     try:
         filters = FileFilter(
@@ -157,7 +156,7 @@ def get_files_endpoint(
 
 @router.get("/files/{file_id}", response_model=FileApiResponse)
 def get_file_endpoint(
-    file_id: uuid.UUID,
+    file_id: int,
     download: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -206,7 +205,7 @@ def get_file_endpoint(
 
 @router.put("/files/{file_id}", response_model=FileApiResponse)
 def update_file_endpoint(
-    file_id: uuid.UUID,
+    file_id: int,
     updates: FileUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -246,7 +245,7 @@ def update_file_endpoint(
 
 @router.post("/files/{file_id}/move", response_model=FileApiResponse)
 async def move_file_endpoint(
-    file_id: uuid.UUID,
+    file_id: int,
     move_request: FileMoveRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -304,7 +303,7 @@ async def move_file_endpoint(
 
 @router.delete("/files/{file_id}", response_model=ApiResponse[dict])
 def delete_file_endpoint(
-    file_id: uuid.UUID,
+    file_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -328,7 +327,7 @@ def delete_file_endpoint(
 
 @router.get("/projects/{project_id}/files", response_model=FilesWithProjectPaginatedResponse)
 def get_project_files_endpoint(
-    project_id: uuid.UUID,
+    project_id: int,
     db: Session = Depends(get_db),
     filename: Optional[str] = None,
     current_user: User = Depends(get_current_user),
@@ -365,7 +364,7 @@ def get_project_files_endpoint(
 
 @router.get("/meetings/{meeting_id}/files", response_model=FilesWithMeetingPaginatedResponse)
 def get_meeting_files_endpoint(
-    meeting_id: uuid.UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = 1,

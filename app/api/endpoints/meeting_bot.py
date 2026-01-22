@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile
@@ -83,7 +82,7 @@ def get_meeting_bots_endpoint(
 
 @router.get("/meeting-bots/{bot_id}", response_model=ApiResponse[MeetingBotResponse])
 def get_meeting_bot_endpoint(
-    bot_id: uuid.UUID,
+    bot_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -103,7 +102,7 @@ def get_meeting_bot_endpoint(
 
 @router.get("/meetings/{meeting_id}/bot", response_model=ApiResponse[MeetingBotResponse])
 def get_meeting_bot_by_meeting_endpoint(
-    meeting_id: uuid.UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -123,7 +122,7 @@ def get_meeting_bot_by_meeting_endpoint(
 
 @router.put("/meeting-bots/{bot_id}", response_model=ApiResponse[MeetingBotResponse])
 def update_meeting_bot_endpoint(
-    bot_id: uuid.UUID,
+    bot_id: int,
     bot_data: MeetingBotUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -149,7 +148,7 @@ def update_meeting_bot_endpoint(
 
 @router.delete("/meeting-bots/{bot_id}", response_model=ApiResponse[dict])
 def delete_meeting_bot_endpoint(
-    bot_id: uuid.UUID,
+    bot_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -170,7 +169,7 @@ def delete_meeting_bot_endpoint(
 
 @router.post("/meeting-bots/{bot_id}/logs", response_model=ApiResponse[MeetingBotLogResponse])
 def create_bot_log_endpoint(
-    bot_id: uuid.UUID,
+    bot_id: int,
     log_data: MeetingBotLogCreate,
     db: Session = Depends(get_db),
 ):
@@ -188,7 +187,7 @@ def create_bot_log_endpoint(
 
 @router.get("/meeting-bots/{bot_id}/logs", response_model=PaginatedResponse[MeetingBotLogResponse])
 def get_bot_logs_endpoint(
-    bot_id: uuid.UUID,
+    bot_id: int,
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
@@ -209,7 +208,7 @@ def get_bot_logs_endpoint(
 
 @router.patch("/meeting-bots/{bot_id}/status", response_model=ApiResponse[MeetingBotResponse])
 def update_bot_status_endpoint(
-    bot_id: uuid.UUID,
+    bot_id: int,
     status: str,
     error: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -236,7 +235,7 @@ def update_bot_status_endpoint(
 
 @router.post("/meetings/{meeting_id}/bot/join", response_model=ApiResponse[MeetingBotJoinResponse], status_code=202)
 def join_meeting_bot_endpoint(
-    meeting_id: uuid.UUID,
+    meeting_id: int,
     request: MeetingBotJoinRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -244,7 +243,7 @@ def join_meeting_bot_endpoint(
 ):
     """Trigger meeting bot to join a meeting"""
     try:
-        # Validate meeting_id format (UUID validation is automatic via FastAPI)
+        # Validate meeting_id format (int validation is automatic via FastAPI)
 
         # Extract bearer token from Authorization header
         if not authorization:
@@ -273,8 +272,8 @@ def join_meeting_bot_endpoint(
             message=MessageConstants.MEETING_BOT_JOIN_TRIGGERED_SUCCESS,
             data=MeetingBotJoinResponse(
                 task_id=task_info["task_id"],
-                bot_id=uuid.UUID(task_info["bot_id"]),
-                meeting_id=uuid.UUID(task_info["meeting_id"]),
+                bot_id=int(task_info["bot_id"]),
+                meeting_id=int(task_info["meeting_id"]),
                 status=task_info["status"],
                 scheduled_start_time=task_info["scheduled_start_time"],
                 created_at=task_info["created_at"],
@@ -315,12 +314,12 @@ def bot_webhook_status_endpoint(
 
         logger.info("[WEBHOOK_STATUS] Authorization validation passed")
 
-        logger.debug("[WEBHOOK_STATUS] Step 2: Parsing bot UUID")
+        logger.debug("[WEBHOOK_STATUS] Step 2: Parsing bot int")
         try:
-            bot_uuid = uuid.UUID(botId)
-            logger.info(f"[WEBHOOK_STATUS] Bot UUID parsed successfully: {bot_uuid}")
+            bot_id = int(botId)
+            logger.info(f"[WEBHOOK_STATUS] Bot int parsed successfully: {bot_id}")
         except ValueError as e:
-            logger.error(f"[WEBHOOK_STATUS] ERROR: Invalid bot UUID format: {e}")
+            logger.error(f"[WEBHOOK_STATUS] ERROR: Invalid bot int format: {e}")
             raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
 
         logger.debug("[WEBHOOK_STATUS] Step 3: Parsing timestamps")
@@ -352,7 +351,7 @@ def bot_webhook_status_endpoint(
         logger.debug("[WEBHOOK_STATUS] Step 4: Updating bot status in database")
         updated_bot = update_bot_status(
             db,
-            bot_uuid,
+            bot_id,
             status,
             error,
             actual_start_time=start_time,
@@ -368,17 +367,17 @@ def bot_webhook_status_endpoint(
                 action="status_updated",
                 message=f"Status changed to: {status}" + (f" - {error}" if error else ""),
             )
-            create_bot_log(db, bot_uuid, log_data)
+            create_bot_log(db, bot_id, log_data)
             logger.info("[WEBHOOK_STATUS] Bot log created successfully")
 
             logger.info("[WEBHOOK_STATUS] BOT STATUS WEBHOOK COMPLETED SUCCESSFULLY")
             return ApiResponse(
                 success=True,
                 message=MessageConstants.MEETING_BOT_UPDATED_SUCCESS,
-                data={"bot_id": str(bot_uuid), "status": status},
+                data={"bot_id": str(bot_id), "status": status},
             )
         else:
-            logger.error(f"[WEBHOOK_STATUS] ERROR: Bot not found with ID: {bot_uuid}")
+            logger.error(f"[WEBHOOK_STATUS] ERROR: Bot not found with ID: {bot_id}")
             raise HTTPException(status_code=404, detail=MessageConstants.MEETING_BOT_NOT_FOUND)
 
     except HTTPException:
@@ -472,8 +471,8 @@ def bot_webhook_recording_endpoint(
             logger.info(f"[WEBHOOK_RECORDING] Processing status update for bot: {botId}")
 
             try:
-                bot_uuid = uuid.UUID(botId)
-                logger.info(f"[WEBHOOK_RECORDING] Bot UUID parsed: {bot_uuid}")
+                bot_id = int(botId)
+                logger.info(f"[WEBHOOK_RECORDING] Bot int parsed: {bot_id}")
 
                 logger.debug("[WEBHOOK_RECORDING] Step 3.1: Parsing timestamps for status update")
                 # Parse timestamps if provided
@@ -499,7 +498,7 @@ def bot_webhook_recording_endpoint(
                 logger.debug("[WEBHOOK_RECORDING] Step 3.2: Updating bot status in database")
                 updated_bot = update_bot_status(
                     db,
-                    bot_uuid,
+                    bot_id,
                     status,
                     error,
                     actual_start_time=start_time,
@@ -515,14 +514,14 @@ def bot_webhook_recording_endpoint(
                         action="status_updated",
                         message=f"Status changed to: {status}" + (f" - {error}" if error else ""),
                     )
-                    create_bot_log(db, bot_uuid, log_data)
+                    create_bot_log(db, bot_id, log_data)
                     logger.info("[WEBHOOK_RECORDING] Bot log created successfully")
                     result["bot_status_updated"] = True
                 else:
-                    logger.error(f"[WEBHOOK_RECORDING] ERROR: Bot not found: {bot_uuid}")
+                    logger.error(f"[WEBHOOK_RECORDING] ERROR: Bot not found: {bot_id}")
 
             except ValueError as e:
-                logger.error(f"[WEBHOOK_RECORDING] ERROR: Invalid bot UUID format: {e}")
+                logger.error(f"[WEBHOOK_RECORDING] ERROR: Invalid bot int format: {e}")
                 raise HTTPException(status_code=400, detail=MessageConstants.INVALID_REQUEST)
         else:
             logger.debug("[WEBHOOK_RECORDING] No bot status update requested")

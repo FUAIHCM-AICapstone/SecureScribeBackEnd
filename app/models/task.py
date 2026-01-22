@@ -1,9 +1,7 @@
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Column, DateTime, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, DateTime, Integer, String, Text, func
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -15,9 +13,8 @@ class Task(SQLModel, table=True):
 
     __tablename__ = "tasks"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -25,13 +22,13 @@ class Task(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    title: str = Field(sa_column=Column(String, nullable=False))
+    title: str = Field(sa_column=Column(String(255), nullable=False))
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
-    creator_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
-    assignee_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
-    status: str = Field(default="todo", sa_column=Column(String))
-    priority: str = Field(default="Trung bình", sa_column=Column(String))
-    meeting_id: Optional[uuid.UUID] = Field(default=None, foreign_key="meetings.id")
+    creator_id: int = Field(foreign_key="users.id", nullable=False)
+    assignee_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    status: str = Field(default="todo", sa_column=Column(String(50)))
+    priority: str = Field(default="Trung bình", sa_column=Column(String(50)))
+    meeting_id: Optional[int] = Field(default=None, foreign_key="meetings.id")
     due_date: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     reminder_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
 
@@ -53,8 +50,8 @@ class TaskProject(SQLModel, table=True):
 
     __tablename__ = "tasks_projects"
 
-    task_id: uuid.UUID = Field(foreign_key="tasks.id", primary_key=True)
-    project_id: uuid.UUID = Field(foreign_key="projects.id", primary_key=True)
+    task_id: int = Field(foreign_key="tasks.id", primary_key=True)
+    project_id: int = Field(foreign_key="projects.id", primary_key=True)
 
     # Relationships
     task: "Task" = Relationship(

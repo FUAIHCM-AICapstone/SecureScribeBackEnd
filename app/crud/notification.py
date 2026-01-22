@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -8,7 +7,7 @@ from app.models.notification import Notification
 from app.models.user import User, UserDevice
 
 
-def crud_get_notification(db: Session, notification_id: uuid.UUID = None, user_id: uuid.UUID = None, is_read: Optional[bool] = None, order_by: str = "created_at", direction: str = "desc", page: int = 1, limit: int = 20):
+def crud_get_notification(db: Session, notification_id: int = None, user_id: int = None, is_read: Optional[bool] = None, order_by: str = "created_at", direction: str = "desc", page: int = 1, limit: int = 20):
     if notification_id and user_id:
         return db.query(Notification).filter(Notification.id == notification_id, Notification.user_id == user_id).first()
     if user_id:
@@ -25,7 +24,7 @@ def crud_get_notification(db: Session, notification_id: uuid.UUID = None, user_i
     return None
 
 
-def crud_create_notification(db: Session, user_id: uuid.UUID, **kwargs) -> Notification:
+def crud_create_notification(db: Session, user_id: int, **kwargs) -> Notification:
     notification = Notification(user_id=user_id, **kwargs)
     db.add(notification)
     db.commit()
@@ -33,7 +32,7 @@ def crud_create_notification(db: Session, user_id: uuid.UUID, **kwargs) -> Notif
     return notification
 
 
-def crud_create_notifications_bulk(db: Session, user_ids: List[uuid.UUID], **kwargs) -> List[Notification]:
+def crud_create_notifications_bulk(db: Session, user_ids: List[int], **kwargs) -> List[Notification]:
     notifications = []
     for user_id in user_ids:
         notification = Notification(user_id=user_id, **kwargs)
@@ -51,7 +50,7 @@ def crud_create_global_notification(db: Session, **kwargs) -> List[Notification]
     return crud_create_notifications_bulk(db, user_ids, **kwargs)
 
 
-def crud_update_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID, **kwargs) -> Optional[Notification]:
+def crud_update_notification(db: Session, notification_id: int, user_id: int, **kwargs) -> Optional[Notification]:
     notification = crud_get_notification(db, notification_id, user_id)
     if not notification:
         return None
@@ -64,7 +63,7 @@ def crud_update_notification(db: Session, notification_id: uuid.UUID, user_id: u
     return notification
 
 
-def crud_delete_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def crud_delete_notification(db: Session, notification_id: int, user_id: int) -> bool:
     notification = crud_get_notification(db, notification_id, user_id)
     if not notification:
         return False
@@ -73,7 +72,7 @@ def crud_delete_notification(db: Session, notification_id: uuid.UUID, user_id: u
     return True
 
 
-def crud_get_user_fcm_tokens(db: Session, user_ids: List[uuid.UUID]) -> List[str]:
+def crud_get_user_fcm_tokens(db: Session, user_ids: List[int]) -> List[str]:
     tokens = []
     for user_id in user_ids:
         devices = db.query(UserDevice).filter(UserDevice.user_id == user_id, UserDevice.is_active == True).all()

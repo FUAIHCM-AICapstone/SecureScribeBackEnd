@@ -1,19 +1,16 @@
-import logging
 from typing import Optional
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.jobs.celery_worker import celery_app
 from app.models.meeting import Meeting, MeetingBot
+from app.utils.logging import logger
 from app.utils.redis import publish_to_user_channel
-
-logger = logging.getLogger(__name__)
 
 
 async def send_bot_status_notification(
     db: Session,
-    bot_id: UUID,
+    bot_id: int,
     status: str,
     error: Optional[str] = None,
 ) -> bool:

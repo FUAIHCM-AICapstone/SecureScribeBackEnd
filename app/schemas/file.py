@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import List, Optional
 
@@ -12,8 +11,8 @@ class FileBase(BaseModel):
     mime_type: Optional[str] = None
     size_bytes: Optional[int] = None
     file_type: Optional[str] = None
-    project_id: Optional[uuid.UUID] = None
-    meeting_id: Optional[uuid.UUID] = None
+    project_id: Optional[int] = None
+    meeting_id: Optional[int] = None
 
 
 class FileCreate(FileBase):
@@ -26,9 +25,9 @@ class FileUpdate(BaseModel):
 
 
 class FileResponse(FileBase):
-    id: uuid.UUID
+    id: int
     storage_url: Optional[str] = None
-    uploaded_by: Optional[uuid.UUID] = None
+    uploaded_by: Optional[int] = None
     extracted_text: Optional[str] = None
     created_at: str
     updated_at: Optional[str] = None
@@ -61,14 +60,14 @@ class FileFilter(BaseModel):
     filename: Optional[str] = None
     mime_type: Optional[str] = None
     file_type: Optional[str] = None
-    project_id: Optional[uuid.UUID] = None
-    meeting_id: Optional[uuid.UUID] = None
-    uploaded_by: Optional[uuid.UUID] = None
+    project_id: Optional[int] = None
+    meeting_id: Optional[int] = None
+    uploaded_by: Optional[int] = None
 
 
 class FileMoveRequest(BaseModel):
-    project_id: Optional[uuid.UUID] = None
-    meeting_id: Optional[uuid.UUID] = None
+    project_id: Optional[int] = None
+    meeting_id: Optional[int] = None
 
 
 class FileApiResponse(ApiResponse[FileResponse]):

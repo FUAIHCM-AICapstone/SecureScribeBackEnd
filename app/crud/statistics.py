@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional, Tuple
-from uuid import UUID
 
 from sqlalchemy import and_, case, desc, func, or_
 from sqlmodel import Session, select
@@ -118,7 +117,7 @@ def crud_get_meeting_chart_data(db: Session, scope_filter: Any, start_date: Opti
     return db.exec(chart_query).all()
 
 
-def crud_get_project_aggregates(db: Session, user_id: UUID) -> Tuple[int, int, int, int, int]:
+def crud_get_project_aggregates(db: Session, user_id: int) -> Tuple[int, int, int, int, int]:
     query = (
         select(
             func.count(Project.id).label("total"),
@@ -136,7 +135,7 @@ def crud_get_project_aggregates(db: Session, user_id: UUID) -> Tuple[int, int, i
     return (result.total or 0, result.active or 0, result.archived or 0, result.owned or 0, result.member or 0)
 
 
-def crud_get_storage_aggregates(db: Session, user_id: UUID) -> Tuple[int, int]:
+def crud_get_storage_aggregates(db: Session, user_id: int) -> Tuple[int, int]:
     query = select(
         func.count(File.id).label("count"),
         func.coalesce(func.sum(File.size_bytes), 0).label("size_bytes"),
@@ -145,7 +144,7 @@ def crud_get_storage_aggregates(db: Session, user_id: UUID) -> Tuple[int, int]:
     return (result.count or 0, result.size_bytes or 0)
 
 
-def crud_get_file_type_breakdown(db: Session, user_id: UUID) -> dict:
+def crud_get_file_type_breakdown(db: Session, user_id: int) -> dict:
     type_query = (
         select(
             File.mime_type,
@@ -164,7 +163,7 @@ def crud_get_file_type_breakdown(db: Session, user_id: UUID) -> dict:
     return {mime: cnt for mime, cnt in type_results if mime}
 
 
-def crud_get_meetings_by_time(db: Session, user_id: UUID, meeting_ids_in_projects, is_upcoming: bool = True, limit: int = 5) -> List[Meeting]:
+def crud_get_meetings_by_time(db: Session, user_id: int, meeting_ids_in_projects, is_upcoming: bool = True, limit: int = 5) -> List[Meeting]:
     now = datetime.now(timezone.utc)
     query = select(Meeting).where(
         or_(Meeting.created_by == user_id, Meeting.id.in_(meeting_ids_in_projects)),
@@ -177,7 +176,7 @@ def crud_get_meetings_by_time(db: Session, user_id: UUID, meeting_ids_in_project
     return db.exec(query.limit(limit)).all()
 
 
-def crud_get_priority_tasks(db: Session, user_id: UUID) -> List[Task]:
+def crud_get_priority_tasks(db: Session, user_id: int) -> List[Task]:
     now = datetime.now(timezone.utc)
     tasks_query = (
         select(Task)
@@ -194,7 +193,7 @@ def crud_get_priority_tasks(db: Session, user_id: UUID) -> List[Task]:
     return db.exec(tasks_query).all()
 
 
-def crud_get_active_projects(db: Session, user_id: UUID, member_count_subq, task_count_subq, meeting_count_subq):
+def crud_get_active_projects(db: Session, user_id: int, member_count_subq, task_count_subq, meeting_count_subq):
     projects_query = (
         select(
             Project,
@@ -257,7 +256,7 @@ def crud_get_summary_meeting_counts(db: Session, scope_filter: Any) -> Tuple[int
     return (result.total or 0, result.upcoming_24h or 0)
 
 
-def crud_get_summary_project_count(db: Session, user_id: UUID) -> int:
+def crud_get_summary_project_count(db: Session, user_id: int) -> int:
     project_query = (
         select(func.count(Project.id))
         .join(UserProject)

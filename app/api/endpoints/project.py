@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -49,7 +48,6 @@ from app.utils.project_formatters import (
 )
 
 router = APIRouter(prefix=settings.API_V1_STR, tags=["Project"])
-
 
 # ===== PROJECT CRUD ENDPOINTS =====
 
@@ -106,22 +104,22 @@ def get_projects_endpoint(
     - dir: Sort direction (default: desc)
     """
     try:
-        # Parse UUID fields
-        created_by_uuid = None
+        # Parse int fields
+        created_by_id = None
         if created_by:
             try:
-                created_by_uuid = uuid.UUID(created_by)
+                created_by_id = int(created_by)
             except ValueError:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.PROJECT_INVALID_UUID_FORMAT)
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.PROJECT_INVALID_int_FORMAT)
 
-        member_id_uuid = current_user.id
+        member_id = current_user.id
 
         # Create filter object
         filters = ProjectFilter(
             name=name,
             is_archived=is_archived,
-            created_by=created_by_uuid,
-            member_id=member_id_uuid,
+            created_by=created_by_id,
+            member_id=member_id,
             created_at_gte=created_at_gte,
             created_at_lte=created_at_lte,
         )
@@ -155,7 +153,7 @@ def get_projects_endpoint(
 
 @router.get("/projects/{project_id}", response_model=ProjectWithMembersApiResponse)
 def get_project_endpoint(
-    project_id: uuid.UUID,
+    project_id: int,
     include_members: bool = Query(True),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -192,7 +190,7 @@ def get_project_endpoint(
 
 @router.put("/projects/{project_id}", response_model=ProjectApiResponse)
 def update_project_endpoint(
-    project_id: uuid.UUID,
+    project_id: int,
     updates: ProjectUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -226,7 +224,7 @@ def update_project_endpoint(
 
 @router.delete("/projects/{project_id}", response_model=ApiResponse[dict])
 def delete_project_endpoint(
-    project_id: uuid.UUID,
+    project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -262,7 +260,7 @@ def delete_project_endpoint(
 
 @router.post("/projects/{project_id}/members/bulk", response_model=BulkUserProjectResponse)
 def bulk_add_members_endpoint(
-    project_id: uuid.UUID,
+    project_id: int,
     bulk_data: BulkUserProjectCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -299,7 +297,7 @@ def bulk_add_members_endpoint(
 
 @router.delete("/projects/{project_id}/members/bulk", response_model=BulkUserProjectResponse)
 def bulk_remove_members_endpoint(
-    project_id: uuid.UUID,
+    project_id: int,
     user_ids: str = Query(..., description="Comma-separated list of user IDs to remove"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -313,7 +311,7 @@ def bulk_remove_members_endpoint(
         if not user_role or user_role not in ["admin", "owner"]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=MessageConstants.ADMIN_ACCESS_REQUIRED)
 
-        # Parse comma-separated UUIDs
+        # Parse comma-separated ints
         if not user_ids.strip():
             # Empty list - return success with no operations
             return BulkUserProjectResponse(
@@ -326,9 +324,9 @@ def bulk_remove_members_endpoint(
             )
 
         try:
-            user_id_list = [uuid.UUID(uid.strip()) for uid in user_ids.split(",") if uid.strip()]
+            user_id_list = [int(uid.strip()) for uid in user_ids.split(",") if uid.strip()]
         except ValueError as e:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"Invalid UUID format: {str(e)}")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"Invalid int format: {str(e)}")
 
         # Prevent removing yourself if you're the only admin
         if current_user.id in user_id_list:
@@ -363,7 +361,7 @@ def bulk_remove_members_endpoint(
 
 @router.post("/projects/{project_id}/members", response_model=UserProjectApiResponse)
 def add_member_to_project_endpoint(
-    project_id: uuid.UUID,
+    project_id: int,
     member_data: UserProjectCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -397,8 +395,8 @@ def add_member_to_project_endpoint(
 
 @router.delete("/projects/{project_id}/members/{user_id}", response_model=ApiResponse[dict])
 def remove_member_from_project_endpoint(
-    project_id: uuid.UUID,
-    user_id: uuid.UUID,
+    project_id: int,
+    user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -447,8 +445,8 @@ def remove_member_from_project_endpoint(
 
 @router.put("/projects/{project_id}/members/{user_id}", response_model=UserProjectApiResponse)
 def update_member_role_endpoint(
-    project_id: uuid.UUID,
-    user_id: uuid.UUID,
+    project_id: int,
+    user_id: int,
     role_update: UserProjectUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -511,7 +509,7 @@ def get_my_project_stats_endpoint(
 
 @router.post("/projects/{project_id}/me/request-role", response_model=ApiResponse[dict])
 def request_role_change_endpoint(
-    project_id: uuid.UUID,
+    project_id: int,
     role_request: UserProjectUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

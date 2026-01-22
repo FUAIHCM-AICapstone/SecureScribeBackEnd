@@ -1,4 +1,3 @@
-import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -12,15 +11,15 @@ class BaseDomainEvent:
     """
 
     event_name: str
-    actor_user_id: uuid.UUID
+    actor_user_id: int
     target_type: str
-    target_id: Optional[uuid.UUID] = None
+    target_id: Optional[int] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
-        # Coerce UUIDs and datetime into string/iso for JSON safety
+        # Coerce IDs and datetime into string/iso for JSON safety
         d["actor_user_id"] = str(self.actor_user_id) if self.actor_user_id else None
         if self.target_id is not None:
             d["target_id"] = str(self.target_id)
@@ -31,9 +30,9 @@ class BaseDomainEvent:
     def from_dict(data: Dict[str, Any]) -> "BaseDomainEvent":
         return BaseDomainEvent(
             event_name=data.get("event_name"),
-            actor_user_id=uuid.UUID(data["actor_user_id"]) if data.get("actor_user_id") else None,
+            actor_user_id=int(data["actor_user_id"]) if data.get("actor_user_id") else None,
             target_type=data.get("target_type"),
-            target_id=uuid.UUID(data["target_id"]) if data.get("target_id") else None,
+            target_id=int(data["target_id"]) if data.get("target_id") else None,
             metadata=data.get("metadata", {}) or {},
             timestamp=datetime.fromisoformat(data["timestamp"]) if data.get("timestamp") else datetime.now(timezone.utc),
         )

@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -6,7 +5,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 
 
 class FileResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     filename: Optional[str]
     mime_type: Optional[str]
     size_bytes: Optional[int]
@@ -20,7 +19,7 @@ class FileResponse(BaseModel):
 
 
 class AudioFileResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     file_url: Optional[str]
     seq_order: Optional[int]
     duration_seconds: Optional[int]
@@ -33,7 +32,7 @@ class AudioFileResponse(BaseModel):
 
 
 class TagResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     name: str
     scope: str
     created_at: datetime
@@ -44,7 +43,7 @@ class TagResponse(BaseModel):
 
 
 class UserDeviceResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     device_name: Optional[str]
     device_type: Optional[str]
     last_active_at: Optional[datetime]
@@ -57,7 +56,7 @@ class UserDeviceResponse(BaseModel):
 
 
 class ProjectResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     name: str
     description: Optional[str]
     is_archived: bool
@@ -78,7 +77,7 @@ class UserProjectResponse(BaseModel):
 
 
 class MeetingResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     title: Optional[str]
     description: Optional[str]
     url: Optional[str]
@@ -92,7 +91,7 @@ class MeetingResponse(BaseModel):
 
 
 class TaskResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     title: str
     description: Optional[str]
     status: str
@@ -105,7 +104,7 @@ class TaskResponse(BaseModel):
 
 
 class AuditLogResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     action: Optional[str]
     target_type: Optional[str]
     target_id: Optional[str]
@@ -118,10 +117,10 @@ class AuditLogResponse(BaseModel):
 
 
 class MeetingNoteResponse(BaseModel):
-    id: uuid.UUID
-    meeting_id: uuid.UUID
+    id: int
+    meeting_id: int
     content: Optional[str]
-    last_editor_id: Optional[uuid.UUID]
+    last_editor_id: Optional[int]
     last_edited_at: Optional[datetime]
     input_tokens: Optional[int]
     output_tokens: Optional[int]
@@ -134,7 +133,7 @@ class MeetingNoteResponse(BaseModel):
 
 
 class MeetingBotResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     status: str
     meeting_url: Optional[str]
     created_at: datetime
@@ -145,7 +144,7 @@ class MeetingBotResponse(BaseModel):
 
 
 class UserIdentityResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     provider: str
     provider_user_id: str
     provider_email: Optional[str]
@@ -187,7 +186,7 @@ class BulkUserCreate(BaseModel):
 
 
 class BulkUserUpdateItem(BaseModel):
-    id: uuid.UUID
+    id: int
     updates: UserUpdate
 
 
@@ -196,12 +195,12 @@ class BulkUserUpdate(BaseModel):
 
 
 class BulkUserDelete(BaseModel):
-    user_ids: List[uuid.UUID]
+    user_ids: List[int]
 
 
 class BulkOperationResult(BaseModel):
     success: bool
-    id: Optional[uuid.UUID] = None
+    id: Optional[int] = None
     error: Optional[str] = None
 
 
@@ -215,7 +214,7 @@ class BulkUserResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     email: str
     name: Optional[str]
     avatar_url: Optional[str]

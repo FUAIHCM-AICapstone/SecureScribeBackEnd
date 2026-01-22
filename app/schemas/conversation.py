@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import List, Optional
-from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -24,8 +23,8 @@ class ConversationUpdate(BaseModel):
 class ConversationResponse(BaseModel):
     """Schema for conversation in API responses"""
 
-    id: UUID
-    user_id: UUID
+    id: int
+    user_id: int
     title: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -39,8 +38,8 @@ class ConversationResponse(BaseModel):
 class ConversationWithMessagesResponse(BaseModel):
     """Schema for conversation with messages"""
 
-    id: UUID
-    user_id: UUID
+    id: int
+    user_id: int
     title: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None

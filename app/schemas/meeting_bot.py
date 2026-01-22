@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import List, Optional
 
@@ -6,7 +5,7 @@ from pydantic import BaseModel, field_validator
 
 
 class MeetingBotCreate(BaseModel):
-    meeting_id: uuid.UUID
+    meeting_id: int
     scheduled_start_time: Optional[datetime] = None
     meeting_url: Optional[str] = None
 
@@ -21,7 +20,7 @@ class MeetingBotUpdate(BaseModel):
 
 
 class MeetingBotLogResponse(BaseModel):
-    id: uuid.UUID
+    id: int
     action: Optional[str]
     message: Optional[str]
     created_at: datetime
@@ -31,8 +30,8 @@ class MeetingBotLogResponse(BaseModel):
 
 
 class MeetingBotResponse(BaseModel):
-    id: uuid.UUID
-    meeting_id: uuid.UUID
+    id: int
+    meeting_id: int
     meeting: Optional[dict] = None
     scheduled_start_time: Optional[datetime]
     actual_start_time: Optional[datetime]
@@ -41,7 +40,7 @@ class MeetingBotResponse(BaseModel):
     meeting_url: Optional[str]
     retry_count: int
     last_error: Optional[str]
-    created_by: uuid.UUID
+    created_by: int
     created_at: datetime
     updated_at: Optional[datetime]
     logs: List[MeetingBotLogResponse] = []
@@ -74,8 +73,8 @@ class MeetingBotJoinResponse(BaseModel):
     """Response schema for bot join operation"""
 
     task_id: str
-    bot_id: uuid.UUID
-    meeting_id: uuid.UUID
+    bot_id: int
+    meeting_id: int
     status: str
     scheduled_start_time: Optional[datetime] = None
     created_at: datetime

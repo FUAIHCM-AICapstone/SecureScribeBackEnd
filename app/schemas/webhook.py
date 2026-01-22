@@ -1,8 +1,6 @@
-import uuid
-
 from pydantic import BaseModel, HttpUrl
 
 
 class WebhookAudioRequest(BaseModel):
-    meeting_id: uuid.UUID
+    meeting_id: int
     file_url: HttpUrl

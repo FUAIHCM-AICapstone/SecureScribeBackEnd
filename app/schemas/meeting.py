@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import List, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -10,7 +9,7 @@ from .user import MeetingNoteResponse, UserResponse
 
 
 class ProjectResponse(BaseModel):
-    id: UUID
+    id: int
     name: str
     description: Optional[str] = None
     is_archived: bool
@@ -27,7 +26,7 @@ class MeetingCreate(BaseModel):
     url: Optional[str] = None
     start_time: Optional[datetime] = None
     is_personal: bool = False
-    project_ids: List[UUID] = Field(default_factory=list)
+    project_ids: List[int] = Field(default_factory=list)
 
 
 class MeetingUpdate(BaseModel):
@@ -46,18 +45,18 @@ class MeetingFilter(BaseModel):
     start_time_lte: Optional[datetime] = None
     status: Optional[str] = None
     is_personal: Optional[bool] = None
-    created_by: Optional[UUID] = None
-    project_id: Optional[UUID] = None
-    tag_ids: List[UUID] = Field(default_factory=list)
+    created_by: Optional[int] = None
+    project_id: Optional[int] = None
+    tag_ids: List[int] = Field(default_factory=list)
 
 
 class MeetingResponse(BaseModel):
-    id: UUID
+    id: int
     title: Optional[str] = None
     description: Optional[str] = None
     url: Optional[str] = None
     start_time: Optional[datetime] = None
-    created_by: UUID
+    created_by: int
     is_personal: bool
     status: str
     is_deleted: bool
@@ -85,11 +84,11 @@ MeetingWithProjectsApiResponse = ApiResponse[MeetingWithProjects]
 
 # --- Audio files ---
 class AudioFileItem(BaseModel):
-    id: UUID
+    id: int
     file_url: Optional[str] = None
     seq_order: Optional[int] = None
     duration_seconds: Optional[int] = None
-    uploaded_by: UUID
+    uploaded_by: int
     created_at: datetime
     can_access: bool = True
 

@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -77,31 +76,31 @@ def get_meetings_endpoint(
     status: Optional[str] = Query(None),
     is_personal: Optional[bool] = Query(None),
     created_by: Optional[str] = Query(None),
-    project_id: Optional[uuid.UUID] = Query(None),
+    project_id: Optional[int] = Query(None),
     tag_ids: str = Query("", description="Comma-separated tag IDs"),
 ):
     """Get meetings with filtering and pagination"""
 
     try:
-        # Parse UUID fields
-        created_by_uuid = None
+        # Parse int fields
+        created_by_id = None
         if created_by:
             try:
-                created_by_uuid = uuid.UUID(created_by)
+                created_by_id = int(created_by)
             except ValueError:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid created_by UUID format")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid created_by int format")
 
         # Parse tag IDs
         tag_id_list = []
         if tag_ids.strip():
-            tag_id_list = [uuid.UUID(tid.strip()) for tid in tag_ids.split(",") if tid.strip()]
+            tag_id_list = [int(tid.strip()) for tid in tag_ids.split(",") if tid.strip()]
 
         # Create filter object
         filters = MeetingFilter(
             title=title,
             status=status,
             is_personal=is_personal,
-            created_by=created_by_uuid,
+            created_by=created_by_id,
             tag_ids=tag_id_list,
             project_id=project_id,
         )
@@ -126,7 +125,7 @@ def get_meetings_endpoint(
 
 @router.get("/meetings/{meeting_id}", response_model=MeetingWithProjectsApiResponse)
 def get_meeting_endpoint(
-    meeting_id: uuid.UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -170,7 +169,7 @@ def get_meeting_endpoint(
 @router.put("/meetings/{meeting_id}", response_model=MeetingApiResponse)
 def update_meeting_endpoint(
     updates: MeetingUpdate,
-    meeting_id: uuid.UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -197,7 +196,7 @@ def update_meeting_endpoint(
 
 @router.delete("/meetings/{meeting_id}", response_model=ApiResponse[dict])
 def delete_meeting_endpoint(
-    meeting_id: uuid.UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -222,8 +221,8 @@ def delete_meeting_endpoint(
 
 @router.post("/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict])
 def add_meeting_to_project_endpoint(
-    project_id: uuid.UUID,
-    meeting_id: uuid.UUID,
+    project_id: int,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -246,8 +245,8 @@ def add_meeting_to_project_endpoint(
 
 @router.delete("/projects/{project_id}/meetings/{meeting_id}", response_model=ApiResponse[dict])
 def remove_meeting_from_project_endpoint(
-    project_id: uuid.UUID,
-    meeting_id: uuid.UUID,
+    project_id: int,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -270,7 +269,7 @@ def remove_meeting_from_project_endpoint(
 
 @router.post("/meetings/{meeting_id}/audio-files", response_model=ApiResponse[dict])
 def upload_meeting_audio_endpoint(
-    meeting_id: uuid.UUID,
+    meeting_id: int,
     file: UploadFile = File(...),
     seq_order: Optional[int] = Query(None),
     db: Session = Depends(get_db),
@@ -334,7 +333,7 @@ def upload_meeting_audio_endpoint(
     response_model=MeetingAudioFilesPaginatedResponse,
 )
 def list_meeting_audio_endpoint(
-    meeting_id: uuid.UUID,
+    meeting_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),

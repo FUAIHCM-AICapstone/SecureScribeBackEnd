@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
@@ -16,7 +15,7 @@ def crud_create_file(db: Session, **file_data) -> File:
     return file
 
 
-def crud_get_file(db: Session, file_id: uuid.UUID) -> Optional[File]:
+def crud_get_file(db: Session, file_id: int) -> Optional[File]:
     return db.query(File).filter(File.id == file_id).first()
 
 
@@ -47,7 +46,7 @@ def crud_get_files(db: Session, filters: dict = None, **kwargs) -> Tuple[List[Fi
     return files, total
 
 
-def crud_update_file(db: Session, file_id: uuid.UUID, **updates) -> Optional[File]:
+def crud_update_file(db: Session, file_id: int, **updates) -> Optional[File]:
     file = crud_get_file(db, file_id)
     if not file:
         return None
@@ -59,7 +58,7 @@ def crud_update_file(db: Session, file_id: uuid.UUID, **updates) -> Optional[Fil
     return file
 
 
-def crud_delete_file(db: Session, file_id: uuid.UUID) -> bool:
+def crud_delete_file(db: Session, file_id: int) -> bool:
     file = crud_get_file(db, file_id)
     if not file:
         return False
@@ -68,7 +67,7 @@ def crud_delete_file(db: Session, file_id: uuid.UUID) -> bool:
     return True
 
 
-def crud_check_file_access(db: Session, file: File, user_id: uuid.UUID) -> bool:
+def crud_check_file_access(db: Session, file: File, user_id: int) -> bool:
     if file.uploaded_by == user_id:
         return True
     if file.project_id:
@@ -76,9 +75,9 @@ def crud_check_file_access(db: Session, file: File, user_id: uuid.UUID) -> bool:
     return False
 
 
-def crud_check_user_project_role(db: Session, user_id: uuid.UUID, project_id: uuid.UUID, roles: List[str]) -> bool:
+def crud_check_user_project_role(db: Session, user_id: int, project_id: int, roles: List[str]) -> bool:
     return db.query(UserProject).filter(UserProject.user_id == user_id, UserProject.project_id == project_id, UserProject.role.in_(roles)).first() is not None
 
 
-def crud_get_project_ids_for_meeting(db: Session, meeting_id: uuid.UUID) -> List[uuid.UUID]:
+def crud_get_project_ids_for_meeting(db: Session, meeting_id: int) -> List[int]:
     return [id for (id,) in db.query(ProjectMeeting.project_id).filter(ProjectMeeting.meeting_id == meeting_id).all()]

@@ -1,5 +1,4 @@
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -12,12 +11,12 @@ from app.services.meeting import get_meeting
 from app.services.task import create_task
 
 
-def get_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> Optional[Any]:
+def get_meeting_note(db: Session, meeting_id: int, user_id: int) -> Optional[Any]:
     get_meeting(db, meeting_id, user_id, raise_404=True)
     return crud_get_meeting_note(db, meeting_id)
 
 
-def process_and_persist_task_items(db: Session, meeting_id: UUID, user_id: UUID, task_items: List[Dict[str, Any]]) -> List[Task]:
+def process_and_persist_task_items(db: Session, meeting_id: int, user_id: int, task_items: List[Dict[str, Any]]) -> List[Task]:
     created_tasks = []
     for idx, task_item in enumerate(task_items):
         item_dict = task_item.model_dump() if hasattr(task_item, "model_dump") else task_item
@@ -29,7 +28,7 @@ def process_and_persist_task_items(db: Session, meeting_id: UUID, user_id: UUID,
     return created_tasks
 
 
-def update_meeting_note(db: Session, meeting_id: UUID, user_id: UUID, content: str) -> Optional[Any]:
+def update_meeting_note(db: Session, meeting_id: int, user_id: int, content: str) -> Optional[Any]:
     note = get_meeting_note(db, meeting_id, user_id)
     if not note:
         return None
@@ -40,11 +39,11 @@ def update_meeting_note(db: Session, meeting_id: UUID, user_id: UUID, content: s
     return note
 
 
-def delete_meeting_tasks(db: Session, meeting_id: UUID) -> int:
+def delete_meeting_tasks(db: Session, meeting_id: int) -> int:
     return crud_delete_meeting_tasks(db, meeting_id)
 
 
-def delete_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> bool:
+def delete_meeting_note(db: Session, meeting_id: int, user_id: int) -> bool:
     note = get_meeting_note(db, meeting_id, user_id)
     if not note:
         return False
@@ -54,7 +53,7 @@ def delete_meeting_note(db: Session, meeting_id: UUID, user_id: UUID) -> bool:
     return False
 
 
-def save_meeting_analysis_results(db: Session, meeting_id: UUID, user_id: UUID, meeting_note_content: str, task_items: List[Dict[str, Any]], token_usage: Dict[str, Any] = None) -> Dict[str, Any]:
+def save_meeting_analysis_results(db: Session, meeting_id: int, user_id: int, meeting_note_content: str, task_items: List[Dict[str, Any]], token_usage: Dict[str, Any] = None) -> Dict[str, Any]:
     existing_note = crud_get_meeting_note(db, meeting_id)
     is_regeneration = existing_note is not None
     token_usage = token_usage or {}

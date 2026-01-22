@@ -1,5 +1,3 @@
-import uuid
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -62,7 +60,7 @@ def get_user_conversations_endpoint(
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationApiResponse)
 def get_conversation_endpoint(
-    conversation_id: uuid.UUID,
+    conversation_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -76,7 +74,7 @@ def get_conversation_endpoint(
 
 @router.put("/conversations/{conversation_id}", response_model=ConversationApiResponse)
 def update_conversation_endpoint(
-    conversation_id: uuid.UUID,
+    conversation_id: int,
     update_data: ConversationUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -91,7 +89,7 @@ def update_conversation_endpoint(
 
 @router.delete("/conversations/{conversation_id}", response_model=ApiResponse[None])
 def delete_conversation_endpoint(
-    conversation_id: uuid.UUID,
+    conversation_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -105,7 +103,7 @@ def delete_conversation_endpoint(
 
 @router.get("/conversations/{conversation_id}/messages", response_model=ConversationWithMessagesApiResponse)
 def get_conversation_with_messages_endpoint(
-    conversation_id: uuid.UUID,
+    conversation_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     limit: int = Query(50, ge=1, le=200),

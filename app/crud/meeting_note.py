@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 from typing import Optional
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -8,11 +7,11 @@ from app.models.meeting import MeetingNote
 from app.models.task import Task
 
 
-def crud_get_meeting_note(db: Session, meeting_id: UUID) -> Optional[MeetingNote]:
+def crud_get_meeting_note(db: Session, meeting_id: int) -> Optional[MeetingNote]:
     return db.query(MeetingNote).filter(MeetingNote.meeting_id == meeting_id).first()
 
 
-def crud_create_meeting_note(db: Session, meeting_id: UUID, content: str, last_editor_id: UUID) -> MeetingNote:
+def crud_create_meeting_note(db: Session, meeting_id: int, content: str, last_editor_id: int) -> MeetingNote:
     note = MeetingNote(meeting_id=meeting_id, content=content, last_editor_id=last_editor_id, last_edited_at=datetime.now(timezone.utc))
     db.add(note)
     db.commit()
@@ -20,7 +19,7 @@ def crud_create_meeting_note(db: Session, meeting_id: UUID, content: str, last_e
     return note
 
 
-def crud_update_meeting_note(db: Session, meeting_id: UUID, content: str, last_editor_id: UUID) -> Optional[MeetingNote]:
+def crud_update_meeting_note(db: Session, meeting_id: int, content: str, last_editor_id: int) -> Optional[MeetingNote]:
     note = db.query(MeetingNote).filter(MeetingNote.meeting_id == meeting_id).first()
     if not note:
         return None
@@ -32,7 +31,7 @@ def crud_update_meeting_note(db: Session, meeting_id: UUID, content: str, last_e
     return note
 
 
-def crud_delete_meeting_note(db: Session, meeting_id: UUID) -> bool:
+def crud_delete_meeting_note(db: Session, meeting_id: int) -> bool:
     note = db.query(MeetingNote).filter(MeetingNote.meeting_id == meeting_id).first()
     if not note:
         return False
@@ -41,7 +40,7 @@ def crud_delete_meeting_note(db: Session, meeting_id: UUID) -> bool:
     return True
 
 
-def crud_delete_meeting_tasks(db: Session, meeting_id: UUID) -> int:
+def crud_delete_meeting_tasks(db: Session, meeting_id: int) -> int:
     deleted_count = db.query(Task).filter(Task.meeting_id == meeting_id).delete()
     db.commit()
     return deleted_count

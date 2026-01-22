@@ -1,9 +1,7 @@
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from sqlalchemy import JSON, Column, DateTime, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import JSON, Column, DateTime, Integer, String, func
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -17,9 +15,8 @@ class AuditLog(SQLModel, table=True):
 
     __tablename__ = "audit_logs"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -27,10 +24,10 @@ class AuditLog(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    actor_user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
-    action: Optional[str] = Field(default=None, sa_column=Column(String))
-    target_type: Optional[str] = Field(default=None, sa_column=Column(String))
-    target_id: Optional[str] = Field(default=None, sa_column=Column(String))
+    actor_user_id: int = Field(foreign_key="users.id", nullable=False)
+    action: Optional[str] = Field(default=None, sa_column=Column(String(100)))
+    target_type: Optional[str] = Field(default=None, sa_column=Column(String(100)))
+    target_id: Optional[str] = Field(default=None, sa_column=Column(String(255)))
     audit_metadata: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
 
     # Relationships

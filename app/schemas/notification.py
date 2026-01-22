@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -19,7 +18,7 @@ class NotificationBase(BaseModel):
 
 
 class NotificationCreate(NotificationBase):
-    user_ids: List[uuid.UUID]
+    user_ids: List[int]
 
 
 class NotificationGlobalCreate(NotificationBase):
@@ -27,8 +26,8 @@ class NotificationGlobalCreate(NotificationBase):
 
 
 class NotificationResponse(NotificationBase):
-    id: uuid.UUID
-    user_id: uuid.UUID
+    id: int
+    user_id: int
     is_read: bool
     created_at: datetime
     updated_at: Optional[datetime] = None

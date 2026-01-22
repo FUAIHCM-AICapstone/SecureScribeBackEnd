@@ -1,4 +1,5 @@
 ARG RUNTIME_IMAGE=runtime:latest
+
 FROM ${RUNTIME_IMAGE}
 
 # Set environment variables

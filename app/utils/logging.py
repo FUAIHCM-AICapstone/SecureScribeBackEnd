@@ -1,7 +1,7 @@
 """
 Logging Utility for SecureScribe Backend using Loguru
 
-This module provides simple, powerful logging using loguru with Loki integration.
+This module provides simple, powerful logging using loguru with OpenTelemetry integration.
 Features include:
 
 - Beautiful colorful console output by default
@@ -9,7 +9,7 @@ Features include:
 - Minimal configuration needed
 - FastAPI middleware integration
 - Exception tracking and formatting with full traceback capture
-- Loki HTTP streaming with complete exception information
+- OpenTelemetry HTTP streaming with complete exception information
 - Global exception handler for uncaught exceptions
 
 Usage:
@@ -32,15 +32,19 @@ Usage:
         logger.exception("Something went wrong")
 """
 
+import logging
 import os
 import sys
-import time
 import threading
+import time
 import traceback
 
 from loguru import logger as loguru_logger
-from loki_logger_handler.formatters.loguru_formatter import LoguruFormatter
-from loki_logger_handler.loki_logger_handler import LokiLoggerHandler
+from opentelemetry._logs import set_logger_provider
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, ConsoleLogExporter, SimpleLogRecordProcessor
+from opentelemetry.sdk.resources import Resource
 
 # Export logger for easy import
 logger = loguru_logger
@@ -48,7 +52,7 @@ logger = loguru_logger
 
 def _global_exception_handler(exc_type, exc_value, exc_traceback):
     """
-    Global exception handler to catch uncaught exceptions and log them with full traceback to Loki.
+    Global exception handler to catch uncaught exceptions and log them with full traceback.
     """
     if issubclass(exc_type, KeyboardInterrupt):
         # Don't log keyboard interrupts
@@ -59,7 +63,7 @@ def _global_exception_handler(exc_type, exc_value, exc_traceback):
     tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
     tb_text = "".join(tb_lines)
 
-    # Log with full traceback - this will be sent to both console and Loki
+    # Log with full traceback - this will be sent to both console
     logger.critical(f"Uncaught exception in thread {threading.current_thread().name}: {exc_value}", extra={"traceback": tb_text})
 
     # Call the default exception handler
@@ -68,11 +72,11 @@ def _global_exception_handler(exc_type, exc_value, exc_traceback):
 
 def setup_logging(level: str = "INFO") -> None:
     """
-    Setup logging configuration using loguru with console and Loki HTTP streaming.
+    Setup logging configuration using loguru with console and OpenTelemetry HTTP streaming.
 
     Features:
     - Console logging with colors and formatting
-    - Loki HTTP streaming with full traceback capture
+    - OpenTelemetry HTTP streaming with full traceback capture
     - Global exception handler for uncaught exceptions
     - Async logging to prevent blocking
     - Backtrace and diagnostic information included
@@ -81,13 +85,16 @@ def setup_logging(level: str = "INFO") -> None:
         level: Log level ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
     Environment Variables:
-        LOKI_URL: Loki HTTP API endpoint (e.g., https://loki.wc504.io.vn/loki/api/v1/push)
+        OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: OpenTelemetry HTTP API endpoint
                  If not set, only console logging is enabled.
-        PYTHON_ENVIRONMENT: Environment name for Loki labels (default: "development")
+        PYTHON_ENVIRONMENT: Environment name for OpenTelemetry labels (default: "development")
 
     Example:
         setup_logging("DEBUG")  # Enable debug logging with full tracebacks
     """
+    # Import here to avoid circular imports
+    from app.core.config import settings
+
     # Remove default handler
     loguru_logger.remove()
 
@@ -99,31 +106,41 @@ def setup_logging(level: str = "INFO") -> None:
         colorize=True,
     )
 
-    # Add Loki HTTP handler if LOKI_URL is configured
-    loki_url = "https://loki.wc504.io.vn/loki/api/v1/push"
-    if loki_url:
+    # Add OpenTelemetry Log Exporter if OTEL_EXPORTER_OTLP_LOGS_ENDPOINT is configured
+    otel_logs_endpoint = settings.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+    if otel_logs_endpoint:
         try:
-            loki_handler = LokiLoggerHandler(
-                url=loki_url,
-                labels={"job": f"chang-backend-{os.getenv('PYTHON_ENVIRONMENT', 'development')}", "environment": os.getenv("PYTHON_ENVIRONMENT", "development")},
-                timeout=10,
-                label_keys={},
-                default_formatter=LoguruFormatter(),
-            )
-            # Configure Loki handler to capture full exception information
-            loguru_logger.add(
-                loki_handler,
-                serialize=True,
-                level=level,
-                backtrace=True,  # Include backtrace in serialized logs
-                diagnose=True,  # Include diagnostic information
-                enqueue=True,  # Async logging to avoid blocking
-            )
-            loguru_logger.info(f"Loki HTTP logging configured: {loki_url}")
+            # Create OpenTelemetry resource
+            env_name = os.getenv("PYTHON_ENVIRONMENT", "development").lower()
+            resource = Resource.create({"service.name": "meeting-agent-api", "service.namespace": "meeting-agent", "deployment.environment": env_name.lower()})
+
+            # Create logger provider and set globally
+            otel_logger_provider = LoggerProvider(resource=resource)
+            set_logger_provider(otel_logger_provider)
+
+            # Add OTLP log exporter
+            otlp_log_exporter = OTLPLogExporter(endpoint=otel_logs_endpoint)
+            otel_logger_provider.add_log_record_processor(BatchLogRecordProcessor(otlp_log_exporter))
+
+            # Add console exporter for debugging if enabled
+            if settings.OTEL_DEBUG:
+                console_log_exporter = ConsoleLogExporter()
+                otel_logger_provider.add_log_record_processor(SimpleLogRecordProcessor(console_log_exporter))
+
+            # Bridge Python logging to OpenTelemetry
+            root_logger = logging.getLogger()
+            handler = LoggingHandler(level=logging.NOTSET, logger_provider=otel_logger_provider)
+            existing_handlers = [h for h in root_logger.handlers if isinstance(h, LoggingHandler)]
+            if not existing_handlers:
+                root_logger.addHandler(handler)
+                if root_logger.level == logging.NOTSET:
+                    root_logger.setLevel(level)
+
+            loguru_logger.info(f"OpenTelemetry logging configured: {otel_logs_endpoint}")
         except Exception as e:
-            loguru_logger.warning(f"Failed to configure Loki logging: {e}")
+            loguru_logger.warning(f"Failed to configure OpenTelemetry logging: {e}")
     else:
-        loguru_logger.debug("LOKI_URL not set, Loki HTTP logging disabled")
+        loguru_logger.debug("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT not set, OpenTelemetry logging disabled")
 
     # Install global exception handler to catch uncaught exceptions
     sys.excepthook = _global_exception_handler
@@ -181,7 +198,7 @@ class FastAPILoggingMiddleware:
                 logger.success(f"← {method} {path} | {response_status} | {duration:.3f}s | {response_length} bytes")
             else:
                 logger.warning(f"← {method} {path} | {response_status} | {duration:.3f}s | {response_length} bytes")
-        except Exception as e:
+        except Exception:
             duration = time.time() - start_time
             logger.exception(f"Error processing request {method} {path} | ERROR | {duration:.3f}s")
             raise

@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -41,7 +40,7 @@ def get_users_endpoint(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     order_by: str = Query("created_at"),
-    project_id: Optional[uuid.UUID] = Query(None),
+    project_id: Optional[int] = Query(None),
     dir: str = Query("desc"),
     name: Optional[str] = Query(None),
     email: Optional[str] = Query(None),
@@ -124,7 +123,7 @@ def bulk_delete_users_endpoint(
 ):
     # Parse comma-separated user IDs
     try:
-        user_id_list = [uuid.UUID(uid.strip()) for uid in user_ids.split(",") if uid.strip()]
+        user_id_list = [int(uid.strip()) for uid in user_ids.split(",") if uid.strip()]
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MessageConstants.INVALID_REQUEST)
 
@@ -145,13 +144,13 @@ def bulk_delete_users_endpoint(
 
 
 @router.put("/users/{user_id}", response_model=ApiResponse[UserResponse])
-def update_user_endpoint(user_id: uuid.UUID, user: UserUpdate, db: Session = Depends(get_db)):
+def update_user_endpoint(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
     updated_user = update_user(db, user_id=user_id, **user.model_dump(exclude_unset=True))
     return ApiResponse(success=True, message=MessageConstants.USER_UPDATED_SUCCESS, data=updated_user)
 
 
 @router.delete("/users/{user_id}", response_model=ApiResponse[dict])
-def delete_user_endpoint(user_id: uuid.UUID, db: Session = Depends(get_db)):
+def delete_user_endpoint(user_id: int, db: Session = Depends(get_db)):
     delete_user(db, user_id=user_id)
     return ApiResponse(success=True, message=MessageConstants.USER_DELETED_SUCCESS, data={})
 

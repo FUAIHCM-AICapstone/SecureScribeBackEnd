@@ -9,9 +9,9 @@ from pydantic import (
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.core.vault_loader import load_config_from_api_v2
+from app.core.vault_loader import load_config
 
-load_config_from_api_v2()
+load_config()
 
 
 class Settings(BaseSettings):
@@ -42,14 +42,18 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "SecureScribeBE"
 
     # Database Configuration
-    POSTGRES_SERVER: str = "db"  # External database server
-    POSTGRES_PORT: int = 5432  # External database port
-    POSTGRES_USER: str = "admin"
-    POSTGRES_PASSWORD: str = "admin123"
-    POSTGRES_DB: str = "securescribe"
+    MYSQL_SERVER: str = "db"  # External database server
+    MYSQL_PORT: int = 3306  # External database port
+    MYSQL_USER: str = "admin"
+    MYSQL_PASSWORD: str = "admin123"
+    MYSQL_DB: str = "securescribe"
 
-    # Firebase Configuration
-    FIREBASE_SERVICE_ACCOUNT_KEY_PATH: str = '{"type": "service_account", "project_id": ""}'
+    # Azure OAuth Configuration
+    AZURE_CLIENT_ID: str = ""
+    AZURE_CLIENT_SECRET: str = ""
+    AZURE_TENANT_ID: str = ""
+    AZURE_REDIRECT_URI: str = "http://localhost:8081/api/v1/auth/azure/callback"
+    AZURE_SCOPE: str = "User.Read"
 
     # Redis Configuration
     REDIS_HOST: str = "redis"
@@ -119,6 +123,12 @@ class Settings(BaseSettings):
     SMTP_RETRY_ATTEMPTS: int = 3
     SMTP_RETRY_DELAY_SECONDS: int = 5
 
+    # OpenTelemetry Configuration
+    OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: str = "http://otel-collector.fpt.net/v1/logs"
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: str = "http://otel-collector.fpt.net/v1/traces"
+    OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: str = "http://otel-collector.fpt.net/v1/metrics"
+    OTEL_DEBUG: bool = False
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def CELERY_BROKER_URL(self) -> str:
@@ -133,12 +143,12 @@ class Settings(BaseSettings):
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> MultiHostUrl:
         return MultiHostUrl.build(
-            scheme="postgresql+psycopg",
-            username=self.POSTGRES_USER,
-            password=self.POSTGRES_PASSWORD,
-            host=self.POSTGRES_SERVER,
-            port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB,
+            scheme="mysql+pymysql",
+            username=self.MYSQL_USER,
+            password=self.MYSQL_PASSWORD,
+            host=self.MYSQL_SERVER,
+            port=self.MYSQL_PORT,
+            path=self.MYSQL_DB,
         )
 
 

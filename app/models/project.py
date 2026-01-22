@@ -1,9 +1,7 @@
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, func
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -22,9 +20,8 @@ class Project(SQLModel, table=True):
 
     __tablename__ = "projects"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -32,10 +29,10 @@ class Project(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    name: str = Field(sa_column=Column(String, nullable=False))
+    name: str = Field(sa_column=Column(String(255), nullable=False))
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
     is_archived: bool = Field(default=False, sa_column=Column(Boolean))
-    created_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
+    created_by: int = Field(foreign_key="users.id", nullable=False)
 
     # Relationships
     created_by_user: "User" = Relationship(
@@ -53,9 +50,9 @@ class UserProject(SQLModel, table=True):
 
     __tablename__ = "users_projects"
 
-    user_id: uuid.UUID = Field(foreign_key="users.id", primary_key=True)
-    project_id: uuid.UUID = Field(foreign_key="projects.id", primary_key=True)
-    role: str = Field(default="member", sa_column=Column(String))
+    user_id: int = Field(foreign_key="users.id", primary_key=True)
+    project_id: int = Field(foreign_key="projects.id", primary_key=True)
+    role: str = Field(default="member", sa_column=Column(String(50)))
     joined_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=True)))
 
     # Relationships

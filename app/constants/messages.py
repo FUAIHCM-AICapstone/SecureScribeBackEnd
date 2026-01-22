@@ -45,7 +45,7 @@ class MessageConstants:
     PROJECT_ROLE_ALREADY_SET = "PROJECT_ROLE_ALREADY_SET"
     PROJECT_ROLE_CHANGE_REQUESTED = "PROJECT_ROLE_CHANGE_REQUESTED"
     PROJECT_CANNOT_CHANGE_LAST_ADMIN_ROLE = "PROJECT_CANNOT_CHANGE_LAST_ADMIN_ROLE"
-    PROJECT_INVALID_UUID_FORMAT = "PROJECT_INVALID_UUID_FORMAT"
+    PROJECT_INVALID_ID_FORMAT = "PROJECT_INVALID_ID_FORMAT"
 
     # Meeting Messages
     MEETING_CREATED_SUCCESS = "MEETING_CREATED_SUCCESS"
@@ -213,7 +213,7 @@ class MessageDescriptions:
     PROJECT_ROLE_ALREADY_SET = "You already have the requested role"
     PROJECT_ROLE_CHANGE_REQUESTED = "Role change request submitted successfully"
     PROJECT_CANNOT_CHANGE_LAST_ADMIN_ROLE = "Cannot change role of the last admin"
-    PROJECT_INVALID_UUID_FORMAT = "Invalid created_by UUID format"
+    PROJECT_INVALID_ID_FORMAT = "Invalid created_by ID format"
 
     # Meeting Messages
     MEETING_CREATED_SUCCESS = "Meeting created successfully"

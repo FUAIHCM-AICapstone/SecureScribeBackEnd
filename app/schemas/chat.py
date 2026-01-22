@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import List, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +10,7 @@ class Mention(BaseModel):
     """Schema for message mentions"""
 
     entity_type: str  # "project", "meeting", "file"
-    entity_id: str  # UUID string
+    entity_id: str  # integer ID
     offset_start: int
     offset_end: int
 
@@ -26,8 +25,8 @@ class ChatMessageCreate(BaseModel):
 class ChatMessageResponse(BaseModel):
     """Schema for chat message in API responses"""
 
-    id: UUID
-    conversation_id: UUID
+    id: int
+    conversation_id: int
     role: str = Field(alias="message_type")  # "user", "assistant", "system"
     content: str
     timestamp: datetime = Field(alias="created_at")
@@ -40,7 +39,7 @@ class ChatMessageResponse(BaseModel):
 class ChatConversationResponse(BaseModel):
     """Schema for conversation with messages"""
 
-    id: UUID
+    id: int
     title: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -67,8 +66,8 @@ class ConversationUpdate(BaseModel):
 class ConversationResponse(BaseModel):
     """Schema for conversation in API responses"""
 
-    id: UUID
-    user_id: UUID
+    id: int
+    user_id: int
     agno_session_id: str
     title: Optional[str] = None
     created_at: datetime

@@ -26,7 +26,7 @@ def send_meeting_note_email(
         meeting_title: Title of the meeting
         meeting_date: Date of the meeting
         pdf_attachment_path: Full path to PDF file containing meeting note
-        meeting_id: UUID of the meeting (optional, for action button link)
+        meeting_id: int of the meeting (optional, for action button link)
         meeting_time: Meeting time (optional)
         attendees_count: Number of attendees (optional)
 

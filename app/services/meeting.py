@@ -1,4 +1,3 @@
-import uuid
 from io import BytesIO
 from typing import List, Optional, Tuple
 
@@ -37,7 +36,7 @@ from app.utils.meeting import (
 from app.utils.minio import delete_file_from_minio, generate_presigned_url, get_minio_client
 
 
-def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UUID) -> Meeting:
+def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: int) -> Meeting:
     meeting = crud_create_meeting(
         db,
         title=meeting_data.title,
@@ -65,7 +64,7 @@ def create_meeting(db: Session, meeting_data: MeetingCreate, created_by: uuid.UU
     return meeting
 
 
-def get_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, raise_404: bool = False) -> Optional[Meeting]:
+def get_meeting(db: Session, meeting_id: int, user_id: int, raise_404: bool = False) -> Optional[Meeting]:
     meeting = crud_get_meeting(db, meeting_id)
     if not meeting:
         if raise_404:
@@ -83,7 +82,7 @@ def get_meeting_by_url(db: Session, meeting_url: str) -> Optional[Meeting]:
     return db.query(Meeting).filter(Meeting.url == meeting_url).first()
 
 
-def get_meetings(db: Session, user_id: uuid.UUID, filters: Optional[MeetingFilter] = None, page: int = 1, limit: int = 20) -> Tuple[List[Meeting], int]:
+def get_meetings(db: Session, user_id: int, filters: Optional[MeetingFilter] = None, page: int = 1, limit: int = 20) -> Tuple[List[Meeting], int]:
     filter_params = {}
     if filters:
         filter_params = {
@@ -100,7 +99,7 @@ def get_meetings(db: Session, user_id: uuid.UUID, filters: Optional[MeetingFilte
     return crud_get_meetings(db, user_id, page=page, limit=limit, **filter_params)
 
 
-def update_meeting(db: Session, meeting_id: uuid.UUID, updates: MeetingUpdate, user_id: uuid.UUID) -> Optional[Meeting]:
+def update_meeting(db: Session, meeting_id: int, updates: MeetingUpdate, user_id: int) -> Optional[Meeting]:
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
         EventManager.emit_domain_event(
@@ -142,7 +141,7 @@ def update_meeting(db: Session, meeting_id: uuid.UUID, updates: MeetingUpdate, u
     return meeting
 
 
-def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def delete_meeting(db: Session, meeting_id: int, user_id: int) -> bool:
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
         EventManager.emit_domain_event(
@@ -183,7 +182,7 @@ def delete_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> bo
     return True
 
 
-def add_meeting_to_project(db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def add_meeting_to_project(db: Session, meeting_id: int, project_id: int, user_id: int) -> bool:
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
         return False
@@ -194,7 +193,7 @@ def add_meeting_to_project(db: Session, meeting_id: uuid.UUID, project_id: uuid.
     return crud_link_meeting_to_project(db, meeting_id, project_id)
 
 
-def remove_meeting_from_project(db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def remove_meeting_from_project(db: Session, meeting_id: int, project_id: int, user_id: int) -> bool:
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
         return False
@@ -203,7 +202,7 @@ def remove_meeting_from_project(db: Session, meeting_id: uuid.UUID, project_id: 
     return crud_unlink_meeting_from_project(db, meeting_id, project_id)
 
 
-def validate_meeting_for_audio_operations(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Meeting:
+def validate_meeting_for_audio_operations(db: Session, meeting_id: int, user_id: int) -> Meeting:
     meeting = crud_get_meeting(db, meeting_id)
     if not meeting:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.MEETING_NOT_FOUND)
@@ -212,7 +211,7 @@ def validate_meeting_for_audio_operations(db: Session, meeting_id: uuid.UUID, us
     return meeting
 
 
-def check_delete_permissions(db: Session, meeting: Meeting, current_user_id: uuid.UUID) -> Meeting:
+def check_delete_permissions(db: Session, meeting: Meeting, current_user_id: int) -> Meeting:
     if not can_delete_meeting(db, meeting, current_user_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=MessageDescriptions.MEETING_UNAUTHORIZED_DELETE)
     return meeting
@@ -220,8 +219,8 @@ def check_delete_permissions(db: Session, meeting: Meeting, current_user_id: uui
 
 def create_audio_file(
     db: Session,
-    meeting_id: uuid.UUID,
-    uploaded_by: uuid.UUID,
+    meeting_id: int,
+    uploaded_by: int,
     filename: str,
     content_type: str,
     file_bytes: bytes,
@@ -254,7 +253,7 @@ def create_audio_file(
         return None
 
 
-def get_meeting_audio_files(db: Session, meeting_id: uuid.UUID, page: int = 1, limit: int = 20) -> Tuple[List[AudioFile], int]:
+def get_meeting_audio_files(db: Session, meeting_id: int, page: int = 1, limit: int = 20) -> Tuple[List[AudioFile], int]:
     return crud_get_meeting_audio_files(db, meeting_id, page=page, limit=limit)
 
 

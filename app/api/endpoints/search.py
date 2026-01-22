@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends
@@ -22,8 +21,8 @@ def dynamic_search(
     current_user: User = Depends(get_current_user),
     page: int = 1,
     limit: int = 20,
-    project_id: Optional[uuid.UUID] = None,
-    meeting_id: Optional[uuid.UUID] = None,
+    project_id: Optional[int] = None,
+    meeting_id: Optional[int] = None,
 ):
     """Dynamic search across meetings, projects, and files by title/name/filename."""
     results, total = search_dynamic(db, search, current_user.id, page, limit, project_id, meeting_id)

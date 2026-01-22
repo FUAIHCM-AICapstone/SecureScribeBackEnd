@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -8,14 +7,14 @@ from app.schemas.common import ApiResponse
 
 
 class AudioFileBase(BaseModel):
-    meeting_id: uuid.UUID
+    meeting_id: int
     file_url: Optional[str] = None
     seq_order: Optional[int] = None
     duration_seconds: Optional[int] = None
 
 
 class AudioFileCreate(AudioFileBase):
-    uploaded_by: uuid.UUID
+    uploaded_by: int
 
 
 class AudioFileUpdate(BaseModel):
@@ -24,9 +23,9 @@ class AudioFileUpdate(BaseModel):
 
 
 class AudioFileResponse(BaseModel):
-    id: uuid.UUID
-    meeting_id: uuid.UUID
-    uploaded_by: uuid.UUID
+    id: int
+    meeting_id: int
+    uploaded_by: int
     file_url: Optional[str]
     seq_order: Optional[int]
     duration_seconds: Optional[int]

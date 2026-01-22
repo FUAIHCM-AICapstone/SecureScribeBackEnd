@@ -1,8 +1,6 @@
 # Standard library imports
 import asyncio
-import uuid
 from typing import List, Optional
-from uuid import UUID
 
 # Third-party imports
 from fastapi import APIRouter, Depends, Query, WebSocket
@@ -71,7 +69,7 @@ def get_notifications_endpoint(
 
 @router.get("/notifications/{notification_id}", response_model=ApiResponse[NotificationResponse])
 def get_notification_endpoint(
-    notification_id: uuid.UUID,
+    notification_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -183,7 +181,7 @@ def send_global_notification_endpoint(
     response_model=ApiResponse[NotificationResponse],
 )
 def mark_notification_read_endpoint(
-    notification_id: uuid.UUID,
+    notification_id: int,
     update_data: NotificationUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -203,7 +201,7 @@ def mark_notification_read_endpoint(
 
 @router.delete("/notifications/{notification_id}", response_model=ApiResponse[None])
 def delete_notification_endpoint(
-    notification_id: uuid.UUID,
+    notification_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -259,7 +257,7 @@ async def websocket_endpoint(
         # Validate user exists
         db = SessionLocal()
         try:
-            user = get_user_by_id(db, UUID(user_id))
+            user = get_user_by_id(db, int(user_id))
             if not user:
                 await websocket.close(code=4002, reason="User not found")
                 return

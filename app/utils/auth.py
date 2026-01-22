@@ -1,58 +1,14 @@
-import re
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from uuid import UUID
 
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer
-from firebase_admin import auth as firebase_auth
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import get_db
 from app.models.user import User
-
-
-def verify_firebase_token(id_token: str) -> dict:
-    """
-    Verify Firebase ID token and return decoded token payload.
-    """
-    try:
-        # Ensure id_token is a string and not bytes
-        if isinstance(id_token, bytes):
-            id_token = id_token.decode("utf-8")
-
-        # Basic validation - JWT tokens should have 3 parts separated by dots
-        if not id_token or not isinstance(id_token, str):
-            raise ValueError("Invalid token format: token must be a non-empty string")
-
-        token_parts = id_token.split(".")
-        if len(token_parts) != 3:
-            raise ValueError(f"Invalid JWT format: expected 3 parts, got {len(token_parts)}")
-
-        # Verify the token with Firebase
-        time.sleep(2)  # Small delay to avoid rapid-fire requests in case of retries
-        decoded_token = firebase_auth.verify_id_token(id_token)
-        return decoded_token
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid Google token format: {str(e)}")
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
-
-
-def get_firebase_user_info(id_token: str) -> dict:
-    """
-    Get user information from Firebase ID token.
-    """
-    decoded_token = verify_firebase_token(id_token)
-    return {
-        "uid": decoded_token.get("uid"),
-        "email": decoded_token.get("email"),
-        "name": decoded_token.get("name"),
-        "picture": decoded_token.get("picture"),
-    }
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -77,7 +33,7 @@ def verify_token(token: str):
         return None
     except jwt.InvalidTokenError:
         return None
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -135,7 +91,7 @@ def get_current_user(token: str = Depends(jwt_bearer), db: Session = Depends(get
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")
 
-        user = db.query(User).filter(User.id == UUID(user_id)).first()
+        user = db.query(User).filter(User.id == int(user_id)).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 

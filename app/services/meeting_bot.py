@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -15,7 +14,7 @@ from app.schemas.meeting_bot import MeetingBotCreate, MeetingBotLogCreate, Meeti
 from app.services.audio_file import create_audio_file
 
 
-def create_meeting_bot(db: Session, bot_data: MeetingBotCreate, created_by: uuid.UUID) -> Any:
+def create_meeting_bot(db: Session, bot_data: MeetingBotCreate, created_by: int) -> Any:
     meeting = crud_get_meeting(db, bot_data.meeting_id)
     if not meeting:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.MEETING_NOT_FOUND)
@@ -25,22 +24,22 @@ def create_meeting_bot(db: Session, bot_data: MeetingBotCreate, created_by: uuid
     return crud_create_meeting_bot(db, bot_data.meeting_id, bot_data.scheduled_start_time, bot_data.meeting_url, created_by)
 
 
-def get_meeting_bot(db: Session, bot_id: uuid.UUID) -> Optional[Any]:
+def get_meeting_bot(db: Session, bot_id: int) -> Optional[Any]:
     return crud_get_meeting_bot(db, bot_id, include_relations=True)
 
 
-def get_meeting_bot_by_meeting(db: Session, meeting_id: uuid.UUID) -> Optional[Any]:
+def get_meeting_bot_by_meeting(db: Session, meeting_id: int) -> Optional[Any]:
     return crud_get_meeting_bot_by_meeting(db, meeting_id)
 
 
-def get_meeting_bots(db: Session, user_id: uuid.UUID, page: int = 1, limit: int = 20) -> Tuple[List[Any], int]:
+def get_meeting_bots(db: Session, user_id: int, page: int = 1, limit: int = 20) -> Tuple[List[Any], int]:
     bots, total = crud_get_meeting_bots(db, user_id, page, limit)
     for bot in bots:
         bot.logs.sort(key=lambda log: log.created_at, reverse=True)
     return bots, total
 
 
-def update_meeting_bot(db: Session, bot_id: uuid.UUID, bot_data: MeetingBotUpdate, user_id: uuid.UUID) -> Optional[Any]:
+def update_meeting_bot(db: Session, bot_id: int, bot_data: MeetingBotUpdate, user_id: int) -> Optional[Any]:
     bot = crud_get_meeting_bot(db, bot_id, include_relations=False)
     if not bot:
         return None
@@ -49,7 +48,7 @@ def update_meeting_bot(db: Session, bot_id: uuid.UUID, bot_data: MeetingBotUpdat
     return crud_update_meeting_bot(db, bot_id, **bot_data.model_dump(exclude_unset=True))
 
 
-def delete_meeting_bot(db: Session, bot_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def delete_meeting_bot(db: Session, bot_id: int, user_id: int) -> bool:
     bot = crud_get_meeting_bot(db, bot_id, include_relations=False)
     if not bot:
         return False
@@ -58,18 +57,18 @@ def delete_meeting_bot(db: Session, bot_id: uuid.UUID, user_id: uuid.UUID) -> bo
     return crud_delete_meeting_bot(db, bot_id)
 
 
-def create_bot_log(db: Session, bot_id: uuid.UUID, log_data: MeetingBotLogCreate) -> Any:
+def create_bot_log(db: Session, bot_id: int, log_data: MeetingBotLogCreate) -> Any:
     bot = crud_get_meeting_bot(db, bot_id, include_relations=False)
     if not bot:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.MEETING_BOT_NOT_FOUND)
     return crud_create_bot_log(db, bot_id, log_data.action, log_data.message)
 
 
-def get_bot_logs(db: Session, bot_id: uuid.UUID, page: int = 1, limit: int = 50) -> Tuple[List[Any], int]:
+def get_bot_logs(db: Session, bot_id: int, page: int = 1, limit: int = 50) -> Tuple[List[Any], int]:
     return crud_get_bot_logs(db, bot_id, page, limit)
 
 
-def update_bot_status(db: Session, bot_id: uuid.UUID, status: str, error: Optional[str] = None, actual_start_time: Optional[datetime] = None, actual_end_time: Optional[datetime] = None) -> Optional[Any]:
+def update_bot_status(db: Session, bot_id: int, status: str, error: Optional[str] = None, actual_start_time: Optional[datetime] = None, actual_end_time: Optional[datetime] = None) -> Optional[Any]:
     bot = crud_get_meeting_bot(db, bot_id, include_relations=False)
     if not bot:
         return None
@@ -90,7 +89,7 @@ def update_bot_status(db: Session, bot_id: uuid.UUID, status: str, error: Option
     return bot
 
 
-def process_bot_webhook_recording(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, file_bytes: bytes) -> Dict[str, Any]:
+def process_bot_webhook_recording(db: Session, meeting_id: int, user_id: int, file_bytes: bytes) -> Dict[str, Any]:
     meeting = crud_get_meeting(db, meeting_id)
     if not meeting:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.MEETING_NOT_FOUND)
@@ -101,18 +100,14 @@ def process_bot_webhook_recording(db: Session, meeting_id: uuid.UUID, user_id: u
     return {"audio_file_id": str(audio_file.id), "meeting_id": str(meeting_id)}
 
 
-def trigger_meeting_bot_join(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID, bearer_token: str, meeting_url_override: Optional[str] = None, immediate: bool = False) -> Dict[str, Any]:
+def trigger_meeting_bot_join(db: Session, meeting_id: int, user_id: int, bearer_token: str, meeting_url_override: Optional[str] = None, immediate: bool = False) -> Dict[str, Any]:
     meeting = crud_get_meeting(db, meeting_id)
     if not meeting:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.MEETING_NOT_FOUND)
     bot = crud_get_meeting_bot_by_meeting(db, meeting_id)
-    bot_id = uuid.uuid4()
     if not bot:
-        bot = crud_create_meeting_bot(db, meeting_id, None, None, user_id, bot_id, "pending")
-    else:
-        bot.id = bot_id
-        db.commit()
-        db.refresh(bot)
+        bot = crud_create_meeting_bot(db, meeting_id, None, None, user_id, None, "pending")
+    bot_id = bot.id
     is_creator = meeting.created_by == user_id
     project_ids = crud_get_meeting_projects(db, meeting_id) if not is_creator else []
     is_project_member = crud_check_user_project_access(db, user_id, project_ids) if project_ids else False

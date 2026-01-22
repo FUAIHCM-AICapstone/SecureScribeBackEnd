@@ -1,6 +1,5 @@
 from datetime import datetime
 from typing import List, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -39,9 +38,9 @@ class ProjectUpdate(BaseModel):
 class ProjectResponse(ProjectBase):
     """Schema for project response"""
 
-    id: UUID
+    id: int
     is_archived: bool
-    created_by: UUID
+    created_by: int
     created_at: datetime
     updated_at: Optional[datetime]
     member_count: Optional[int] = Field(None, description="Number of project members")
@@ -60,15 +59,15 @@ class ProjectWithMembers(ProjectResponse):
 class UserProjectBase(BaseModel):
     """Base user-project relationship schema"""
 
-    user_id: UUID
-    project_id: UUID
+    user_id: int
+    project_id: int
     role: str = Field("member", description="User role in project")
 
 
 class UserProjectCreate(BaseModel):
     """Schema for adding user to project"""
 
-    user_id: UUID = Field(..., description="User ID to add to project")
+    user_id: int = Field(..., description="User ID to add to project")
     role: str = Field("member", description="Role to assign")
 
 
@@ -81,8 +80,8 @@ class UserProjectUpdate(BaseModel):
 class UserProjectResponse(BaseModel):
     """Schema for user-project relationship response"""
 
-    user_id: UUID
-    project_id: UUID
+    user_id: int
+    project_id: int
     role: str
     joined_at: datetime
 
@@ -94,7 +93,7 @@ class UserProjectResponse(BaseModel):
 class ProjectMembersResponse(BaseModel):
     """Response for project members list"""
 
-    project_id: UUID
+    project_id: int
     members: List[UserProjectResponse]
     total_count: int
 
@@ -122,8 +121,8 @@ class ProjectFilter(BaseModel):
 
     name: Optional[str] = None
     is_archived: Optional[bool] = None
-    created_by: Optional[UUID] = None
-    member_id: Optional[UUID] = None  # Filter projects by member
+    created_by: Optional[int] = None
+    member_id: Optional[int] = None  # Filter projects by member
     created_at_gte: Optional[str] = None
     created_at_lte: Optional[str] = None
 
@@ -134,7 +133,6 @@ ProjectWithMembersApiResponse = ApiResponse[ProjectWithMembers]
 ProjectsPaginatedResponse = PaginatedResponse[ProjectResponse]
 ProjectMembersApiResponse = ApiResponse[ProjectMembersResponse]
 UserProjectApiResponse = ApiResponse[UserProjectResponse]
-
 
 # Forward references resolution
 ProjectWithMembers.model_rebuild()

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, TypedDict
 
@@ -22,12 +21,12 @@ class MeetingState(TypedDict, total=False):
 class Task(BaseModel):
     title: str = Field(description="Task title in Vietnamese")
     description: str = Field(description="Task description in Vietnamese")
-    creator_id: Optional[uuid.UUID] = Field(default=None, description="Creator user ID")
-    assignee_id: Optional[uuid.UUID] = Field(default=None, description="Assignee user ID")
+    creator_id: Optional[int] = Field(default=None, description="Creator user ID")
+    assignee_id: Optional[int] = Field(default=None, description="Assignee user ID")
     status: str = Field(default="todo", description="Task status")
     priority: str = Field(default="Trung bình", description="Priority level")
     due_date: Optional[datetime] = Field(default=None, description="Due date (parsed from string)")
-    project_ids: List[uuid.UUID] = Field(default_factory=list, description="Related project IDs")
+    project_ids: List[int] = Field(default_factory=list, description="Related project IDs")
     notes: str = Field(default="", description="Additional notes")
 
     def __init__(self, **data):

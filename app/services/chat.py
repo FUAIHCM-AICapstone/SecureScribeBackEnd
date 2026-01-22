@@ -2,7 +2,6 @@ import hashlib
 import json
 import re
 import time
-import uuid
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -19,7 +18,7 @@ from app.utils.llm import embed_documents, expand_query_with_llm
 from app.utils.redis import get_async_redis_client
 
 
-def create_chat_message(db: Session, conversation_id: uuid.UUID, user_id: uuid.UUID, content: str, message_type: str, mentions: Optional[List] = None):
+def create_chat_message(db: Session, conversation_id: int, user_id: int, content: str, message_type: str, mentions: Optional[List] = None):
     return crud_create_chat_message(db, conversation_id, user_id, content, message_type, mentions)
 
 

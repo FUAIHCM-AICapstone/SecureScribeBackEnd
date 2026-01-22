@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import List, Optional, Tuple
 
@@ -61,7 +60,7 @@ def crud_check_email_exists(db: Session, email: str) -> bool:
     return len(users) > 0
 
 
-def crud_update_user(db: Session, user_id: uuid.UUID, **updates) -> User:
+def crud_update_user(db: Session, user_id: int, **updates) -> User:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         return None
@@ -73,7 +72,7 @@ def crud_update_user(db: Session, user_id: uuid.UUID, **updates) -> User:
     return user
 
 
-def crud_get_user_by_id(db: Session, user_id: uuid.UUID) -> Optional[User]:
+def crud_get_user_by_id(db: Session, user_id: int) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
 
@@ -89,7 +88,7 @@ def crud_create_user(db: Session, **user_data) -> User:
     return user
 
 
-def crud_delete_user_with_cascade(db: Session, user_id: uuid.UUID) -> bool:
+def crud_delete_user_with_cascade(db: Session, user_id: int) -> bool:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         return False
@@ -135,7 +134,7 @@ def crud_delete_user_with_cascade(db: Session, user_id: uuid.UUID) -> bool:
     return True
 
 
-def crud_get_or_create_user_device(db: Session, user_id: uuid.UUID, device_name: str, device_type: str, fcm_token: str):
+def crud_get_or_create_user_device(db: Session, user_id: int, device_name: str, device_type: str, fcm_token: str):
     from datetime import datetime
 
     from app.models.user import UserDevice
@@ -169,7 +168,7 @@ def crud_get_or_create_user_device(db: Session, user_id: uuid.UUID, device_name:
     return device
 
 
-def crud_get_user_projects_stats(db: Session, user_id: uuid.UUID) -> dict:
+def crud_get_user_projects_stats(db: Session, user_id: int) -> dict:
     from app.models.project import UserProject
 
     user_projects = db.query(UserProject).filter(UserProject.user_id == user_id).all()

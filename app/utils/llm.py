@@ -3,7 +3,6 @@ import textwrap
 from typing import List, Optional
 
 from agno.agent import Agent
-from agno.db.postgres import PostgresDb
 from agno.models.google import Gemini
 from agno.models.message import Message
 from chonkie import GeminiEmbeddings
@@ -161,12 +160,14 @@ Trả về CHỈ {num_expansions} câu truy vấn mở rộng, mỗi câu trên 
         return [query]
 
 
-def get_agno_postgres_db() -> PostgresDb:
-    """Get agno PostgresDb instance for session management"""
-    return PostgresDb(db_url=str(settings.SQLALCHEMY_DATABASE_URI), session_table="conversations", memory_table="chat_messages")
+def get_agno_mysql_db():
+    """Get agno MysqlDb instance for session management"""
+    from agno.db.mysql import MysqlDb
+
+    return MysqlDb(db_url=str(settings.SQLALCHEMY_DATABASE_URI), session_table="conversations", memory_table="chat_messages")
 
 
-def create_general_chat_agent(agno_db: PostgresDb, session_id: str, user_id: str) -> Agent:
+def create_general_chat_agent(agno_db, session_id: str, user_id: str) -> Agent:
     """Create a general chat agent with Agno for conversation history and responses."""
     return Agent(
         name="General Chat Assistant",

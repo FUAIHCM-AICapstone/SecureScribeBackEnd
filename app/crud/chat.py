@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -7,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.chat import ChatMessage, Conversation
 
 
-def crud_create_chat_message(db: Session, conversation_id: uuid.UUID, user_id: uuid.UUID, content: str, message_type: str, mentions: Optional[List] = None) -> Optional[ChatMessage]:
+def crud_create_chat_message(db: Session, conversation_id: int, user_id: int, content: str, message_type: str, mentions: Optional[List] = None) -> Optional[ChatMessage]:
     conversation = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.user_id == user_id, Conversation.is_active == True).first()
 
     if not conversation:

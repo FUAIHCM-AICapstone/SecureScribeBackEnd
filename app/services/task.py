@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
@@ -27,7 +26,7 @@ from app.services.event_manager import EventManager
 from app.services.notification import create_notifications_bulk, send_fcm_notification
 
 
-def check_task_access(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def check_task_access(db: Session, task_id: int, user_id: int) -> bool:
     task = crud_get_task(db, task_id)
     if not task:
         return False
@@ -38,7 +37,7 @@ def check_task_access(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bo
     return crud_check_project_access(db, task_id, user_id)
 
 
-def _validate_meeting_and_projects(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> None:
+def _validate_meeting_and_projects(db: Session, task_data: TaskCreate, creator_id: int) -> None:
     if task_data.meeting_id and not crud_check_meeting_access(db, task_data.meeting_id, creator_id):
         EventManager.emit_domain_event(
             BaseDomainEvent(
@@ -64,7 +63,7 @@ def _validate_meeting_and_projects(db: Session, task_data: TaskCreate, creator_i
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"No access to project {project_id}")
 
 
-def _emit_task_created_event(creator_id: uuid.UUID, task: Task, task_data: TaskCreate) -> None:
+def _emit_task_created_event(creator_id: int, task: Task, task_data: TaskCreate) -> None:
     try:
         EventManager.emit_domain_event(
             BaseDomainEvent(
@@ -84,7 +83,7 @@ def _emit_task_created_event(creator_id: uuid.UUID, task: Task, task_data: TaskC
         pass
 
 
-def _notify_assignee(db: Session, task: Task, creator_id: uuid.UUID) -> None:
+def _notify_assignee(db: Session, task: Task, creator_id: int) -> None:
     if not task.assignee_id:
         return
     try:
@@ -105,7 +104,7 @@ def _notify_assignee(db: Session, task: Task, creator_id: uuid.UUID) -> None:
         print(f"Failed to send task assignment notification: {e}")
 
 
-def _notify_assignee_updated(db: Session, task: Task, assignee_id: uuid.UUID, user_id: uuid.UUID) -> None:
+def _notify_assignee_updated(db: Session, task: Task, assignee_id: int, user_id: int) -> None:
     try:
         create_notifications_bulk(
             db,
@@ -128,9 +127,9 @@ def _emit_update_event_and_notifications(
     task: Task,
     original: dict,
     updates: dict,
-    old_assignee_id: uuid.UUID,
+    old_assignee_id: int,
     old_status: str,
-    user_id: uuid.UUID,
+    user_id: int,
 ) -> None:
     try:
         diff = build_diff(original, {k: getattr(task, k, None) for k in updates.keys()})
@@ -174,7 +173,7 @@ def _emit_update_event_and_notifications(
         print(f"Failed to send task update notification: {e}")
 
 
-def create_task(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> Task:
+def create_task(db: Session, task_data: TaskCreate, creator_id: int) -> Task:
     _validate_meeting_and_projects(db, task_data, creator_id)
     task = crud_create_task(db, **task_data.model_dump(), creator_id=creator_id)
     _emit_task_created_event(creator_id, task, task_data)
@@ -182,7 +181,7 @@ def create_task(db: Session, task_data: TaskCreate, creator_id: uuid.UUID) -> Ta
     return task
 
 
-def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id: uuid.UUID) -> Task:
+def update_task(db: Session, task_id: int, task_data: TaskUpdate, user_id: int) -> Task:
     if not check_task_access(db, task_id, user_id):
         EventManager.emit_domain_event(
             BaseDomainEvent(
@@ -215,7 +214,7 @@ def update_task(db: Session, task_id: uuid.UUID, task_data: TaskUpdate, user_id:
     return task
 
 
-def delete_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def delete_task(db: Session, task_id: int, user_id: int) -> bool:
     if not check_task_access(db, task_id, user_id):
         EventManager.emit_domain_event(
             BaseDomainEvent(
@@ -246,7 +245,7 @@ def delete_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     return True
 
 
-def bulk_create_tasks(db: Session, tasks_data: List[TaskCreate], creator_id: uuid.UUID) -> List[dict]:
+def bulk_create_tasks(db: Session, tasks_data: List[TaskCreate], creator_id: int) -> List[dict]:
     results = []
     for task_data in tasks_data:
         try:
@@ -257,7 +256,7 @@ def bulk_create_tasks(db: Session, tasks_data: List[TaskCreate], creator_id: uui
     return results
 
 
-def bulk_update_tasks(db: Session, updates_data: List[dict], user_id: uuid.UUID) -> List[dict]:
+def bulk_update_tasks(db: Session, updates_data: List[dict], user_id: int) -> List[dict]:
     results = []
     for update_item in updates_data:
         try:
@@ -268,7 +267,7 @@ def bulk_update_tasks(db: Session, updates_data: List[dict], user_id: uuid.UUID)
     return results
 
 
-def bulk_delete_tasks(db: Session, task_ids: List[uuid.UUID], user_id: uuid.UUID) -> List[dict]:
+def bulk_delete_tasks(db: Session, task_ids: List[int], user_id: int) -> List[dict]:
     results = []
     for task_id in task_ids:
         try:
@@ -279,7 +278,7 @@ def bulk_delete_tasks(db: Session, task_ids: List[uuid.UUID], user_id: uuid.UUID
     return results
 
 
-def get_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Task]:
+def get_task(db: Session, task_id: int, user_id: int) -> Optional[Task]:
     if not check_task_access(db, task_id, user_id):
         return None
     return crud_get_task(db, task_id)
@@ -287,14 +286,14 @@ def get_task(db: Session, task_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Ta
 
 def get_tasks(
     db: Session,
-    user_id: uuid.UUID,
+    user_id: int,
     title: Optional[str] = None,
     status: Optional[str] = None,
-    creator_id: Optional[uuid.UUID] = None,
-    assignee_id: Optional[uuid.UUID] = None,
+    creator_id: Optional[int] = None,
+    assignee_id: Optional[int] = None,
     due_date_gte: Optional[str] = None,
     due_date_lte: Optional[str] = None,
-    meeting_id: Optional[uuid.UUID] = None,
+    meeting_id: Optional[int] = None,
     created_at_gte: Optional[str] = None,
     created_at_lte: Optional[str] = None,
     page: int = 1,

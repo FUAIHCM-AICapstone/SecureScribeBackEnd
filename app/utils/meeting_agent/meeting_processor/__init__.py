@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, Dict, Iterable, List, Optional
-from uuid import UUID
 
 from app.utils.meeting_agent.agent_schema import MeetingOutput, Task
 
@@ -34,8 +33,8 @@ class MeetingProcessor:
         Args:
             transcript: Meeting transcript text
             custom_prompt: Optional custom prompt for note generation
-            meeting_id: Meeting UUID for retrieving related documents/agenda
-            user_id: User UUID for authorization
+            meeting_id: Meeting ID for retrieving related documents/agenda
+            user_id: User ID for authorization
             db: Database session for querying
 
         Returns:
@@ -140,8 +139,8 @@ class MeetingProcessor:
         Args:
             transcript: Meeting transcript
             custom_prompt: Optional custom prompt
-            meeting_id: Meeting UUID
-            user_id: User UUID
+            meeting_id: Meeting ID
+            user_id: User ID
             db: Database session
 
         Returns:
@@ -191,9 +190,7 @@ class MeetingProcessor:
             agenda_content = ""
             if meeting_id and db:
                 try:
-                    from uuid import UUID
-
-                    agenda_obj = crud_get_meeting_agenda(db, UUID(meeting_id))
+                    agenda_obj = crud_get_meeting_agenda(db, int(meeting_id))
                     if agenda_obj and agenda_obj.content:
                         agenda_content = agenda_obj.content
                         logger.info(f"[NOTE_GEN] Retrieved agenda ({len(agenda_content)} chars)")
@@ -205,12 +202,10 @@ class MeetingProcessor:
             project_files_context = ""
             if meeting_id and user_id and db:
                 try:
-                    from uuid import UUID
-
                     from app.services.meeting import get_meeting
 
                     # Get meeting's projects
-                    meeting = get_meeting(db, UUID(meeting_id), UUID(user_id))
+                    meeting = get_meeting(db, int(meeting_id), int(user_id))
                     if meeting and hasattr(meeting, "projects"):
                         project_ids = [pm.project_id for pm in meeting.projects if pm.project]
 
@@ -243,8 +238,8 @@ class MeetingProcessor:
 
                                     # Update vector payload if notes were newly extracted (not cached)
                                     if notes and not existing_notes and point_id:
-                                        from app.utils.qdrant import update_vector_payload
                                         from app.core.config import settings as _settings
+                                        from app.utils.qdrant import update_vector_payload
 
                                         update_vector_payload(
                                             _settings.QDRANT_COLLECTION_NAME,
@@ -299,8 +294,8 @@ class MeetingProcessor:
 
                             # Update vector payload if notes were newly extracted (not cached)
                             if notes and not existing_notes and point_id:
-                                from app.utils.qdrant import update_vector_payload
                                 from app.core.config import settings as _settings
+                                from app.utils.qdrant import update_vector_payload
 
                                 update_vector_payload(
                                     _settings.QDRANT_COLLECTION_NAME,

@@ -10,8 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api import api_router
 from app.core.config import settings
-from app.core.firebase import initialize_firebase
-from app.core.vault_loader import load_config_from_api_v2
+from app.core.vault_loader import load_config
 from app.db import get_db
 from app.events.listeners.notification_listener import NotificationListener
 from app.events.listeners.websocket_listener import WebSocketListener
@@ -20,7 +19,7 @@ from app.services.event_manager import EventManager
 from app.utils.logging import FastAPILoggingMiddleware, logger, setup_logging
 from app.utils.throttling import ThrottlingMiddleware
 
-load_config_from_api_v2()
+load_config()
 setup_logging("DEBUG")
 
 
@@ -174,8 +173,6 @@ app.add_exception_handler(Exception, custom_exception_handler)
 
 app.include_router(api_router)
 
-initialize_firebase()
-
 
 @app.get("/health")
 def health(db: Session = Depends(get_db)) -> Dict[str, Any]:
@@ -194,8 +191,8 @@ def health(db: Session = Depends(get_db)) -> Dict[str, Any]:
         db.commit()
         health_data["services"]["database"] = {
             "status": "connected",
-            "server": settings.POSTGRES_SERVER,
-            "database": settings.POSTGRES_DB,
+            "server": settings.MYSQL_SERVER,
+            "database": settings.MYSQL_DB,
         }
     except Exception as e:
         health_data["services"]["database"] = {
@@ -283,16 +280,19 @@ def health_database(db: Session = Depends(get_db)) -> Dict[str, Any]:
         db.commit()
 
         # Get database info
-        result = db.execute(text("SELECT version(), current_database(), current_user"))
-        version, database, user = result.fetchone()
+        result = db.execute(text("SELECT VERSION() as version, DATABASE() as database, USER() as user"))
+        row = result.fetchone()
+        version = row[0] if row else "Unknown"
+        database = row[1] if row else "Unknown"
+        user = row[2] if row else "Unknown"
 
         return {
             "status": "connected",
             "database": database,
             "user": user,
             "version": version,
-            "server": settings.POSTGRES_SERVER,
-            "port": settings.POSTGRES_PORT,
+            "server": settings.MYSQL_SERVER,
+            "port": settings.MYSQL_PORT,
         }
     except Exception as e:
         raise HTTPException(
@@ -300,8 +300,8 @@ def health_database(db: Session = Depends(get_db)) -> Dict[str, Any]:
             detail={
                 "status": "disconnected",
                 "error": str(e),
-                "database": settings.POSTGRES_DB,
-                "server": settings.POSTGRES_SERVER,
+                "database": settings.MYSQL_DB,
+                "server": settings.MYSQL_SERVER,
             },
         )
 

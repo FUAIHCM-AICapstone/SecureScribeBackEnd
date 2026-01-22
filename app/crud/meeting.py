@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional, Tuple
 
 from sqlalchemy import and_, or_
@@ -16,7 +15,7 @@ def crud_create_meeting(db: Session, **meeting_data) -> Meeting:
     return meeting
 
 
-def crud_get_meeting(db: Session, meeting_id: uuid.UUID) -> Optional[Meeting]:
+def crud_get_meeting(db: Session, meeting_id: int) -> Optional[Meeting]:
     return (
         db.query(Meeting)
         .options(
@@ -30,16 +29,16 @@ def crud_get_meeting(db: Session, meeting_id: uuid.UUID) -> Optional[Meeting]:
 
 def crud_get_meetings(
     db: Session,
-    user_id: uuid.UUID,
+    user_id: int,
     title: Optional[str] = None,
     description: Optional[str] = None,
     status: Optional[str] = None,
     is_personal: Optional[bool] = None,
-    created_by: Optional[uuid.UUID] = None,
+    created_by: Optional[int] = None,
     start_time_gte: Optional[str] = None,
     start_time_lte: Optional[str] = None,
-    project_id: Optional[uuid.UUID] = None,
-    tag_ids: Optional[List[uuid.UUID]] = None,
+    project_id: Optional[int] = None,
+    tag_ids: Optional[List[int]] = None,
     page: int = 1,
     limit: int = 20,
 ) -> Tuple[List[Meeting], int]:
@@ -88,7 +87,7 @@ def crud_get_meetings(
     return meetings, total
 
 
-def crud_update_meeting(db: Session, meeting_id: uuid.UUID, **updates) -> Optional[Meeting]:
+def crud_update_meeting(db: Session, meeting_id: int, **updates) -> Optional[Meeting]:
     meeting = crud_get_meeting(db, meeting_id)
     if not meeting:
         return None
@@ -100,7 +99,7 @@ def crud_update_meeting(db: Session, meeting_id: uuid.UUID, **updates) -> Option
     return meeting
 
 
-def crud_soft_delete_meeting(db: Session, meeting_id: uuid.UUID) -> bool:
+def crud_soft_delete_meeting(db: Session, meeting_id: int) -> bool:
     meeting = crud_get_meeting(db, meeting_id)
     if not meeting:
         return False
@@ -109,7 +108,7 @@ def crud_soft_delete_meeting(db: Session, meeting_id: uuid.UUID) -> bool:
     return True
 
 
-def crud_link_meeting_to_project(db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID) -> bool:
+def crud_link_meeting_to_project(db: Session, meeting_id: int, project_id: int) -> bool:
     existing = db.query(ProjectMeeting).filter(ProjectMeeting.meeting_id == meeting_id, ProjectMeeting.project_id == project_id).first()
     if existing:
         return True
@@ -119,7 +118,7 @@ def crud_link_meeting_to_project(db: Session, meeting_id: uuid.UUID, project_id:
     return True
 
 
-def crud_unlink_meeting_from_project(db: Session, meeting_id: uuid.UUID, project_id: uuid.UUID) -> bool:
+def crud_unlink_meeting_from_project(db: Session, meeting_id: int, project_id: int) -> bool:
     project_meeting = db.query(ProjectMeeting).filter(ProjectMeeting.meeting_id == meeting_id, ProjectMeeting.project_id == project_id).first()
     if not project_meeting:
         return False
@@ -128,20 +127,20 @@ def crud_unlink_meeting_from_project(db: Session, meeting_id: uuid.UUID, project
     return True
 
 
-def crud_get_meeting_associated_files(db: Session, meeting_id: uuid.UUID):
+def crud_get_meeting_associated_files(db: Session, meeting_id: int):
     from app.models.file import File
 
     return db.query(File).filter(File.meeting_id == meeting_id).all()
 
 
-def crud_get_next_audio_file_seq_order(db: Session, meeting_id: uuid.UUID) -> int:
+def crud_get_next_audio_file_seq_order(db: Session, meeting_id: int) -> int:
     last = db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id, AudioFile.is_deleted == False).order_by(AudioFile.seq_order.desc().nullslast(), AudioFile.created_at.desc()).first()
     if not last or last.seq_order is None:
         return 1
     return int(last.seq_order) + 1
 
 
-def crud_create_audio_file(db: Session, meeting_id: uuid.UUID, uploaded_by: uuid.UUID, seq_order: int) -> AudioFile:
+def crud_create_audio_file(db: Session, meeting_id: int, uploaded_by: int, seq_order: int) -> AudioFile:
     audio = AudioFile(meeting_id=meeting_id, uploaded_by=uploaded_by, seq_order=seq_order)
     db.add(audio)
     db.commit()
@@ -149,7 +148,7 @@ def crud_create_audio_file(db: Session, meeting_id: uuid.UUID, uploaded_by: uuid
     return audio
 
 
-def crud_update_audio_file_url(db: Session, audio_id: uuid.UUID, file_url: str) -> Optional[AudioFile]:
+def crud_update_audio_file_url(db: Session, audio_id: int, file_url: str) -> Optional[AudioFile]:
     audio = db.query(AudioFile).filter(AudioFile.id == audio_id).first()
     if not audio:
         return None
@@ -159,7 +158,7 @@ def crud_update_audio_file_url(db: Session, audio_id: uuid.UUID, file_url: str) 
     return audio
 
 
-def crud_delete_audio_file(db: Session, audio_id: uuid.UUID) -> bool:
+def crud_delete_audio_file(db: Session, audio_id: int) -> bool:
     audio = db.query(AudioFile).filter(AudioFile.id == audio_id).first()
     if not audio:
         return False
@@ -168,7 +167,7 @@ def crud_delete_audio_file(db: Session, audio_id: uuid.UUID) -> bool:
     return True
 
 
-def crud_get_meeting_audio_files(db: Session, meeting_id: uuid.UUID, page: int = 1, limit: int = 20) -> Tuple[List[AudioFile], int]:
+def crud_get_meeting_audio_files(db: Session, meeting_id: int, page: int = 1, limit: int = 20) -> Tuple[List[AudioFile], int]:
     q = db.query(AudioFile).filter(AudioFile.meeting_id == meeting_id, AudioFile.is_deleted == False)
     q = q.order_by(AudioFile.seq_order.asc().nullslast(), AudioFile.created_at.asc())
     total = q.count()
@@ -176,11 +175,11 @@ def crud_get_meeting_audio_files(db: Session, meeting_id: uuid.UUID, page: int =
     return rows, total
 
 
-def crud_check_project_exists(db: Session, project_id: uuid.UUID) -> bool:
+def crud_check_project_exists(db: Session, project_id: int) -> bool:
     return db.query(Project).filter(Project.id == project_id).first() is not None
 
 
-def crud_soft_delete_meetings_by_creator(db: Session, user_id: uuid.UUID) -> int:
+def crud_soft_delete_meetings_by_creator(db: Session, user_id: int) -> int:
     count = db.query(Meeting).filter(Meeting.created_by == user_id, Meeting.is_deleted == False).update({"is_deleted": True})
     db.commit()
     return count

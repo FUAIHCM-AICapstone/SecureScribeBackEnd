@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
@@ -26,7 +25,7 @@ def check_email_exists(db: Session, email: str) -> bool:
         )
 
 
-def update_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None = None, **updates) -> User:
+def update_user(db: Session, user_id: int, actor_user_id: int | None = None, **updates) -> User:
     user = crud_get_user_by_id(db, user_id)
     if not user:
         EventManager.emit_domain_event(
@@ -74,7 +73,7 @@ def update_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None
     return user
 
 
-def create_user(db: Session, actor_user_id: uuid.UUID | None = None, **user_data) -> User:
+def create_user(db: Session, actor_user_id: int | None = None, **user_data) -> User:
     email = user_data.get("email")
     if email and crud_check_email_exists(db, email):
         raise HTTPException(
@@ -94,7 +93,7 @@ def create_user(db: Session, actor_user_id: uuid.UUID | None = None, **user_data
     return user
 
 
-def delete_user(db: Session, user_id: uuid.UUID, actor_user_id: uuid.UUID | None = None) -> bool:
+def delete_user(db: Session, user_id: int, actor_user_id: int | None = None) -> bool:
     user = crud_get_user_by_id(db, user_id)
     if not user:
         EventManager.emit_domain_event(
@@ -161,7 +160,7 @@ def bulk_update_users(db: Session, updates: List[dict]) -> List[dict]:
     return results
 
 
-def bulk_delete_users(db: Session, user_ids: List[uuid.UUID]) -> List[dict]:
+def bulk_delete_users(db: Session, user_ids: List[int]) -> List[dict]:
     results = []
     for user_id in user_ids:
         try:
@@ -175,13 +174,13 @@ def bulk_delete_users(db: Session, user_ids: List[uuid.UUID]) -> List[dict]:
     return results
 
 
-def get_user_by_id(db: Session, user_id: uuid.UUID) -> Optional[User]:
+def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
     return crud_get_user_by_id(db, user_id)
 
 
-def get_user_projects_stats(db: Session, user_id: uuid.UUID) -> dict:
+def get_user_projects_stats(db: Session, user_id: int) -> dict:
     return crud_get_user_projects_stats(db, user_id)
 
 
-def get_or_create_user_device(db: Session, user_id: uuid.UUID, device_name: str, device_type: str, fcm_token: str):
+def get_or_create_user_device(db: Session, user_id: int, device_name: str, device_type: str, fcm_token: str):
     return crud_get_or_create_user_device(db, user_id, device_name, device_type, fcm_token)

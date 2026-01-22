@@ -1,9 +1,7 @@
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import BigInteger, Column, DateTime, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import BigInteger, Column, DateTime, Integer, String, Text, func
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -15,9 +13,8 @@ class File(SQLModel, table=True):
 
     __tablename__ = "files"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -25,16 +22,16 @@ class File(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    filename: Optional[str] = Field(default=None, sa_column=Column(String))
-    mime_type: Optional[str] = Field(default=None, sa_column=Column(String))
+    filename: Optional[str] = Field(default=None, sa_column=Column(String(500)))
+    mime_type: Optional[str] = Field(default=None, sa_column=Column(String(100)))
     size_bytes: Optional[int] = Field(default=None, sa_column=Column(BigInteger))
-    storage_url: Optional[str] = Field(default=None, sa_column=Column(String))
-    file_type: Optional[str] = Field(default=None, sa_column=Column(String))
-    project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id")
-    meeting_id: Optional[uuid.UUID] = Field(default=None, foreign_key="meetings.id")
-    uploaded_by: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
+    storage_url: Optional[str] = Field(default=None, sa_column=Column(String(500)))
+    file_type: Optional[str] = Field(default=None, sa_column=Column(String(50)))
+    project_id: Optional[int] = Field(default=None, foreign_key="projects.id")
+    meeting_id: Optional[int] = Field(default=None, foreign_key="meetings.id")
+    uploaded_by: Optional[int] = Field(default=None, foreign_key="users.id")
     extracted_text: Optional[str] = Field(default=None, sa_column=Column(Text))
-    qdrant_vector_id: Optional[str] = Field(default=None, sa_column=Column(String))
+    qdrant_vector_id: Optional[str] = Field(default=None, sa_column=Column(String(255)))
 
     # Relationships
     project: Optional["Project"] = Relationship(back_populates="files")  # type: ignore

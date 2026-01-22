@@ -1,8 +1,7 @@
-import uuid
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, status
-from firebase_admin import messaging
 from sqlalchemy.orm import Session
 
 from app.constants.messages import MessageDescriptions
@@ -12,15 +11,13 @@ from app.crud.notification import (
     crud_create_notifications_bulk,
     crud_delete_notification,
     crud_get_notification,
-    crud_get_user_fcm_tokens,
     crud_update_notification,
 )
-from app.db import SessionLocal
 from app.models.notification import Notification
 from app.utils.logging import logger
 
 
-def get_notifications(db: Session, user_id: uuid.UUID, **kwargs) -> Tuple[List[Notification], int]:
+def get_notifications(db: Session, user_id: int, **kwargs) -> Tuple[List[Notification], int]:
     return crud_get_notification(
         db,
         user_id=user_id,
@@ -32,18 +29,18 @@ def get_notifications(db: Session, user_id: uuid.UUID, **kwargs) -> Tuple[List[N
     )
 
 
-def get_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID) -> Notification:
+def get_notification(db: Session, notification_id: int, user_id: int) -> Notification:
     notification = crud_get_notification(db, notification_id=notification_id, user_id=user_id)
     if not notification:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.NOTIFICATION_NOT_FOUND)
     return notification
 
 
-def create_notification(db: Session, user_id: uuid.UUID, **kwargs) -> Notification:
+def create_notification(db: Session, user_id: int, **kwargs) -> Notification:
     return crud_create_notification(db, user_id, **kwargs)
 
 
-def create_notifications_bulk(db: Session, user_ids: List[uuid.UUID], **kwargs) -> List[Notification]:
+def create_notifications_bulk(db: Session, user_ids: List[int], **kwargs) -> List[Notification]:
     return crud_create_notifications_bulk(db, user_ids, **kwargs)
 
 
@@ -51,20 +48,20 @@ def create_global_notification(db: Session, **kwargs) -> List[Notification]:
     return crud_create_global_notification(db, **kwargs)
 
 
-def update_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID, **kwargs) -> Notification:
+def update_notification(db: Session, notification_id: int, user_id: int, **kwargs) -> Notification:
     notification = crud_update_notification(db, notification_id, user_id, **kwargs)
     if not notification:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.NOTIFICATION_NOT_FOUND)
     return notification
 
 
-def delete_notification(db: Session, notification_id: uuid.UUID, user_id: uuid.UUID) -> None:
+def delete_notification(db: Session, notification_id: int, user_id: int) -> None:
     if not crud_delete_notification(db, notification_id, user_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MessageDescriptions.NOTIFICATION_NOT_FOUND)
 
 
 def send_fcm_notification(
-    user_ids: List[uuid.UUID],
+    user_ids: List[int],
     title: str,
     body: str,
     data: Optional[Dict[str, Any]] = None,
@@ -73,37 +70,24 @@ def send_fcm_notification(
     sound: Optional[str] = None,
     ttl: Optional[int] = None,
 ) -> None:
-    db = SessionLocal()
-    try:
-        tokens = crud_get_user_fcm_tokens(db, user_ids)
-        if not tokens:
-            return
-        fcm_data = {}
-        if data:
-            for key, value in data.items():
-                fcm_data[str(key)] = str(value)
-        notification_kwargs = {"title": title, "body": body}
-        if icon:
-            notification_kwargs["icon"] = icon
-        if badge:
-            notification_kwargs["badge"] = badge
-        if sound:
-            notification_kwargs["sound"] = sound
-        webpush_notification = messaging.WebpushNotification(**notification_kwargs)
-        webpush_kwargs = {"notification": webpush_notification}
-        if ttl:
-            headers = {}
-            headers["TTL"] = str(ttl)
-            webpush_kwargs["headers"] = headers
-        message = messaging.MulticastMessage(
-            notification=messaging.Notification(title=title, body=body),
-            data=fcm_data,
-            tokens=tokens,
-        )
-        try:
-            messaging.send_each_for_multicast(message)
-        except Exception as e:
-            logger.error(f"FCM Notification error sending notification: {str(e)}", exc_info=True)
-            raise
-    finally:
-        db.close()
+    """
+    DEPRECATED: Firebase Cloud Messaging is no longer available.
+    This function is deprecated and will not send any notifications.
+
+    Firebase has been replaced with Azure AD OAuth for authentication.
+    For push notifications, please implement an alternative solution
+    using your preferred push notification service.
+
+    Args:
+        user_ids: List of user IDs to send notification to
+        title: Notification title
+        body: Notification body
+        data: Optional notification data
+        icon: Optional notification icon
+        badge: Optional notification badge
+        sound: Optional notification sound
+        ttl: Optional time-to-live in seconds
+    """
+    warnings.warn("send_fcm_notification is deprecated and will not send any notifications. Firebase Cloud Messaging is no longer available. Please implement an alternative push notification solution.", DeprecationWarning, stacklevel=2)
+    logger.warning(f"send_fcm_notification called but Firebase is no longer available. Attempted to send notification to {len(user_ids)} user(s): {title}")
+    return None

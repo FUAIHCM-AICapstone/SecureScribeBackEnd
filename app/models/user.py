@@ -1,9 +1,7 @@
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSON, UUID
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, UniqueConstraint, func, JSON
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -29,9 +27,8 @@ class User(SQLModel, table=True):
 
     __tablename__ = "users"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -39,11 +36,11 @@ class User(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    email: str = Field(sa_column=Column(String, unique=True, nullable=False))
-    name: Optional[str] = Field(default=None, sa_column=Column(String))
-    avatar_url: Optional[str] = Field(default=None, sa_column=Column(String))
+    email: str = Field(sa_column=Column(String(255), unique=True, nullable=False))
+    name: Optional[str] = Field(default=None, sa_column=Column(String(255)))
+    avatar_url: Optional[str] = Field(default=None, sa_column=Column(String(500)))
     bio: Optional[str] = Field(default=None, sa_column=Column(Text))
-    position: Optional[str] = Field(default=None, sa_column=Column(String))
+    position: Optional[str] = Field(default=None, sa_column=Column(String(255)))
 
     # Relationships
     identities: list["UserIdentity"] = Relationship(back_populates="user")
@@ -95,9 +92,8 @@ class UserIdentity(SQLModel, table=True):
 
     __tablename__ = "user_identities"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -105,12 +101,12 @@ class UserIdentity(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
-    provider: str = Field(sa_column=Column(String, nullable=False))
-    provider_user_id: str = Field(sa_column=Column(String, nullable=False))
-    provider_email: Optional[str] = Field(default=None, sa_column=Column(String))
+    user_id: int = Field(foreign_key="users.id", nullable=False)
+    provider: str = Field(sa_column=Column(String(100), nullable=False))
+    provider_user_id: str = Field(sa_column=Column(String(255), nullable=False))
+    provider_email: Optional[str] = Field(default=None, sa_column=Column(String(255)))
     provider_profile: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
-    tenant_id: Optional[str] = Field(default=None, sa_column=Column(String))
+    tenant_id: Optional[str] = Field(default=None, sa_column=Column(String(255)))
 
     # Relationships
     user: User = Relationship(
@@ -127,9 +123,8 @@ class UserDevice(SQLModel, table=True):
 
     __tablename__ = "user_devices"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -137,9 +132,9 @@ class UserDevice(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    user_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
-    device_name: Optional[str] = Field(default=None, sa_column=Column(String))
-    device_type: Optional[str] = Field(default=None, sa_column=Column(String))
+    user_id: int = Field(foreign_key="users.id", nullable=False)
+    device_name: Optional[str] = Field(default=None, sa_column=Column(String(255)))
+    device_type: Optional[str] = Field(default=None, sa_column=Column(String(50)))
     fcm_token: str = Field(sa_column=Column(Text, nullable=False))
     last_active_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     is_active: bool = Field(default=True, sa_column=Column(Boolean))

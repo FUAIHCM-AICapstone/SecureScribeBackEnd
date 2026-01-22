@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
@@ -26,7 +25,7 @@ from app.utils.minio import (
 )
 
 
-def create_file(db: Session, file_data: FileCreate, uploaded_by: uuid.UUID, file_bytes: bytes) -> Optional[File]:
+def create_file(db: Session, file_data: FileCreate, uploaded_by: int, file_bytes: bytes) -> Optional[File]:
     # Lazy import to avoid circular import
     from app.services.event_manager import EventManager
 
@@ -92,21 +91,22 @@ def create_file(db: Session, file_data: FileCreate, uploaded_by: uuid.UUID, file
         return None
 
 
-def get_file(db: Session, file_id: uuid.UUID) -> Optional[File]:
+def get_file(db: Session, file_id: int) -> Optional[File]:
     return crud_get_file(db, file_id)
 
 
-def get_files(db: Session, filters: Optional[FileFilter] = None, page: int = 1, limit: int = 20, user_id: Optional[uuid.UUID] = None) -> Tuple[List[File], int]:
+def get_files(db: Session, filters: Optional[FileFilter] = None, page: int = 1, limit: int = 20, user_id: Optional[int] = None) -> Tuple[List[File], int]:
     return crud_get_files(db, filters.model_dump() if filters else None, page=page, limit=limit, user_id=user_id)
 
 
-def update_file(db: Session, file_id: uuid.UUID, updates: FileUpdate, actor_user_id: uuid.UUID | None = None) -> Optional[File]:
+def update_file(db: Session, file_id: int, updates: FileUpdate, actor_user_id: int | None = None) -> Optional[File]:
     # Lazy import to avoid circular import
     from app.services.event_manager import EventManager
 
     file = crud_get_file(db, file_id)
     if not file:
-        EventManager.emit_domain_event(BaseDomainEvent(event_name="file.update_failed", actor_user_id=actor_user_id or uuid.uuid4(), target_type="file", target_id=file_id, metadata={"reason": "not_found"}))
+        if actor_user_id:
+            EventManager.emit_domain_event(BaseDomainEvent(event_name="file.update_failed", actor_user_id=actor_user_id, target_type="file", target_id=file_id, metadata={"reason": "not_found"}))
         return None
     update_data = updates.model_dump(exclude_unset=True)
     original = {k: getattr(file, k, None) for k in update_data.keys()}
@@ -117,13 +117,14 @@ def update_file(db: Session, file_id: uuid.UUID, updates: FileUpdate, actor_user
     return file
 
 
-def delete_file(db: Session, file_id: uuid.UUID, actor_user_id: uuid.UUID | None = None) -> bool:
+def delete_file(db: Session, file_id: int, actor_user_id: int | None = None) -> bool:
     # Lazy import to avoid circular import
     from app.services.event_manager import EventManager
 
     file = crud_get_file(db, file_id)
     if not file:
-        EventManager.emit_domain_event(BaseDomainEvent(event_name="file.delete_failed", actor_user_id=actor_user_id or uuid.uuid4(), target_type="file", target_id=file_id, metadata={"reason": "not_found"}))
+        if actor_user_id:
+            EventManager.emit_domain_event(BaseDomainEvent(event_name="file.delete_failed", actor_user_id=actor_user_id, target_type="file", target_id=file_id, metadata={"reason": "not_found"}))
         return False
     delete_file_from_minio(settings.MINIO_BUCKET_NAME, str(file.id))
     crud_delete_file(db, file_id)
@@ -131,11 +132,11 @@ def delete_file(db: Session, file_id: uuid.UUID, actor_user_id: uuid.UUID | None
     return True
 
 
-def check_file_access(db: Session, file: File, user_id: uuid.UUID) -> bool:
+def check_file_access(db: Session, file: File, user_id: int) -> bool:
     return crud_check_file_access(db, file, user_id)
 
 
-def check_delete_permissions(db: Session, file: File, current_user_id: uuid.UUID) -> File:
+def check_delete_permissions(db: Session, file: File, current_user_id: int) -> File:
     from fastapi import HTTPException
 
     if file.uploaded_by == current_user_id:
@@ -164,8 +165,8 @@ def validate_file(filename: str, mime_type: str, file_size: int) -> bool:
 
 def get_project_files_with_info(
     db: Session,
-    project_id: uuid.UUID,
-    user_id: uuid.UUID,
+    project_id: int,
+    user_id: int,
     page: int = 1,
     limit: int = 20,
     filename: Optional[str] = None,
@@ -184,8 +185,8 @@ def get_project_files_with_info(
 
 def get_meeting_files_with_info(
     db: Session,
-    meeting_id: uuid.UUID,
-    user_id: uuid.UUID,
+    meeting_id: int,
+    user_id: int,
     page: int = 1,
     limit: int = 20,
 ) -> Tuple[List[File], str, int]:
@@ -200,7 +201,7 @@ def get_meeting_files_with_info(
     return files, meeting_title, total
 
 
-async def move_file(db: Session, file: File, project_id: Optional[uuid.UUID], meeting_id: Optional[uuid.UUID], user_id: uuid.UUID) -> Optional[File]:
+async def move_file(db: Session, file: File, project_id: Optional[int], meeting_id: Optional[int], user_id: int) -> Optional[File]:
     """Move file to a project or meeting"""
     # Lazy import to avoid circular import
     from app.services.qdrant_service import update_file_vectors_metadata

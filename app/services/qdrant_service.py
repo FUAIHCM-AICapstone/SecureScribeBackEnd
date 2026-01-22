@@ -583,9 +583,7 @@ async def query_documents_by_meeting_id(
     # Validate access if db and user_id provided
     if db and user_id:
         try:
-            from uuid import UUID
-
-            meeting = get_meeting(db, UUID(meeting_id), UUID(user_id))
+            meeting = get_meeting(db, int(meeting_id), int(user_id))
             if not meeting:
                 return []
         except Exception:
@@ -644,9 +642,7 @@ async def query_documents_by_project_id(
     # Validate access if db and user_id provided
     if db and user_id:
         try:
-            from uuid import UUID
-
-            if not is_user_in_project(db, UUID(project_id), UUID(user_id)):
+            if not is_user_in_project(db, int(project_id), int(user_id)):
                 return []
         except Exception:
             return []
@@ -711,10 +707,8 @@ async def query_documents_by_file_id(
     # Validate access if db and user_id provided
     if db and user_id:
         try:
-            from uuid import UUID
-
-            file_obj = get_file(db, UUID(file_id))
-            if not file_obj or not check_file_access(db, file_obj, UUID(user_id)):
+            file_obj = get_file(db, file_id)
+            if not file_obj or not check_file_access(db, file_obj, user_id):
                 return []
         except Exception:
             return []

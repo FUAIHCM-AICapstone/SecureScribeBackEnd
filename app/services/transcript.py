@@ -1,6 +1,5 @@
 import os
 import tempfile
-import uuid
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException, status
@@ -27,7 +26,7 @@ from app.utils.minio import download_file_from_minio
 from .meeting import get_meeting
 
 
-def check_transcript_access(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+def check_transcript_access(db: Session, transcript_id: int, user_id: int) -> bool:
     transcript = crud_get_transcript(db, transcript_id)
     if not transcript:
         return False
@@ -37,7 +36,7 @@ def check_transcript_access(db: Session, transcript_id: uuid.UUID, user_id: uuid
     return check_meeting_access(db, meeting, user_id)
 
 
-def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcript]:
+def transcribe_audio_file(db: Session, audio_id: int) -> Optional[Transcript]:
     audio_file = get_audio_file(db, audio_id)
     if not audio_file:
         EventManager.emit_domain_event(
@@ -110,7 +109,7 @@ def transcribe_audio_file(db: Session, audio_id: uuid.UUID) -> Optional[Transcri
         os.unlink(temp_path)
 
 
-def create_transcript(db: Session, transcript_data: TranscriptCreate, user_id: uuid.UUID) -> Transcript:
+def create_transcript(db: Session, transcript_data: TranscriptCreate, user_id: int) -> Transcript:
     meeting = get_meeting(db, transcript_data.meeting_id, user_id)
     if not meeting:
         EventManager.emit_domain_event(
@@ -147,13 +146,13 @@ def create_transcript(db: Session, transcript_data: TranscriptCreate, user_id: u
     return transcript
 
 
-def get_transcript(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Transcript]:
+def get_transcript(db: Session, transcript_id: int, user_id: int) -> Optional[Transcript]:
     if not check_transcript_access(db, transcript_id, user_id):
         return None
     return crud_get_transcript(db, transcript_id)
 
 
-def get_transcript_by_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Optional[Transcript]:
+def get_transcript_by_meeting(db: Session, meeting_id: int, user_id: int) -> Optional[Transcript]:
     meeting = get_meeting(db, meeting_id, user_id)
     if not meeting:
         return None
@@ -162,11 +161,11 @@ def get_transcript_by_meeting(db: Session, meeting_id: uuid.UUID, user_id: uuid.
     return crud_get_transcript(db, meeting_id=meeting_id)
 
 
-def get_transcripts(db: Session, user_id: uuid.UUID, content_search: Optional[str] = None, meeting_id: Optional[uuid.UUID] = None, page: int = 1, limit: int = 20) -> Tuple[List[Transcript], int]:
+def get_transcripts(db: Session, user_id: int, content_search: Optional[str] = None, meeting_id: Optional[int] = None, page: int = 1, limit: int = 20) -> Tuple[List[Transcript], int]:
     return crud_get_transcripts(db, user_id, content_search=content_search, meeting_id=meeting_id, page=page, limit=limit)
 
 
-def update_transcript(db: Session, transcript_id: uuid.UUID, transcript_data: TranscriptUpdate, user_id: uuid.UUID) -> Transcript:
+def update_transcript(db: Session, transcript_id: int, transcript_data: TranscriptUpdate, user_id: int) -> Transcript:
     if not check_transcript_access(db, transcript_id, user_id):
         EventManager.emit_domain_event(
             BaseDomainEvent(
@@ -207,7 +206,7 @@ def update_transcript(db: Session, transcript_id: uuid.UUID, transcript_data: Tr
     return transcript
 
 
-def delete_transcript(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID) -> None:
+def delete_transcript(db: Session, transcript_id: int, user_id: int) -> None:
     if not check_transcript_access(db, transcript_id, user_id):
         EventManager.emit_domain_event(
             BaseDomainEvent(
@@ -241,7 +240,7 @@ def delete_transcript(db: Session, transcript_id: uuid.UUID, user_id: uuid.UUID)
     )
 
 
-def bulk_create_transcripts(db: Session, transcripts_data: List[TranscriptCreate], user_id: uuid.UUID) -> List[dict]:
+def bulk_create_transcripts(db: Session, transcripts_data: List[TranscriptCreate], user_id: int) -> List[dict]:
     results = []
     for transcript_data in transcripts_data:
         try:
@@ -252,7 +251,7 @@ def bulk_create_transcripts(db: Session, transcripts_data: List[TranscriptCreate
     return results
 
 
-def bulk_update_transcripts(db: Session, updates: List[dict], user_id: uuid.UUID) -> List[dict]:
+def bulk_update_transcripts(db: Session, updates: List[dict], user_id: int) -> List[dict]:
     results = []
     for update_item in updates:
         try:
@@ -263,7 +262,7 @@ def bulk_update_transcripts(db: Session, updates: List[dict], user_id: uuid.UUID
     return results
 
 
-def bulk_delete_transcripts(db: Session, transcript_ids: List[uuid.UUID], user_id: uuid.UUID) -> List[dict]:
+def bulk_delete_transcripts(db: Session, transcript_ids: List[int], user_id: int) -> List[dict]:
     results = []
     for transcript_id in transcript_ids:
         try:
@@ -278,7 +277,7 @@ def serialize_transcript(transcript: Transcript) -> dict:
     return {"id": transcript.id, "meeting_id": transcript.meeting_id, "content": transcript.content, "audio_concat_file_id": transcript.audio_concat_file_id, "extracted_text_for_search": transcript.extracted_text_for_search, "qdrant_vector_id": transcript.qdrant_vector_id, "created_at": transcript.created_at, "updated_at": transcript.updated_at}
 
 
-def validate_transcript_access(db: Session, transcript_id: uuid.UUID, meeting_id: uuid.UUID, user_id: uuid.UUID) -> Transcript:
+def validate_transcript_access(db: Session, transcript_id: int, meeting_id: int, user_id: int) -> Transcript:
     transcript = crud_get_transcript(db, transcript_id)
     if not transcript:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transcript not found")

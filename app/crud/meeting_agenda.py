@@ -1,17 +1,16 @@
 from datetime import datetime, timezone
 from typing import Optional
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.models.meeting import MeetingAgenda
 
 
-def crud_get_meeting_agenda(db: Session, meeting_id: UUID) -> Optional[MeetingAgenda]:
+def crud_get_meeting_agenda(db: Session, meeting_id: int) -> Optional[MeetingAgenda]:
     return db.query(MeetingAgenda).filter(MeetingAgenda.meeting_id == meeting_id).first()
 
 
-def crud_create_meeting_agenda(db: Session, meeting_id: UUID, content: str, last_editor_id: UUID) -> MeetingAgenda:
+def crud_create_meeting_agenda(db: Session, meeting_id: int, content: str, last_editor_id: int) -> MeetingAgenda:
     agenda = MeetingAgenda(meeting_id=meeting_id, content=content, last_editor_id=last_editor_id, last_edited_at=datetime.now(timezone.utc))
     db.add(agenda)
     db.commit()
@@ -19,7 +18,7 @@ def crud_create_meeting_agenda(db: Session, meeting_id: UUID, content: str, last
     return agenda
 
 
-def crud_update_meeting_agenda(db: Session, meeting_id: UUID, content: str, last_editor_id: UUID) -> Optional[MeetingAgenda]:
+def crud_update_meeting_agenda(db: Session, meeting_id: int, content: str, last_editor_id: int) -> Optional[MeetingAgenda]:
     agenda = db.query(MeetingAgenda).filter(MeetingAgenda.meeting_id == meeting_id).first()
     if not agenda:
         return None
@@ -31,7 +30,7 @@ def crud_update_meeting_agenda(db: Session, meeting_id: UUID, content: str, last
     return agenda
 
 
-def crud_delete_meeting_agenda(db: Session, meeting_id: UUID) -> bool:
+def crud_delete_meeting_agenda(db: Session, meeting_id: int) -> bool:
     agenda = db.query(MeetingAgenda).filter(MeetingAgenda.meeting_id == meeting_id).first()
     if not agenda:
         return False

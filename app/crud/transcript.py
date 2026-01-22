@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Optional, Tuple
 
 from sqlalchemy import or_
@@ -8,7 +7,7 @@ from app.models.meeting import Meeting, ProjectMeeting, Transcript
 from app.models.project import Project, UserProject
 
 
-def crud_get_transcript(db: Session, transcript_id: Optional[uuid.UUID] = None, meeting_id: Optional[uuid.UUID] = None) -> Optional[Transcript]:
+def crud_get_transcript(db: Session, transcript_id: Optional[int] = None, meeting_id: Optional[int] = None) -> Optional[Transcript]:
     query = db.query(Transcript).options(joinedload(Transcript.meeting), joinedload(Transcript.audio_concat_file))
     if transcript_id:
         return query.filter(Transcript.id == transcript_id).first()
@@ -19,9 +18,9 @@ def crud_get_transcript(db: Session, transcript_id: Optional[uuid.UUID] = None, 
 
 def crud_get_transcripts(
     db: Session,
-    user_id: uuid.UUID,
+    user_id: int,
     content_search: Optional[str] = None,
-    meeting_id: Optional[uuid.UUID] = None,
+    meeting_id: Optional[int] = None,
     page: int = 1,
     limit: int = 20,
 ) -> Tuple[List[Transcript], int]:
@@ -52,7 +51,7 @@ def crud_create_transcript(db: Session, **transcript_data) -> Transcript:
     return transcript
 
 
-def crud_update_transcript(db: Session, transcript_id: uuid.UUID, **updates) -> Optional[Transcript]:
+def crud_update_transcript(db: Session, transcript_id: int, **updates) -> Optional[Transcript]:
     transcript = crud_get_transcript(db, transcript_id)
     if not transcript:
         return None
@@ -64,7 +63,7 @@ def crud_update_transcript(db: Session, transcript_id: uuid.UUID, **updates) -> 
     return transcript
 
 
-def crud_delete_transcript(db: Session, transcript_id: uuid.UUID) -> bool:
+def crud_delete_transcript(db: Session, transcript_id: int) -> bool:
     transcript = crud_get_transcript(db, transcript_id)
     if not transcript:
         return False
@@ -73,7 +72,7 @@ def crud_delete_transcript(db: Session, transcript_id: uuid.UUID) -> bool:
     return True
 
 
-def crud_check_transcript_meeting_match(db: Session, transcript_id: uuid.UUID, meeting_id: uuid.UUID) -> bool:
+def crud_check_transcript_meeting_match(db: Session, transcript_id: int, meeting_id: int) -> bool:
     transcript = db.query(Transcript).filter(Transcript.id == transcript_id).first()
     if not transcript:
         return False

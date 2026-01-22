@@ -1,6 +1,5 @@
 import asyncio
 import json
-import uuid
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -28,7 +27,7 @@ router = APIRouter(prefix=settings.API_V1_STR, tags=["Chat"])
 
 @router.post("/conversations/{conversation_id}/messages", response_model=ChatMessageApiResponse)
 async def send_chat_message_endpoint(
-    conversation_id: uuid.UUID,
+    conversation_id: int,
     message_data: ChatMessageCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),  # Adapted to use get_current_user
@@ -77,7 +76,7 @@ async def send_chat_message_endpoint(
 
 @router.get("/conversations/{conversation_id}/events")
 async def chat_sse_endpoint(
-    conversation_id: uuid.UUID,
+    conversation_id: int,
 ):
     """
     SSE endpoint for real-time chat messages.

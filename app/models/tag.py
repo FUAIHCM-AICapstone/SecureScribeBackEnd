@@ -1,9 +1,7 @@
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Column, DateTime, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, DateTime, Integer, String, func
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -15,9 +13,8 @@ class Tag(SQLModel, table=True):
 
     __tablename__ = "tags"
 
-    id: uuid.UUID = Field(
-        default_factory=uuid.uuid4,
-        sa_column=Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
+    id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True),
     )
     created_at: datetime = Field(
         default_factory=datetime.utcnow,
@@ -25,9 +22,9 @@ class Tag(SQLModel, table=True):
     )
     updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
 
-    name: str = Field(sa_column=Column(String, nullable=False))
-    created_by: uuid.UUID = Field(foreign_key="users.id", nullable=False)
-    scope: str = Field(default="global", sa_column=Column(String))
+    name: str = Field(sa_column=Column(String(255), nullable=False))
+    created_by: int = Field(foreign_key="users.id", nullable=False)
+    scope: str = Field(default="global", sa_column=Column(String(50)))
 
     # Relationships
     created_by_user: "User" = Relationship(
@@ -42,8 +39,8 @@ class MeetingTag(SQLModel, table=True):
 
     __tablename__ = "meeting_tags"
 
-    meeting_id: uuid.UUID = Field(foreign_key="meetings.id", primary_key=True)
-    tag_id: uuid.UUID = Field(foreign_key="tags.id", primary_key=True)
+    meeting_id: int = Field(foreign_key="meetings.id", primary_key=True)
+    tag_id: int = Field(foreign_key="tags.id", primary_key=True)
 
     # Relationships
     meeting: "Meeting" = Relationship(

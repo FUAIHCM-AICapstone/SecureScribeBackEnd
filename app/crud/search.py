@@ -1,4 +1,3 @@
-import uuid
 from typing import List, Tuple
 
 from sqlalchemy import and_, or_
@@ -12,11 +11,11 @@ from app.models.project import Project
 def crud_search_dynamic(
     db: Session,
     search_term: str,
-    user_id: uuid.UUID,
+    user_id: int,
     page: int = 1,
     limit: int = 20,
-    project_id: uuid.UUID = None,
-    meeting_id: uuid.UUID = None,
+    project_id: int = None,
+    meeting_id: int = None,
 ) -> Tuple[List[dict], int]:
     user_projects_query = db.query(Project.id).join(Project.users).filter(Project.users.any(user_id=user_id))
     user_project_ids = [p.id for p in user_projects_query.all()]

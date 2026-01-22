@@ -1,7 +1,6 @@
 from datetime import date, datetime
 from enum import Enum
 from typing import List, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -82,7 +81,7 @@ class StorageStats(BaseModel):
 class QuickAccessMeeting(BaseModel):
     """Meeting for quick access panel"""
 
-    id: UUID
+    id: int
     title: Optional[str] = None
     start_time: Optional[datetime] = None
     url: Optional[str] = None
@@ -95,7 +94,7 @@ class QuickAccessMeeting(BaseModel):
 class QuickAccessTask(BaseModel):
     """Task for quick access panel"""
 
-    id: UUID
+    id: int
     title: str
     due_date: Optional[datetime] = None
     priority: str = "medium"
@@ -107,7 +106,7 @@ class QuickAccessTask(BaseModel):
 class QuickAccessProject(BaseModel):
     """Project for quick access panel"""
 
-    id: UUID
+    id: int
     name: str
     description: Optional[str] = None
     role: str
